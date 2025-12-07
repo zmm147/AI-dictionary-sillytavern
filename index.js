@@ -283,31 +283,36 @@ async function performDictionaryLookup() {
             expandPanel();
         }
 
-        // Try to fetch Youdao dictionary (may fail for sentences)
-        let youdaoResults = null;
-        try {
-            youdaoResults = await fetchYoudaoDictionary(selectedText);
-        } catch (error) {
-            console.warn('Youdao dictionary fetch failed:', error);
-        }
-
-        // Show panel with Youdao results (or empty) and AI loading area
-        const htmlContent = createMergedContent(selectedText, youdaoResults);
-        showPanelHtml(`${selectedText}`, htmlContent, 'success');
+        // Show panel immediately with loading states for both sections
+        const initialHtmlContent = createMergedContent(selectedText, null);
+        showPanelHtml(`${selectedText}`, initialHtmlContent, 'success');
 
         // Bind deep study button event if it exists
         bindDeepStudyButton(selectedText);
 
-        // Then fetch AI definition in the background (streaming updates UI directly)
-        try {
-            await fetchAIDefinition(selectedText);
-        } catch (error) {
+        // Start both lookups in parallel
+        const youdaoPromise = fetchYoudaoDictionary(selectedText).catch(error => {
+            console.warn('Youdao dictionary fetch failed:', error);
+            return null;
+        });
+
+        const aiPromise = fetchAIDefinition(selectedText).catch(error => {
             console.error('AI definition fetch error:', error);
             const aiContentElement = document.getElementById('ai-definition-content');
             if (aiContentElement) {
                 aiContentElement.innerHTML = '<p class="ai-dict-error-text">无法获取 AI 定义，请稍后重试。</p>';
             }
+        });
+
+        // Wait for Youdao results and update the panel
+        const youdaoResults = await youdaoPromise;
+        if (youdaoResults) {
+            updateYoudaoSection(selectedText, youdaoResults);
         }
+
+        // Wait for AI to complete (it updates UI via streaming)
+        await aiPromise;
+
     } catch (error) {
         console.error('AI Dictionary lookup error:', error);
         showPanel('Error', `Failed to lookup word: ${error.message}`, 'error');
@@ -881,6 +886,13 @@ function createMergedContent(word, youdaoResults) {
                 </div>
             </div>
         `;
+    } else if (youdaoResults === null) {
+        // Loading state - youdaoResults is null means still loading
+        youdaoSection = `
+            <div class="ai-dict-youdao-loading">
+                <p class="ai-dict-loading-text"><i class="fa-solid fa-spinner fa-spin"></i> 正在获取有道词典...</p>
+            </div>
+        `;
     }
 
     const deepStudySection = showDeepStudy ? `
@@ -896,7 +908,10 @@ function createMergedContent(word, youdaoResults) {
 
     const html = `
         <div class="ai-dict-merged-container">
-            ${youdaoSection}
+            <!-- Youdao section container -->
+            <div id="ai-dict-youdao-section">
+                ${youdaoSection}
+            </div>
 
             <!-- AI Definition section -->
             <div class="ai-dict-ai-section">
@@ -920,6 +935,94 @@ function createMergedContent(word, youdaoResults) {
         </div>
     `;
     return html;
+}
+
+/**
+ * Update Youdao section dynamically after results are fetched
+ * @param {string} word The word being looked up
+ * @param {Array|Object} youdaoResults Youdao results or error object
+ */
+function updateYoudaoSection(word, youdaoResults) {
+    const container = document.getElementById('ai-dict-youdao-section');
+    if (!container) return;
+
+    const collapsibleId = `youdao-definitions-${Date.now()}`;
+
+    // Check if we have Youdao results
+    const hasYoudaoResults = youdaoResults && Array.isArray(youdaoResults) && youdaoResults.length > 0;
+
+    // Check if proxy error occurred
+    const hasProxyError = youdaoResults && youdaoResults.proxyError === true;
+
+    let youdaoSection = '';
+
+    if (hasProxyError) {
+        // Show proxy error message
+        youdaoSection = `
+            <div class="ai-dict-proxy-error">
+                <p class="ai-dict-error-text">
+                    <i class="fa-solid fa-exclamation-triangle"></i>
+                    无法获取有道词典数据：CORS 代理不可用
+                </p>
+                <p class="ai-dict-hint-text">
+                    请在 SillyTavern 配置文件 <code>config.yaml</code> 中设置：<br>
+                    <code>enableCorsProxy: true</code>
+                </p>
+            </div>
+        `;
+    } else if (hasYoudaoResults) {
+        youdaoSection = `
+            <!-- Youdao header section (always visible) -->
+            ${formatYoudaoHeadSection(youdaoResults)}
+
+            <!-- Collapsible definitions section -->
+            <div class="ai-dict-collapsible-section">
+                <div class="ai-dict-collapsible-header" data-target="${collapsibleId}">
+                    <i class="fa-solid fa-chevron-right"></i>
+                    <span>释义</span>
+                </div>
+                <div id="${collapsibleId}" class="ai-dict-collapsible-content">
+                    ${formatYoudaoDefinitions(youdaoResults)}
+                </div>
+            </div>
+        `;
+    }
+    // If no results and no error, just clear the loading state (leave empty)
+
+    container.innerHTML = youdaoSection;
+
+    // Rebind event listeners for audio buttons
+    const audioButtons = container.querySelectorAll('.odh-playaudio');
+    audioButtons.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const audioUrl = btn.getAttribute('data-audio-url');
+            if (audioUrl) {
+                playAudio(audioUrl);
+            }
+        });
+    });
+
+    // Rebind event listeners for collapsible headers
+    const collapsibleHeaders = container.querySelectorAll('.ai-dict-collapsible-header');
+    collapsibleHeaders.forEach(header => {
+        header.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const targetId = header.getAttribute('data-target');
+            if (targetId) {
+                const targetElement = document.getElementById(targetId);
+                if (targetElement) {
+                    targetElement.classList.toggle('expanded');
+                    const icon = header.querySelector('i');
+                    if (icon) {
+                        icon.classList.toggle('expanded');
+                    }
+                }
+            }
+        });
+    });
 }
 
 function formatYoudaoHeadSection(results) {

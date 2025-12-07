@@ -759,3 +759,22 @@ body:not(.ai-dict-mobile-active) #ai-dictionary-panel-toggle {
     color: #c7254e;
     border: 1px solid #e1e4e8;
 }
+
+/* Youdao Loading Styles */
+.ai-dict-youdao-loading {
+    padding: 8px;
+    background-color: #fefefe;
+    border: 1px solid #e5e6e9;
+    border-radius: 3px;
+    margin: 5px 0;
+}
+
+.ai-dict-youdao-loading .ai-dict-loading-text {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ai-dict-youdao-loading .ai-dict-loading-text i {
+    color: #0d47a1;
+}
