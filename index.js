@@ -1,6 +1,6 @@
-import { extension_settings, getContext } from '../../extensions.js';
-import { getRequestHeaders, eventSource, event_types, generateRaw, saveSettingsDebounced } from '../../../script.js';
-import { oai_settings, chat_completion_sources, sendOpenAIRequest } from '../../openai.js';
+import { extension_settings, getContext } from '../../../extensions.js';
+import { getRequestHeaders, eventSource, event_types, generateRaw, saveSettingsDebounced } from '../../../../script.js';
+import { oai_settings, chat_completion_sources, sendOpenAIRequest } from '../../../openai.js';
 
 const EXTENSION_NAME = 'ai-dictionary';
 
