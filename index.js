@@ -310,29 +310,89 @@ async function performDictionaryLookup() {
     }
 }
 
+// Cache for proxy availability check
+let proxyAvailable = null;
+
+/**
+ * Check if local SillyTavern proxy is available
+ * @returns {Promise<boolean>}
+ */
+async function checkProxyAvailable() {
+    if (proxyAvailable !== null) {
+        return proxyAvailable;
+    }
+
+    try {
+        // Try a simple request to the proxy endpoint
+        const response = await fetch('/proxy/https://www.google.com', {
+            method: 'HEAD',
+            signal: AbortSignal.timeout(3000)
+        });
+        proxyAvailable = response.ok || response.status !== 404;
+    } catch (error) {
+        proxyAvailable = false;
+    }
+
+    console.log(`[${EXTENSION_NAME}] Local proxy available:`, proxyAvailable);
+    return proxyAvailable;
+}
+
+/**
+ * Public CORS proxies as fallback
+ */
+const PUBLIC_CORS_PROXIES = [
+    (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+];
+
 async function fetchYoudaoDictionary(word) {
     try {
         console.log(`[${EXTENSION_NAME}] Fetching Youdao dictionary for: ${word}`);
 
-        // Use SillyTavern's built-in CORS proxy to fetch from Youdao
         const youdaoUrl = `https://dict.youdao.com/w/${encodeURIComponent(word)}`;
+        let response = null;
+        let proxyUsed = '';
 
-        // Format the proxy URL correctly - the URL parameter should be the full URL
-        // The proxy pattern is /proxy/:url(*) which captures the rest of the path
-        const proxyUrl = `/proxy/${youdaoUrl}`;
+        // Check if local proxy is available
+        const useLocalProxy = await checkProxyAvailable();
 
-        console.log(`[${EXTENSION_NAME}] Using proxy URL:`, proxyUrl);
+        if (useLocalProxy) {
+            // Use SillyTavern's built-in CORS proxy
+            const proxyUrl = `/proxy/${youdaoUrl}`;
+            proxyUsed = 'local';
+            console.log(`[${EXTENSION_NAME}] Using local proxy:`, proxyUrl);
 
-        const response = await fetch(proxyUrl, {
-            method: 'GET'
-        });
+            response = await fetch(proxyUrl, { method: 'GET' });
+        } else {
+            // Try public CORS proxies
+            for (const getProxyUrl of PUBLIC_CORS_PROXIES) {
+                try {
+                    const proxyUrl = getProxyUrl(youdaoUrl);
+                    proxyUsed = proxyUrl.split('?')[0];
+                    console.log(`[${EXTENSION_NAME}] Trying public proxy:`, proxyUsed);
 
-        console.log(`[${EXTENSION_NAME}] Proxy response status:`, response.status);
+                    response = await fetch(proxyUrl, {
+                        method: 'GET',
+                        signal: AbortSignal.timeout(10000)
+                    });
 
-        if (!response.ok) {
-            console.warn(`[${EXTENSION_NAME}] Youdao fetch via proxy failed with status:`, response.status);
+                    if (response.ok) {
+                        console.log(`[${EXTENSION_NAME}] Public proxy succeeded:`, proxyUsed);
+                        break;
+                    }
+                } catch (proxyError) {
+                    console.warn(`[${EXTENSION_NAME}] Public proxy failed:`, proxyUsed, proxyError.message);
+                    response = null;
+                }
+            }
+        }
+
+        if (!response || !response.ok) {
+            console.warn(`[${EXTENSION_NAME}] All proxies failed for Youdao`);
             return null;
         }
+
+        console.log(`[${EXTENSION_NAME}] Proxy response status:`, response.status);
 
         const html = await response.text();
         console.log(`[${EXTENSION_NAME}] Received HTML, length:`, html.length);
