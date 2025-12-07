@@ -23,19 +23,23 @@ function isMobile() {
 
 const defaultSettings = {
     enabled: true,
-    systemPrompt: 'You are a helpful dictionary assistant. When given a word and context, provide a concise definition (1-2 sentences), the part of speech, and an example usage if relevant.',
-    userPrompt: '根据下面提供的上下文，先给出单词%word%基础释义，然后再给出在句中的含义。%context%',
+    systemPrompt: 'You are a professional English teacher.',
+    userPrompt: `输入：%word%
+上下文：%context%
+
+请根据输入内容进行处理：
+1. 如果是单词：给出基础释义（用【解释性描述】），然后分析在上下文中的具体含义。
+2. 如果是短语或句子：先给出中文翻译再分析句子结构。`,
     contextRange: 'all', // 'all' = 全段, 'single' = 单段, 'sentence' = 一句
     connectionProfile: '', // Connection Profile ID, empty means use current
     enableDirectLookup: false,
-    iconPosition: 'top-right',
+    iconPosition: 'bottom-left',
     mobileTogglePosition: null, // Will be set to default on first load
     deepStudyPrompt: `请帮我深度学习单词 "%word%"：
 1. 词根词缀分析（如有）
 2. 常见搭配和用法
-3. 同义词/反义词
-4. 3个例句（由易到难）
-5. 记忆技巧建议`,
+3. 同义词/反义词/易混淆单词
+4. 记忆技巧建议`,
 };
 
 /** @type {Object} */

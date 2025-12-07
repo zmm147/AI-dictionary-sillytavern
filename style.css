@@ -22,6 +22,20 @@ body.ai-dict-disable-context-menu * {
   margin-bottom: 5px;
 }
 
+.ai-dictionary-settings .ai-dict-checkbox-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-top: 10px;
+}
+
+.ai-dictionary-settings .ai-dict-checkbox-row .checkbox_label {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  white-space: nowrap;
+}
+
 .ai-dictionary-settings #ai-dict-context-length-container {
   margin-top: 10px;
 }
