@@ -1,0 +1,63 @@
+<div class="ai-dictionary-settings" id="ai-dictionary-extension-settings">
+    <div class="inline-drawer">
+        <div class="inline-drawer-toggle inline-drawer-header">
+            <b>AI Dictionary</b>
+            <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+        </div>
+        <div class="inline-drawer-content">
+            <label for="ai-dict-enabled" class="checkbox_label">
+                <input type="checkbox" id="ai-dict-enabled" name="ai-dict-enabled">
+                <span>Enable AI Dictionary</span>
+            </label>
+
+            <label for="ai-dict-connection-profile">Connection Profile (API预设):</label>
+            <select id="ai-dict-connection-profile" class="text_pole">
+                <option value="">使用当前连接</option>
+            </select>
+
+            <label for="ai-dict-system-prompt">System Prompt:</label>
+            <textarea id="ai-dict-system-prompt" class="text_pole textarea_compact" rows="4" placeholder="Enter system prompt for dictionary lookups"></textarea>
+
+            <label for="ai-dict-user-prompt">User Prompt (支持变量: %word%, %context%):</label>
+            <textarea id="ai-dict-user-prompt" class="text_pole textarea_compact" rows="3" placeholder="Enter user prompt for dictionary lookups"></textarea>
+
+            <label for="ai-dict-context-range">Context Range (上下文范围):</label>
+            <select id="ai-dict-context-range" class="text_pole">
+                <option value="all">全段 (所有同级标签的段落)</option>
+                <option value="single">单段 (只有一段文本)</option>
+                <option value="sentence">一句 (段落中的一个句子)</option>
+            </select>
+
+            <label for="ai-dict-direct-lookup" class="checkbox_label">
+                <input type="checkbox" id="ai-dict-direct-lookup" name="ai-dict-direct-lookup">
+                <span>Enable Direct Lookup (Skip Icon)</span>
+            </label>
+
+            <label for="ai-dict-icon-position">Icon Position:</label>
+            <select id="ai-dict-icon-position" class="text_pole">
+                <option value="top-right">Top Right</option>
+                <option value="top-left">Top Left</option>
+                <option value="bottom-right">Bottom Right</option>
+                <option value="bottom-left">Bottom Left</option>
+            </select>
+
+            <hr class="sysHR">
+
+            <label for="ai-dict-deep-study-prompt">深度学习提示词 (支持变量: %word%):</label>
+            <textarea id="ai-dict-deep-study-prompt" class="text_pole textarea_compact" rows="5" placeholder="Enter deep study prompt"></textarea>
+
+            <hr class="sysHR">
+
+            <div class="extension_info">
+                <div class="flex-container">
+                    <div class="flex1">
+                        <small>
+                            <i class="fa-solid fa-circle-info"></i>
+                            <span>Select text on the page to trigger the lookup. If "Direct Lookup" is enabled, the definition will appear immediately. Otherwise, click the icon that appears next to the selection.</span>
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

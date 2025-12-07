@@ -1,0 +1,15 @@
+node_modules/
+*.log
+.DS_Store
+dist/
+build/
+.env
+.env.local
+.cache/
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+.claude
+debug.txt
