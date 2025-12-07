@@ -720,3 +720,42 @@ body:not(.ai-dict-mobile-active) #ai-dictionary-panel-toggle {
     font-size: 0.9em;
     opacity: 0.8;
 }
+
+/* Proxy Error Styles */
+.ai-dict-proxy-error {
+    padding: 10px;
+    background-color: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 4px;
+    margin: 5px 0;
+}
+
+.ai-dict-proxy-error .ai-dict-error-text {
+    color: #856404;
+    margin: 0 0 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+}
+
+.ai-dict-proxy-error .ai-dict-error-text i {
+    color: #e65100;
+}
+
+.ai-dict-proxy-error .ai-dict-hint-text {
+    color: #664d03;
+    margin: 0;
+    font-size: 0.9em;
+    line-height: 1.6;
+}
+
+.ai-dict-proxy-error .ai-dict-hint-text code {
+    background-color: #f8f9fa;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 0.95em;
+    color: #c7254e;
+    border: 1px solid #e1e4e8;
+}

@@ -4,6 +4,8 @@ A powerful dictionary extension for SillyTavern that combines Youdao Dictionary 
 
 一个强大的 SillyTavern 词典扩展，结合有道词典查询与 AI 智能释义和深度学习功能。
 
+<img width="458" height="741" alt="image" src="https://github.com/user-attachments/assets/845e498f-2117-4be6-8355-75df19a96f7c" />
+
 ---
 
 ## Features / 功能特点
@@ -135,6 +137,7 @@ git clone https://github.com/YOUR_USERNAME/AI-dictionary-sillytavern.git
 - Verify the extension folder is in the correct location / 确认扩展文件夹位置正确
 
 ### Youdao dictionary not working / 有道词典不工作
+- In the config.yaml file, set:   enableCorsProxy: true / 在config.yaml文件里设置：enableCorsProxy: true
 - This may happen for phrases/sentences, AI lookup will still work / 短语/句子可能无法查询，但 AI 查词仍可用
 
 ### AI lookup not working / AI 查词不工作

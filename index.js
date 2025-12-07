@@ -393,7 +393,8 @@ async function fetchYoudaoDictionary(word) {
 
         if (!response || !response.ok) {
             console.warn(`[${EXTENSION_NAME}] All proxies failed for Youdao`);
-            return null;
+            // Return special error object to indicate proxy failure
+            return { proxyError: true };
         }
 
         console.log(`[${EXTENSION_NAME}] Proxy response status:`, response.status);
@@ -840,12 +841,32 @@ function createMergedContent(word, youdaoResults) {
     const promptCollapsibleId = `prompt-view-${Date.now()}`;
 
     // Check if we have Youdao results
-    const hasYoudaoResults = youdaoResults && youdaoResults.length > 0;
+    const hasYoudaoResults = youdaoResults && Array.isArray(youdaoResults) && youdaoResults.length > 0;
+
+    // Check if proxy error occurred
+    const hasProxyError = youdaoResults && youdaoResults.proxyError === true;
 
     // Show deep study button for single words
     const showDeepStudy = isSingleWord(word);
 
-    const youdaoSection = hasYoudaoResults ? `
+    let youdaoSection = '';
+
+    if (hasProxyError) {
+        // Show proxy error message
+        youdaoSection = `
+            <div class="ai-dict-proxy-error">
+                <p class="ai-dict-error-text">
+                    <i class="fa-solid fa-exclamation-triangle"></i>
+                    无法获取有道词典数据：CORS 代理不可用
+                </p>
+                <p class="ai-dict-hint-text">
+                    请在 SillyTavern 配置文件 <code>config.yaml</code> 中设置：<br>
+                    <code>enableCorsProxy: true</code>
+                </p>
+            </div>
+        `;
+    } else if (hasYoudaoResults) {
+        youdaoSection = `
             <!-- Youdao header section (always visible) -->
             ${formatYoudaoHeadSection(youdaoResults)}
 
@@ -859,7 +880,8 @@ function createMergedContent(word, youdaoResults) {
                     ${formatYoudaoDefinitions(youdaoResults)}
                 </div>
             </div>
-    ` : '';
+        `;
+    }
 
     const deepStudySection = showDeepStudy ? `
             <!-- Deep Study section -->
