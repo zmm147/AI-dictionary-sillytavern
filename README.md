@@ -1,8 +1,8 @@
 # AI Dictionary for SillyTavern
 
-A powerful dictionary extension for SillyTavern that combines Youdao Dictionary lookups with AI-powered definitions and deep learning features.
+A powerful dictionary extension for SillyTavern that combines Youdao Dictionary lookups with AI-powered definitions features.
 
-一个强大的 SillyTavern 词典扩展，结合有道词典查询与 AI 智能释义和深度学习功能。
+一个强大的 SillyTavern 词典扩展，结合有道词典查询与 AI 智能释义功能。
 
 <img width="458" height="741" alt="image" src="https://github.com/user-attachments/assets/845e498f-2117-4be6-8355-75df19a96f7c" />
 
@@ -156,3 +156,4 @@ MIT License
 
 - Youdao Dictionary for dictionary data / 有道词典提供词典数据
 - SillyTavern team for the amazing platform / SillyTavern 团队提供的优秀平台
+- https://github.com/ninja33/ODH / 解析有道词典和样式排版chrome拓展
