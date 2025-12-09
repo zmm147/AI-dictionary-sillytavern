@@ -778,3 +778,95 @@ body:not(.ai-dict-mobile-active) #ai-dictionary-panel-toggle {
 .ai-dict-youdao-loading .ai-dict-loading-text i {
     color: #0d47a1;
 }
+
+/* ==================== AI Reasoning/Thinking Styles ==================== */
+.ai-dict-reasoning-container {
+    margin-bottom: 10px;
+}
+
+.ai-dict-reasoning-details {
+    background-color: #f8f4ff;
+    border: 1px solid #d4c5f9;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.ai-dict-reasoning-summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, #e8e0f7 0%, #f0ebfa 100%);
+    cursor: pointer;
+    user-select: none;
+    font-weight: 500;
+    color: #6b5b95;
+    transition: background-color 0.2s;
+}
+
+.ai-dict-reasoning-summary:hover {
+    background: linear-gradient(135deg, #ddd3f0 0%, #e8e0f7 100%);
+}
+
+.ai-dict-reasoning-summary::-webkit-details-marker {
+    display: none;
+}
+
+.ai-dict-reasoning-summary::before {
+    content: '▶';
+    font-size: 0.7em;
+    transition: transform 0.2s;
+}
+
+.ai-dict-reasoning-details[open] .ai-dict-reasoning-summary::before {
+    transform: rotate(90deg);
+}
+
+.ai-dict-reasoning-summary i {
+    color: #8b7fc7;
+    font-size: 1em;
+}
+
+.ai-dict-reasoning-title {
+    flex: 1;
+    font-size: 0.9em;
+}
+
+.ai-dict-reasoning-content {
+    padding: 10px 12px;
+    color: #5a4a7a;
+    font-size: 0.9em;
+    line-height: 1.7;
+    max-height: 300px;
+    overflow-y: auto;
+    background-color: #fdfbff;
+    border-top: 1px solid #e8e0f7;
+}
+
+.ai-dict-reasoning-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.ai-dict-reasoning-content::-webkit-scrollbar-track {
+    background: #f0ebfa;
+}
+
+.ai-dict-reasoning-content::-webkit-scrollbar-thumb {
+    background: #d4c5f9;
+    border-radius: 3px;
+}
+
+.ai-dict-text-content {
+    line-height: 1.6;
+}
+
+/* Animation for thinking indicator */
+@keyframes ai-dict-thinking-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.ai-dict-reasoning-summary .ai-dict-reasoning-title:has-text("思考中") {
+    animation: ai-dict-thinking-pulse 1.5s ease-in-out infinite;
+}
+

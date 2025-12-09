@@ -231,33 +231,89 @@ function isSingleWord(text) {
     return text && !text.trim().includes(' ');
 }
 
+/**
+ * Store the selection range info for marking position in context
+ * @type {{startOffset: number, endOffset: number, startContainer: Node, endContainer: Node} | null}
+ */
+let selectionRangeInfo = null;
+
+/**
+ * Mark the selected text position in context with special markers
+ * @param {string} context The context text
+ * @param {string} selected The selected text
+ * @returns {string} Context with marked selection
+ */
+function markSelectionInContext(context, selected) {
+    if (!selected || !context) return context;
+
+    // Use 【】 to mark the selected text position
+    const marker = `【${selected}】`;
+
+    // If we have range info, try to find the exact position
+    if (selectionRangeInfo && selectedParentElement) {
+        const fullText = selectedParentElement.textContent || '';
+        const beforeText = fullText.substring(0, selectionRangeInfo.startOffset);
+        const afterText = fullText.substring(selectionRangeInfo.endOffset);
+
+        // Find this pattern in the context
+        const pattern = beforeText.slice(-30) + selected + afterText.slice(0, 30);
+        const patternIndex = context.indexOf(pattern.trim());
+
+        if (patternIndex !== -1) {
+            // Found the exact location, mark it
+            const beforePart = beforeText.slice(-30);
+            const afterPart = afterText.slice(0, 30);
+            const searchStart = context.indexOf(beforePart);
+            if (searchStart !== -1) {
+                const selectStart = searchStart + beforePart.length;
+                return context.substring(0, selectStart) + marker + context.substring(selectStart + selected.length);
+            }
+        }
+    }
+
+    // Fallback: find first occurrence and mark it
+    const index = context.indexOf(selected);
+    if (index !== -1) {
+        return context.substring(0, index) + marker + context.substring(index + selected.length);
+    }
+
+    // If not found, just append the marker info
+    return context + `\n\n[用户选中的文本: ${marker}]`;
+}
+
 function extractContext(text) {
     const range = settings.contextRange;
+    let context = '';
 
     if (range === 'sentence') {
         // 一句 - 段落中的一个句子
         const sentences = selectedContext.split(/[.!?。！？]+/);
         for (const sentence of sentences) {
             if (sentence.includes(selectedText)) {
-                return sentence.trim();
+                context = sentence.trim();
+                break;
             }
         }
-        return selectedContext;
+        if (!context) context = selectedContext;
     } else if (range === 'single') {
         // 单段 - 只有选中文本所在的一段
-        return selectedContext;
+        context = selectedContext;
     } else if (range === 'all') {
         // 全段 - 所有同级标签的全部段落
         if (selectedParentElement && selectedParentElement.parentElement) {
             const parent = selectedParentElement.parentElement;
             const siblings = parent.querySelectorAll(':scope > p, :scope > div');
             if (siblings.length > 0) {
-                return Array.from(siblings).map(el => el.textContent.trim()).filter(t => t).join('\n\n');
+                context = Array.from(siblings).map(el => el.textContent.trim()).filter(t => t).join('\n\n');
             }
         }
-        return selectedContext;
+        if (!context) context = selectedContext;
+    } else {
+        context = selectedContext;
     }
-    return selectedContext;
+
+    // Mark the selected text position in context
+    return markSelectionInContext(context, selectedText);
 }
 
 async function performDictionaryLookup() {
@@ -812,25 +868,103 @@ async function fetchWithStreaming(messages, aiContentElement) {
 
         if (typeof generator === 'function') {
             // It's an async generator (streaming mode)
-            aiContentElement.innerHTML = '<p></p>';
-            const textElement = aiContentElement.querySelector('p');
+            // Create container for both reasoning and text
+            aiContentElement.innerHTML = `
+                <div class="ai-dict-reasoning-container" style="display: none;">
+                    <details class="ai-dict-reasoning-details" open>
+                        <summary class="ai-dict-reasoning-summary">
+                            <i class="fa-solid fa-brain"></i>
+                            <span class="ai-dict-reasoning-title">思考中...</span>
+                        </summary>
+                        <div class="ai-dict-reasoning-content"></div>
+                    </details>
+                </div>
+                <div class="ai-dict-text-content"></div>
+            `;
+            const reasoningContainer = aiContentElement.querySelector('.ai-dict-reasoning-container');
+            const reasoningDetails = aiContentElement.querySelector('.ai-dict-reasoning-details');
+            const reasoningContent = aiContentElement.querySelector('.ai-dict-reasoning-content');
+            const reasoningTitle = aiContentElement.querySelector('.ai-dict-reasoning-title');
+            const textContent = aiContentElement.querySelector('.ai-dict-text-content');
+
             let fullText = '';
+            let fullReasoning = '';
+            let reasoningStartTime = null;
+            let reasoningCollapsed = false;
 
             for await (const data of generator()) {
+                // Handle reasoning/thinking content from state object
+                // DeepSeek, Claude, etc. accumulate reasoning in data.state.reasoning
+                const currentReasoning = data?.state?.reasoning || '';
+                if (currentReasoning && currentReasoning !== fullReasoning) {
+                    if (!reasoningStartTime) {
+                        reasoningStartTime = Date.now();
+                        reasoningContainer.style.display = 'block';
+                    }
+                    fullReasoning = currentReasoning;
+                    reasoningContent.innerHTML = fullReasoning.replace(/\n/g, '<br>');
+                }
+
+                // Handle regular text content
                 if (data.text) {
                     fullText = data.text;
-                    textElement.innerHTML = fullText.replace(/\n/g, '<br>');
+                    textContent.innerHTML = fullText.replace(/\n/g, '<br>');
+
+                    // When text starts coming, reasoning is done - collapse and update title
+                    if (reasoningStartTime && fullReasoning && !reasoningCollapsed) {
+                        const duration = ((Date.now() - reasoningStartTime) / 1000).toFixed(1);
+                        reasoningTitle.textContent = `思考了 ${duration} 秒`;
+                        // Auto collapse reasoning when done
+                        reasoningDetails.removeAttribute('open');
+                        reasoningCollapsed = true;
+                    }
                 }
             }
 
-            if (!fullText) {
+            // Final update for reasoning title
+            if (reasoningStartTime && fullReasoning) {
+                const duration = ((Date.now() - reasoningStartTime) / 1000).toFixed(1);
+                reasoningTitle.textContent = `思考了 ${duration} 秒`;
+                // Ensure collapsed
+                if (!reasoningCollapsed) {
+                    reasoningDetails.removeAttribute('open');
+                }
+            }
+
+            if (!fullText && !fullReasoning) {
                 aiContentElement.innerHTML = '<p class="ai-dict-error-text">无法获取 AI 定义，请稍后重试。</p>';
             }
         } else {
-            // Non-streaming response
+            // Non-streaming response - check for reasoning in response
             const content = generator?.choices?.[0]?.message?.content || '';
+            const reasoning = generator?.choices?.[0]?.message?.reasoning_content
+                || generator?.choices?.[0]?.message?.reasoning
+                || generator?.content?.find(part => part.type === 'thinking')?.thinking
+                || '';
+
+            let html = '';
+
+            if (reasoning) {
+                // Non-streaming: show collapsed by default
+                html += `
+                    <div class="ai-dict-reasoning-container">
+                        <details class="ai-dict-reasoning-details">
+                            <summary class="ai-dict-reasoning-summary">
+                                <i class="fa-solid fa-brain"></i>
+                                <span class="ai-dict-reasoning-title">思考过程</span>
+                            </summary>
+                            <div class="ai-dict-reasoning-content">${reasoning.replace(/\n/g, '<br>')}</div>
+                        </details>
+                    </div>
+                `;
+            }
+
             if (content) {
-                aiContentElement.innerHTML = `<p>${content.replace(/\n/g, '<br>')}</p>`;
+                html += `<div class="ai-dict-text-content">${content.replace(/\n/g, '<br>')}</div>`;
+            }
+
+            if (html) {
+                aiContentElement.innerHTML = html;
             } else {
                 aiContentElement.innerHTML = '<p class="ai-dict-error-text">无法获取 AI 定义，请稍后重试。</p>';
             }
@@ -1559,6 +1693,132 @@ function debounce(func, wait) {
     };
 }
 
+// Mobile touch selection state
+let selectionBeforeTouch = '';
+
+/**
+ * Handle touch start - record current selection state
+ * @param {TouchEvent} event
+ */
+function handleTouchStart(event) {
+    if (!settings.enabled) return;
+    if (!isMobile()) return;
+
+    // Don't handle touches on our UI elements
+    if (event.target.closest('#ai-dictionary-icon') ||
+        event.target.closest('#ai-dictionary-panel') ||
+        event.target.closest('#ai-dictionary-panel-toggle')) {
+        return;
+    }
+
+    // Record selection state before this touch interaction
+    selectionBeforeTouch = window.getSelection().toString().trim();
+}
+
+/**
+ * Handle touch end - trigger lookup only when there's a new selection on release
+ * @param {TouchEvent} event
+ */
+function handleTouchEnd(event) {
+    if (!settings.enabled) return;
+    if (!isMobile()) return;
+
+    // Don't handle touches on our UI elements
+    if (event.target.closest('#ai-dictionary-icon') ||
+        event.target.closest('#ai-dictionary-panel') ||
+        event.target.closest('#ai-dictionary-panel-toggle')) {
+        return;
+    }
+
+    // Delay to allow selection to be finalized after touch release
+    setTimeout(() => {
+        const selected = window.getSelection();
+        const selectionString = selected.toString().trim();
+
+        // Only trigger if:
+        // 1. There is selected text now
+        // 2. The selection is different from before touch (new selection made)
+        if (selectionString.length > 0 && selectionString !== selectionBeforeTouch) {
+            selectedText = selectionString;
+            let element = selected.anchorNode?.parentElement;
+            while (element && element.tagName !== 'P' && element.tagName !== 'DIV') {
+                element = element.parentElement;
+            }
+            selectedContext = element ? element.textContent : selectionString;
+            selectedParentElement = element;
+
+            // Save selection range info for marking position in context
+            try {
+                const range = selected.getRangeAt(0);
+                if (element && range.startContainer) {
+                    const treeWalker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+                    let offset = 0;
+                    let node;
+                    while ((node = treeWalker.nextNode())) {
+                        if (node === range.startContainer) {
+                            selectionRangeInfo = {
+                                startOffset: offset + range.startOffset,
+                                endOffset: offset + range.startOffset + selectionString.length
+                            };
+                            break;
+                        }
+                        offset += node.textContent.length;
+                    }
+                }
+            } catch (e) {
+                selectionRangeInfo = null;
+            }
+
+            if (settings.enableDirectLookup) {
+                performDictionaryLookup();
+            } else {
+                // Show the icon for manual trigger
+                try {
+                    const range = selected.getRangeAt(0);
+                    const rect = range.getBoundingClientRect();
+
+                    const position = settings.iconPosition || 'top-right';
+                    let x, y;
+                    const offset = 35;
+                    const gap = 5;
+
+                    switch (position) {
+                        case 'top-left':
+                            x = rect.left - offset;
+                            y = rect.top - offset;
+                            break;
+                        case 'bottom-left':
+                            x = rect.left - offset;
+                            y = rect.bottom + gap;
+                            break;
+                        case 'bottom-right':
+                            x = rect.right + gap;
+                            y = rect.bottom + gap;
+                            break;
+                        case 'top-right':
+                        default:
+                            x = rect.right + gap;
+                            y = rect.top - offset;
+                            break;
+                    }
+
+                    const iconSize = 30;
+                    x = Math.max(5, Math.min(x, window.innerWidth - iconSize - 5));
+                    y = Math.max(5, Math.min(y, window.innerHeight - iconSize - 5));
+
+                    showIcon(x, y);
+                } catch (e) {
+                    console.warn('AI Dictionary: Could not calculate selection position', e);
+                }
+            }
+        } else if (selectionString.length === 0) {
+            // No selection, hide icon
+            hideIcon();
+            selectionRangeInfo = null;
+        }
+    }, 50);
+}
+
 function handleTextSelection(event) {
     if (!settings.enabled) return;
 
@@ -1567,8 +1827,8 @@ function handleTextSelection(event) {
         return;
     }
     // Check if click was on the toggle or panel components
-    if (event && event.target && event.target.closest && 
-        (event.target.closest('#ai-dictionary-panel') || 
+    if (event && event.target && event.target.closest &&
+        (event.target.closest('#ai-dictionary-panel') ||
          event.target.closest('#ai-dictionary-panel-toggle'))) {
         return;
     }
@@ -1585,6 +1845,29 @@ function handleTextSelection(event) {
         selectedContext = element ? element.textContent : selectionString;
         selectedParentElement = element; // Store the parent element for context extraction
 
+        // Save selection range info for marking position in context
+        try {
+            const range = selected.getRangeAt(0);
+            // Calculate offset relative to the parent element
+            if (element && range.startContainer) {
+                const treeWalker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+                let offset = 0;
+                let node;
+                while ((node = treeWalker.nextNode())) {
+                    if (node === range.startContainer) {
+                        selectionRangeInfo = {
+                            startOffset: offset + range.startOffset,
+                            endOffset: offset + range.startOffset + selectionString.length
+                        };
+                        break;
+                    }
+                    offset += node.textContent.length;
+                }
+            }
+        } catch (e) {
+            selectionRangeInfo = null;
+        }
+
         if (settings.enableDirectLookup) {
             performDictionaryLookup();
         } else {
@@ -1592,7 +1875,7 @@ function handleTextSelection(event) {
             try {
                 const range = selected.getRangeAt(0);
                 const rect = range.getBoundingClientRect();
-                
+
                 // Position calculation based on setting
                 const position = settings.iconPosition || 'top-right';
                 let x, y;
@@ -1618,12 +1901,12 @@ function handleTextSelection(event) {
                         y = rect.top - offset;
                         break;
                 }
-                
+
                 // Ensure icon is within viewport logic could be enhanced, but basic clamping:
                 const iconSize = 30;
                 x = Math.max(5, Math.min(x, window.innerWidth - iconSize - 5));
                 y = Math.max(5, Math.min(y, window.innerHeight - iconSize - 5));
-                
+
                 showIcon(x, y);
             } catch (e) {
                 console.warn('AI Dictionary: Could not calculate selection position', e);
@@ -1632,6 +1915,7 @@ function handleTextSelection(event) {
     } else {
         // Clear selection, hide icon
         hideIcon();
+        selectionRangeInfo = null;
     }
 }
 
@@ -1700,15 +1984,23 @@ const init = async () => {
     }
 
     // Attach event listeners for core functionality
-    
+
     // 1. Mouse interaction (Desktop)
     document.addEventListener('mouseup', (e) => setTimeout(() => handleTextSelection(e), 10));
-    
-    // 2. Touch interaction (Mobile)
-    document.addEventListener('touchend', (e) => setTimeout(() => handleTextSelection(e), 10));
 
-    // 3. Selection change (General / Fallback / Keyboard) - debounced
-    const debouncedSelectionHandler = debounce((e) => handleTextSelection(e), 500);
+    // 2. Touch interaction (Mobile) - Only trigger on touch release with new selection
+    // touchstart: record selection state before touch
+    document.addEventListener('touchstart', handleTouchStart, { passive: true });
+    // touchend: check if new selection made and trigger lookup
+    document.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+    // 3. Selection change (General / Fallback / Keyboard) - debounced (desktop only)
+    const debouncedSelectionHandler = debounce((e) => {
+        // Only use selectionchange for desktop, mobile uses touch events
+        if (!isMobile()) {
+            handleTextSelection(e);
+        }
+    }, 500);
     document.addEventListener('selectionchange', debouncedSelectionHandler);
 
     document.addEventListener('contextmenu', handleContextMenu);
