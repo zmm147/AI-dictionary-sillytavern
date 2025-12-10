@@ -56,6 +56,10 @@ let selectedText = '';
 let selectedContext = '';
 /** @type {boolean} */
 let isPanelPinned = false;
+/** @type {Array} */
+let chatHistory = [];
+/** @type {string} */
+let currentWord = '';
 
 /**
  * Settings UI Class
@@ -343,8 +347,15 @@ async function performDictionaryLookup() {
         const initialHtmlContent = createMergedContent(selectedText, null);
         showPanelHtml(`${selectedText}`, initialHtmlContent, 'success');
 
+        // Clear chat history for new word
+        chatHistory = [];
+        currentWord = selectedText;
+
         // Bind deep study button event if it exists
         bindDeepStudyButton(selectedText);
+
+        // Bind chat input events
+        bindChatInputEvents(selectedText);
 
         // Start both lookups in parallel
         const youdaoPromise = fetchYoudaoDictionary(selectedText).catch(error => {
@@ -406,8 +417,8 @@ async function checkProxyAvailable() {
  * Public CORS proxies as fallback
  */
 const PUBLIC_CORS_PROXIES = [
-    (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-    (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+    (url) => `https://test.cors.workers.dev/?${encodeURIComponent(url)}`,
 ];
 
 async function fetchYoudaoDictionary(word) {
@@ -701,6 +712,197 @@ function bindDeepStudyButton(word) {
     const btn = document.getElementById('ai-dict-deep-study-btn');
     if (btn) {
         btn.addEventListener('click', () => performDeepStudy(word));
+    }
+}
+
+/**
+ * Bind chat input events
+ * @param {string} word The word being looked up
+ */
+function bindChatInputEvents(word) {
+    const chatTrigger = document.getElementById('ai-dict-chat-trigger');
+    const chatBubble = document.getElementById('ai-dict-chat-bubble');
+    const chatInput = document.getElementById('ai-dict-chat-input');
+    const sendBtn = document.getElementById('ai-dict-chat-send-btn');
+
+    if (!chatTrigger || !chatBubble) return;
+
+    // Toggle bubble on trigger click
+    chatTrigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isVisible = chatBubble.style.display !== 'none';
+        chatBubble.style.display = isVisible ? 'none' : 'flex';
+        if (!isVisible) {
+            chatInput?.focus();
+        }
+    });
+
+    // Prevent bubble clicks from closing
+    chatBubble.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+
+    if (!chatInput || !sendBtn) return;
+
+    // Send on button click
+    sendBtn.addEventListener('click', () => sendChatMessage(word));
+
+    // Send on Enter
+    chatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            sendChatMessage(word);
+        }
+    });
+}
+
+/**
+ * Send message to AI within the dictionary panel
+ * @param {string} word The word being looked up
+ */
+async function sendChatMessage(word) {
+    const chatInput = document.getElementById('ai-dict-chat-input');
+    const sendBtn = document.getElementById('ai-dict-chat-send-btn');
+    const chatBubble = document.getElementById('ai-dict-chat-bubble');
+    const aiContentElement = document.getElementById('ai-definition-content');
+
+    if (!chatInput || !aiContentElement) return;
+
+    const userMessage = chatInput.value.trim();
+    if (!userMessage) return;
+
+    // Disable input while processing
+    chatInput.disabled = true;
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
+    // Clear input and hide bubble
+    chatInput.value = '';
+    if (chatBubble) {
+        chatBubble.style.display = 'none';
+    }
+
+    // Add user question to AI content area
+    const userQuestionEl = document.createElement('div');
+    userQuestionEl.className = 'ai-dict-chat-question';
+    userQuestionEl.innerHTML = `<i class="fa-solid fa-user"></i> ${escapeHtml(userMessage)}`;
+    aiContentElement.appendChild(userQuestionEl);
+
+    // Add AI response placeholder
+    const aiResponseEl = document.createElement('div');
+    aiResponseEl.className = 'ai-dict-chat-response';
+    aiResponseEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+    aiContentElement.appendChild(aiResponseEl);
+
+    // Scroll AI content area
+    aiContentElement.scrollTop = aiContentElement.scrollHeight;
+
+    try {
+        // Initialize chat history if this is first message
+        if (chatHistory.length === 0 || currentWord !== word) {
+            currentWord = word;
+
+            // Get existing AI definition content as context (before we added the question)
+            const existingContent = Array.from(aiContentElement.children)
+                .filter(el => !el.classList.contains('ai-dict-chat-question') && !el.classList.contains('ai-dict-chat-response'))
+                .map(el => el.innerText)
+                .join('\n');
+
+            // Get deep study content if available
+            const deepStudyElement = document.getElementById('ai-dict-deep-study-content');
+            const deepStudyContent = deepStudyElement && deepStudyElement.style.display !== 'none'
+                ? deepStudyElement.innerText
+                : '';
+
+            // Build initial context
+            let contextInfo = `关于单词 "${word}" 的查词结果：\n`;
+            if (existingContent) {
+                contextInfo += `\nAI释义:\n${existingContent}\n`;
+            }
+            if (deepStudyContent) {
+                contextInfo += `\n深度学习内容:\n${deepStudyContent}\n`;
+            }
+
+            chatHistory = [
+                { role: 'system', content: settings.systemPrompt + '\n\n以下是之前的查词结果，用户可能会基于这些内容继续提问：\n' + contextInfo },
+            ];
+        }
+
+        // Add user message to history
+        chatHistory.push({ role: 'user', content: userMessage });
+
+        // Check if streaming is enabled
+        const streamEnabled = oai_settings.stream_openai;
+
+        if (streamEnabled) {
+            // Use streaming
+            await fetchChatWithStreaming(chatHistory, aiResponseEl);
+        } else {
+            // Use non-streaming (generateRaw)
+            const response = await generateRaw({
+                prompt: userMessage,
+                systemPrompt: chatHistory[0].content,
+            });
+
+            if (response) {
+                aiResponseEl.innerHTML = response.replace(/\n/g, '<br>');
+                // Add AI response to history
+                chatHistory.push({ role: 'assistant', content: response });
+            } else {
+                aiResponseEl.innerHTML = '<span class="ai-dict-error-text">无法获取回复，请重试。</span>';
+            }
+        }
+    } catch (error) {
+        console.error('Chat error:', error);
+        aiResponseEl.innerHTML = '<span class="ai-dict-error-text">发生错误，请重试。</span>';
+    } finally {
+        // Re-enable input
+        chatInput.disabled = false;
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i>';
+
+        // Scroll to bottom
+        aiContentElement.scrollTop = aiContentElement.scrollHeight;
+    }
+}
+
+/**
+ * Fetch chat response with streaming
+ * @param {Array} messages Messages array
+ * @param {HTMLElement} bubbleElement Element to display content
+ */
+async function fetchChatWithStreaming(messages, bubbleElement) {
+    const abortController = new AbortController();
+
+    try {
+        const generator = await sendOpenAIRequest('normal', messages, abortController.signal);
+
+        if (typeof generator === 'function') {
+            // Streaming mode
+            bubbleElement.innerHTML = '';
+            let fullText = '';
+
+            for await (const data of generator()) {
+                if (data.text) {
+                    fullText = data.text;
+                    bubbleElement.innerHTML = fullText.replace(/\n/g, '<br>');
+                }
+            }
+
+            if (fullText) {
+                // Add AI response to history
+                chatHistory.push({ role: 'assistant', content: fullText });
+            } else {
+                bubbleElement.innerHTML = '<span class="ai-dict-error-text">无法获取回复，请重试。</span>';
+            }
+        } else if (typeof generator === 'string') {
+            // Non-streaming response
+            bubbleElement.innerHTML = generator.replace(/\n/g, '<br>');
+            chatHistory.push({ role: 'assistant', content: generator });
+        }
+    } catch (error) {
+        console.error('Streaming chat error:', error);
+        throw error;
     }
 }
 
@@ -1051,6 +1253,19 @@ function createMergedContent(word, youdaoResults) {
             <div class="ai-dict-ai-section">
                 <div id="ai-definition-content" class="ai-dict-ai-content">
                     <p class="ai-dict-loading-text">正在获取 AI 定义...</p>
+                </div>
+                <!-- Chat trigger button -->
+                <button id="ai-dict-chat-trigger" class="ai-dict-chat-trigger" title="继续提问">
+                    <i class="fa-solid fa-comments"></i>
+                </button>
+                <!-- Chat bubble popup (input only) -->
+                <div id="ai-dict-chat-bubble" class="ai-dict-chat-bubble-popup" style="display: none;">
+                    <div class="ai-dict-chat-input-container">
+                        <input type="text" id="ai-dict-chat-input" class="ai-dict-chat-input" placeholder="继续提问...">
+                        <button id="ai-dict-chat-send-btn" class="ai-dict-chat-send-btn" title="发送">
+                            <i class="fa-solid fa-paper-plane"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
 

@@ -511,16 +511,38 @@ body:not(.ai-dict-mobile-active) #ai-dictionary-panel-toggle {
 .ai-dict-panel-content .ec {
     list-style: disc inside;
     margin: 5px 0;
-    padding: 5px;
+    padding: 8px 10px;
+    background-color: #fefefe;
+    border: 1px solid #e5e6e9;
+    border-radius: 3px;
+    color: #1d2129;
 }
 
 .ai-dict-panel-content .ec li {
-    margin: 2px 0;
+    margin: 4px 0;
     line-height: 1.6;
+    color: #1d2129;
 }
 
 .ai-dict-panel-content .ec_chn {
     color: #0d47a1;
+}
+
+/* Web definitions styles */
+.ai-dict-panel-content .web {
+    list-style: disc inside;
+    margin: 5px 0;
+    padding: 8px 10px;
+    background-color: #fefefe;
+    border: 1px solid #e5e6e9;
+    border-radius: 3px;
+    color: #1d2129;
+}
+
+.ai-dict-panel-content .web li {
+    margin: 4px 0;
+    line-height: 1.6;
+    color: #1d2129;
 }
 
 /* Merged content styles */
@@ -868,5 +890,177 @@ body:not(.ai-dict-mobile-active) #ai-dictionary-panel-toggle {
 
 .ai-dict-reasoning-summary .ai-dict-reasoning-title:has-text("思考中") {
     animation: ai-dict-thinking-pulse 1.5s ease-in-out infinite;
+}
+
+/* Chat Trigger Button */
+.ai-dict-ai-section {
+    position: relative;
+}
+
+.ai-dict-chat-trigger {
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background-color: var(--SmartThemeQuoteColor, #4a90d9);
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.7;
+    transition: opacity 0.2s, transform 0.2s;
+    z-index: 10;
+}
+
+.ai-dict-chat-trigger:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.ai-dict-chat-trigger i {
+    font-size: 12px;
+}
+
+/* Chat Bubble Popup (input only) */
+.ai-dict-chat-bubble-popup {
+    position: absolute;
+    bottom: 36px;
+    right: 0;
+    width: 240px;
+    background-color: var(--SmartThemeBlurTintColor, #fff);
+    border: 1px solid var(--SmartThemeBorderColor, #ddd);
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    z-index: 100;
+    padding: 8px;
+    animation: ai-dict-bubble-appear 0.2s ease-out;
+}
+
+@keyframes ai-dict-bubble-appear {
+    from {
+        opacity: 0;
+        transform: scale(0.9) translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* Bubble arrow */
+.ai-dict-chat-bubble-popup::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    right: 12px;
+    width: 0;
+    height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-top: 8px solid var(--SmartThemeBlurTintColor, #fff);
+}
+
+.ai-dict-chat-bubble-popup::before {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    right: 11px;
+    width: 0;
+    height: 0;
+    border-left: 9px solid transparent;
+    border-right: 9px solid transparent;
+    border-top: 9px solid var(--SmartThemeBorderColor, #ddd);
+}
+
+/* Chat Input Container */
+.ai-dict-chat-bubble-popup .ai-dict-chat-input-container {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.ai-dict-chat-input {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid var(--SmartThemeBorderColor, #ddd);
+    border-radius: 16px;
+    background-color: var(--SmartThemeBlurTintColor, #fff);
+    color: var(--SmartThemeBodyColor, #333);
+    font-size: 0.85em;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.ai-dict-chat-input:focus {
+    border-color: var(--SmartThemeQuoteColor, #4a90d9);
+}
+
+.ai-dict-chat-input::placeholder {
+    color: var(--SmartThemeBodyColor, #999);
+    opacity: 0.6;
+}
+
+.ai-dict-chat-bubble-popup .ai-dict-chat-send-btn {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background-color: var(--SmartThemeQuoteColor, #4a90d9);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.ai-dict-chat-bubble-popup .ai-dict-chat-send-btn:hover {
+    filter: brightness(1.1);
+}
+
+.ai-dict-chat-bubble-popup .ai-dict-chat-send-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.ai-dict-chat-bubble-popup .ai-dict-chat-send-btn i {
+    font-size: 11px;
+}
+
+/* Chat Q&A in AI Definition Area */
+.ai-dict-chat-question {
+    margin-top: 12px;
+    padding: 8px 12px;
+    background-color: var(--SmartThemeQuoteColor, #4a90d9);
+    color: #fff;
+    border-radius: 12px 12px 4px 12px;
+    font-size: 0.9em;
+    line-height: 1.4;
+}
+
+.ai-dict-chat-question i {
+    margin-right: 6px;
+    opacity: 0.8;
+}
+
+.ai-dict-chat-response {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background-color: var(--SmartThemeBorderColor, #f0f0f0);
+    color: var(--SmartThemeBodyColor, #333);
+    border-radius: 12px 12px 12px 4px;
+    font-size: 0.9em;
+    line-height: 1.5;
+}
+
+.ai-dict-chat-response .ai-dict-error-text {
+    color: #dc3545;
 }
 
