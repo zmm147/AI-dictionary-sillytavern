@@ -40,6 +40,24 @@ const defaultSettings = {
 2. 常见搭配和用法
 3. 同义词/反义词/易混淆单词
 4. 记忆技巧建议`,
+    confusableWordsPrompt: `请列出与单词 "%word%" 形近易混淆的单词（拼写相似但意思不同的词）。
+
+请严格按照以下格式输出：
+【形近词列表】word1, word2, word3
+【释义】
+- word1: 释义
+- word2: 释义
+- word3: 释义
+
+注意：
+1. 只列出拼写相似、容易混淆的单词
+2. 每个单词给出简短的中文释义
+3. 如果没有常见的形近词，请说明`,
+    confusableWords: {}, // 存储收藏的形近词 { "word": [{ word: "xxx", meaning: "xxx" }] }
+    highlightConfusables: false, // 是否高亮收藏的形近词
+    highlightColor: '#e0a800', // 高亮字体颜色
+    autoCollapseYoudao: false, // 是否自动折叠有道词典释义
+    autoFetchAI: true, // 是否自动获取AI释义
 };
 
 /** @type {Object} */
@@ -165,6 +183,26 @@ class SettingsUi {
             });
         }
 
+        // Auto Collapse Youdao
+        const autoCollapseYoudaoInput = this.dom.querySelector('#ai-dict-auto-collapse-youdao');
+        if (autoCollapseYoudaoInput) {
+            autoCollapseYoudaoInput.checked = settings.autoCollapseYoudao;
+            autoCollapseYoudaoInput.addEventListener('change', () => {
+                settings.autoCollapseYoudao = autoCollapseYoudaoInput.checked;
+                saveSettings();
+            });
+        }
+
+        // Auto Fetch AI
+        const autoFetchAIInput = this.dom.querySelector('#ai-dict-auto-fetch-ai');
+        if (autoFetchAIInput) {
+            autoFetchAIInput.checked = settings.autoFetchAI;
+            autoFetchAIInput.addEventListener('change', () => {
+                settings.autoFetchAI = autoFetchAIInput.checked;
+                saveSettings();
+            });
+        }
+
         // Deep Study Prompt
         const deepStudyPromptInput = this.dom.querySelector('#ai-dict-deep-study-prompt');
         if (deepStudyPromptInput) {
@@ -172,6 +210,60 @@ class SettingsUi {
             deepStudyPromptInput.addEventListener('change', () => {
                 settings.deepStudyPrompt = deepStudyPromptInput.value;
                 saveSettings();
+            });
+        }
+
+        // Highlight Confusables
+        const highlightConfusablesInput = this.dom.querySelector('#ai-dict-highlight-confusables');
+        const highlightColorContainer = this.dom.querySelector('#ai-dict-highlight-color-container');
+        const highlightColorInput = this.dom.querySelector('#ai-dict-highlight-color');
+
+        if (highlightConfusablesInput) {
+            highlightConfusablesInput.checked = settings.highlightConfusables;
+
+            // Show/hide color picker based on checkbox state
+            if (highlightColorContainer) {
+                highlightColorContainer.style.display = settings.highlightConfusables ? 'block' : 'none';
+            }
+
+            highlightConfusablesInput.addEventListener('change', () => {
+                settings.highlightConfusables = highlightConfusablesInput.checked;
+                saveSettings();
+
+                // Show/hide color picker
+                if (highlightColorContainer) {
+                    highlightColorContainer.style.display = settings.highlightConfusables ? 'block' : 'none';
+                }
+
+                // Remove existing highlights when disabled, or apply when enabled
+                if (!settings.highlightConfusables) {
+                    removeConfusableHighlights();
+                } else {
+                    highlightAllConfusableWords();
+                }
+            });
+        }
+
+        // Highlight Color
+        if (highlightColorInput) {
+            highlightColorInput.value = settings.highlightColor;
+            highlightColorInput.addEventListener('input', () => {
+                settings.highlightColor = highlightColorInput.value;
+                saveSettings();
+                // Update CSS variable for highlight color
+                updateHighlightColor();
+                // Re-apply highlights with new color
+                if (settings.highlightConfusables) {
+                    highlightAllConfusableWords();
+                }
+            });
+        }
+
+        // Statistics Button
+        const statsBtn = this.dom.querySelector('#ai-dict-stats-btn');
+        if (statsBtn) {
+            statsBtn.addEventListener('click', () => {
+                showStatisticsPanel();
             });
         }
     }
@@ -210,6 +302,374 @@ async function loadSettings() {
 function saveSettings() {
     extension_settings[EXTENSION_NAME] = { ...settings };
     saveSettingsDebounced();
+}
+
+// --- Word History Functions ---
+
+// Word history limits
+const WORD_HISTORY_MAX_CONTEXTS = 10;       // 每个单词最多保存多少条上下文
+const WORD_HISTORY_MAX_CONTEXT_LENGTH = 500; // 每条上下文最大字符数
+const WORD_HISTORY_FILE_NAME = 'ai-dictionary-word-history.json'; // 独立存储文件名
+
+/** @type {Object} */
+let wordHistoryData = {}; // 内存中的查词记录缓存
+
+/**
+ * Load word history from file
+ * @returns {Promise<Object>}
+ */
+async function loadWordHistoryFromFile() {
+    try {
+        // File is stored in user's files directory: data/[user]/files/
+        const response = await fetch(`/user/files/${WORD_HISTORY_FILE_NAME}`, {
+            method: 'GET',
+            headers: getRequestHeaders(),
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            wordHistoryData = data || {};
+            console.log(`[${EXTENSION_NAME}] Loaded ${Object.keys(wordHistoryData).length} words from history file`);
+            return wordHistoryData;
+        } else {
+            // File doesn't exist yet, initialize empty
+            wordHistoryData = {};
+            return wordHistoryData;
+        }
+    } catch (error) {
+        console.warn(`[${EXTENSION_NAME}] Could not load word history file:`, error.message);
+        wordHistoryData = {};
+        return wordHistoryData;
+    }
+}
+
+/**
+ * Save word history to file
+ */
+async function saveWordHistoryToFile() {
+    try {
+        const jsonData = JSON.stringify(wordHistoryData, null, 2);
+        const base64Data = btoa(unescape(encodeURIComponent(jsonData)));
+
+        const response = await fetch('/api/files/upload', {
+            method: 'POST',
+            headers: getRequestHeaders(),
+            body: JSON.stringify({
+                name: WORD_HISTORY_FILE_NAME,
+                data: base64Data,
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error(await response.text());
+        }
+
+        console.log(`[${EXTENSION_NAME}] Word history saved to file`);
+    } catch (error) {
+        console.error(`[${EXTENSION_NAME}] Could not save word history file:`, error.message);
+    }
+}
+
+// Debounced save to avoid too frequent writes
+const saveWordHistoryDebounced = debounce(saveWordHistoryToFile, 2000);
+
+/**
+ * Save word lookup record
+ * @param {string} word The word being looked up
+ * @param {string} context The context paragraph containing the word
+ */
+function saveWordHistory(word, context) {
+    if (!word || !word.trim()) return;
+
+    // Only save single words or short phrases (no sentences)
+    const trimmedWord = word.trim();
+    // Skip if it looks like a sentence (contains punctuation marks typical of sentences)
+    if (/[.!?。！？]/.test(trimmedWord) || trimmedWord.split(/\s+/).length > 5) {
+        return;
+    }
+
+    const wordKey = trimmedWord.toLowerCase();
+    const now = Date.now();
+
+    if (!wordHistoryData[wordKey]) {
+        wordHistoryData[wordKey] = {
+            count: 0,
+            contexts: [],
+            lookups: [] // 记录每次查词的时间戳
+        };
+    }
+
+    // Ensure lookups array exists (for backward compatibility)
+    if (!wordHistoryData[wordKey].lookups) {
+        wordHistoryData[wordKey].lookups = [];
+    }
+
+    // Increment count
+    wordHistoryData[wordKey].count += 1;
+
+    // Add timestamp for this lookup
+    wordHistoryData[wordKey].lookups.push(now);
+
+    // Add context if provided and not already saved
+    if (context && context.trim()) {
+        // Truncate context if too long
+        let trimmedContext = context.trim();
+        if (trimmedContext.length > WORD_HISTORY_MAX_CONTEXT_LENGTH) {
+            trimmedContext = trimmedContext.substring(0, WORD_HISTORY_MAX_CONTEXT_LENGTH) + '...';
+        }
+
+        // Only save if this exact context doesn't already exist
+        if (!wordHistoryData[wordKey].contexts.includes(trimmedContext)) {
+            // Keep max N contexts per word to avoid storage bloat
+            if (wordHistoryData[wordKey].contexts.length >= WORD_HISTORY_MAX_CONTEXTS) {
+                wordHistoryData[wordKey].contexts.shift(); // Remove oldest
+            }
+            wordHistoryData[wordKey].contexts.push(trimmedContext);
+        }
+    }
+
+    // Save to file (debounced)
+    saveWordHistoryDebounced();
+}
+
+/**
+ * Get word history for a specific word
+ * @param {string} word The word to look up
+ * @returns {{count: number, contexts: string[]} | null} Word history or null
+ */
+function getWordHistory(word) {
+    if (!word) return null;
+    const wordKey = word.toLowerCase().trim();
+    return wordHistoryData[wordKey] || null;
+}
+
+/**
+ * Remove a specific context from word history
+ * @param {string} word The word
+ * @param {number} contextIndex The index of context to remove
+ */
+function removeWordHistoryContext(word, contextIndex) {
+    if (!word) return;
+    const wordKey = word.toLowerCase().trim();
+    if (wordHistoryData[wordKey] && wordHistoryData[wordKey].contexts[contextIndex] !== undefined) {
+        wordHistoryData[wordKey].contexts.splice(contextIndex, 1);
+        saveWordHistoryDebounced();
+    }
+}
+
+/**
+ * Clear all history for a specific word
+ * @param {string} word The word to clear
+ */
+function clearWordHistory(word) {
+    if (!word) return;
+    const wordKey = word.toLowerCase().trim();
+    if (wordHistoryData[wordKey]) {
+        delete wordHistoryData[wordKey];
+        saveWordHistoryDebounced();
+    }
+}
+
+// --- Word Statistics Functions ---
+
+/**
+ * Get time range start timestamp
+ * @param {'today' | 'week' | 'month' | 'all'} range
+ * @returns {number} Start timestamp
+ */
+function getTimeRangeStart(range) {
+    const now = new Date();
+    switch (range) {
+        case 'today':
+            return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        case 'week':
+            const dayOfWeek = now.getDay();
+            const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Monday as start of week
+            return new Date(now.getFullYear(), now.getMonth(), now.getDate() - diff).getTime();
+        case 'month':
+            return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+        case 'all':
+        default:
+            return 0;
+    }
+}
+
+/**
+ * Get word statistics for a time range
+ * @param {'today' | 'week' | 'month' | 'all'} range
+ * @returns {Array<{word: string, count: number, totalCount: number}>}
+ */
+function getWordStatistics(range) {
+    const startTime = getTimeRangeStart(range);
+    const stats = [];
+
+    for (const [word, data] of Object.entries(wordHistoryData)) {
+        const lookups = data.lookups || [];
+        // Count lookups within the time range
+        const rangeCount = lookups.filter(ts => ts >= startTime).length;
+
+        if (rangeCount > 0) {
+            stats.push({
+                word: word,
+                count: rangeCount,
+                totalCount: data.count || rangeCount
+            });
+        }
+    }
+
+    // Sort by count descending
+    stats.sort((a, b) => b.count - a.count);
+    return stats;
+}
+
+/**
+ * Group words by lookup count
+ * @param {Array<{word: string, count: number, totalCount: number}>} stats
+ * @returns {Object} Grouped words { '5+': [...], '3-4': [...], '2': [...], '1': [...] }
+ */
+function groupWordsByCount(stats) {
+    const groups = {
+        'high': { label: '高频 (5次+)', words: [] },
+        'medium': { label: '中频 (3-4次)', words: [] },
+        'low': { label: '低频 (2次)', words: [] },
+        'once': { label: '仅一次', words: [] }
+    };
+
+    for (const item of stats) {
+        if (item.count >= 5) {
+            groups.high.words.push(item);
+        } else if (item.count >= 3) {
+            groups.medium.words.push(item);
+        } else if (item.count === 2) {
+            groups.low.words.push(item);
+        } else {
+            groups.once.words.push(item);
+        }
+    }
+
+    return groups;
+}
+
+/**
+ * Create and show the statistics panel
+ */
+function showStatisticsPanel() {
+    // Remove existing panel if any
+    const existingPanel = document.getElementById('ai-dict-stats-panel');
+    if (existingPanel) {
+        existingPanel.remove();
+    }
+
+    const panel = document.createElement('div');
+    panel.id = 'ai-dict-stats-panel';
+    panel.className = 'ai-dict-stats-panel';
+    panel.innerHTML = createStatisticsPanelContent('today');
+
+    document.body.appendChild(panel);
+
+    // Bind events
+    bindStatisticsPanelEvents();
+}
+
+/**
+ * Create statistics panel HTML content
+ * @param {'today' | 'week' | 'month' | 'all'} range
+ * @returns {string}
+ */
+function createStatisticsPanelContent(range) {
+    const stats = getWordStatistics(range);
+    const groups = groupWordsByCount(stats);
+    const totalWords = stats.length;
+    const totalLookups = stats.reduce((sum, item) => sum + item.count, 0);
+
+    let groupsHtml = '';
+    for (const [key, group] of Object.entries(groups)) {
+        if (group.words.length > 0) {
+            groupsHtml += `
+                <div class="ai-dict-stats-group" data-group="${key}">
+                    <div class="ai-dict-stats-group-header">
+                        <span class="ai-dict-stats-group-label">${group.label}</span>
+                        <span class="ai-dict-stats-group-count">${group.words.length} 词</span>
+                    </div>
+                    <div class="ai-dict-stats-group-words">
+                        ${group.words.map(item => `
+                            <div class="ai-dict-stats-word-item" data-word="${escapeHtml(item.word)}">
+                                <span class="ai-dict-stats-word">${escapeHtml(item.word)}</span>
+                                <span class="ai-dict-stats-word-count">${item.count}次</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    if (!groupsHtml) {
+        groupsHtml = '<div class="ai-dict-stats-empty">该时间段内暂无查词记录</div>';
+    }
+
+    return `
+        <div class="ai-dict-stats-inner">
+            <div class="ai-dict-stats-header">
+                <h3><i class="fa-solid fa-chart-bar"></i> 查词统计</h3>
+                <button class="ai-dict-stats-close-btn" title="关闭">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+            </div>
+            <div class="ai-dict-stats-tabs">
+                <button class="ai-dict-stats-tab ${range === 'today' ? 'active' : ''}" data-range="today">今日</button>
+                <button class="ai-dict-stats-tab ${range === 'week' ? 'active' : ''}" data-range="week">本周</button>
+                <button class="ai-dict-stats-tab ${range === 'month' ? 'active' : ''}" data-range="month">本月</button>
+                <button class="ai-dict-stats-tab ${range === 'all' ? 'active' : ''}" data-range="all">全部</button>
+            </div>
+            <div class="ai-dict-stats-summary">
+                <div class="ai-dict-stats-summary-item">
+                    <span class="ai-dict-stats-summary-value">${totalWords}</span>
+                    <span class="ai-dict-stats-summary-label">单词数</span>
+                </div>
+                <div class="ai-dict-stats-summary-item">
+                    <span class="ai-dict-stats-summary-value">${totalLookups}</span>
+                    <span class="ai-dict-stats-summary-label">查词次数</span>
+                </div>
+            </div>
+            <div class="ai-dict-stats-content">
+                ${groupsHtml}
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Bind statistics panel events
+ */
+function bindStatisticsPanelEvents() {
+    const panel = document.getElementById('ai-dict-stats-panel');
+    if (!panel) return;
+
+    // Close button
+    const closeBtn = panel.querySelector('.ai-dict-stats-close-btn');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            panel.remove();
+        });
+    }
+
+    // Tab switching
+    const tabs = panel.querySelectorAll('.ai-dict-stats-tab');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const range = tab.getAttribute('data-range');
+            panel.innerHTML = createStatisticsPanelContent(range);
+            bindStatisticsPanelEvents();
+        });
+    });
+
+    // Click outside to close
+    panel.addEventListener('click', (e) => {
+        if (e.target === panel) {
+            panel.remove();
+        }
+    });
 }
 
 // --- Core Functionality ---
@@ -343,6 +803,10 @@ async function performDictionaryLookup() {
             expandPanel();
         }
 
+        // Save word history with the single paragraph context (selectedContext)
+        // Note: selectedContext contains only the paragraph where the word was found
+        saveWordHistory(selectedText, selectedContext);
+
         // Show panel immediately with loading states for both sections
         const initialHtmlContent = createMergedContent(selectedText, null);
         showPanelHtml(`${selectedText}`, initialHtmlContent, 'success');
@@ -354,22 +818,40 @@ async function performDictionaryLookup() {
         // Bind deep study button event if it exists
         bindDeepStudyButton(selectedText);
 
+        // Bind confusable words button event if it exists
+        bindConfusableButton(selectedText);
+
+        // Highlight all confusable words in the page content
+        highlightAllConfusableWords();
+
         // Bind chat input events
         bindChatInputEvents(selectedText);
 
-        // Start both lookups in parallel
+        // Bind word history events
+        bindWordHistoryEvents(selectedText);
+
+        // Bind manual AI fetch button if auto fetch is disabled
+        if (!settings.autoFetchAI) {
+            bindManualAIFetchButton(selectedText);
+        }
+
+        // Start Youdao lookup
         const youdaoPromise = fetchYoudaoDictionary(selectedText).catch(error => {
             console.warn('Youdao dictionary fetch failed:', error);
             return null;
         });
 
-        const aiPromise = fetchAIDefinition(selectedText).catch(error => {
-            console.error('AI definition fetch error:', error);
-            const aiContentElement = document.getElementById('ai-definition-content');
-            if (aiContentElement) {
-                aiContentElement.innerHTML = '<p class="ai-dict-error-text">无法获取 AI 定义，请稍后重试。</p>';
-            }
-        });
+        // Only start AI lookup if auto fetch is enabled
+        let aiPromise = Promise.resolve();
+        if (settings.autoFetchAI) {
+            aiPromise = fetchAIDefinition(selectedText).catch(error => {
+                console.error('AI definition fetch error:', error);
+                const aiContentElement = document.getElementById('ai-definition-content');
+                if (aiContentElement) {
+                    aiContentElement.innerHTML = '<p class="ai-dict-error-text">无法获取 AI 定义，请稍后重试。</p>';
+                }
+            });
+        }
 
         // Wait for Youdao results and update the panel
         const youdaoResults = await youdaoPromise;
@@ -377,12 +859,43 @@ async function performDictionaryLookup() {
             updateYoudaoSection(selectedText, youdaoResults);
         }
 
-        // Wait for AI to complete (it updates UI via streaming)
-        await aiPromise;
+        // Wait for AI to complete (it updates UI via streaming) if auto fetch is enabled
+        if (settings.autoFetchAI) {
+            await aiPromise;
+        }
 
     } catch (error) {
         console.error('AI Dictionary lookup error:', error);
         showPanel('Error', `Failed to lookup word: ${error.message}`, 'error');
+    }
+}
+
+/**
+ * Bind manual AI fetch button event
+ * @param {string} word The word to lookup
+ */
+function bindManualAIFetchButton(word) {
+    const fetchBtn = document.getElementById('ai-dict-fetch-ai-btn');
+    if (fetchBtn) {
+        fetchBtn.addEventListener('click', async () => {
+            // Show loading state
+            const aiContentElement = document.getElementById('ai-definition-content');
+            if (aiContentElement) {
+                aiContentElement.innerHTML = '<p class="ai-dict-loading-text">正在获取 AI 定义...</p>';
+            }
+
+            // Disable button
+            fetchBtn.disabled = true;
+
+            try {
+                await fetchAIDefinition(word);
+            } catch (error) {
+                console.error('AI definition fetch error:', error);
+                if (aiContentElement) {
+                    aiContentElement.innerHTML = '<p class="ai-dict-error-text">无法获取 AI 定义，请稍后重试。</p>';
+                }
+            }
+        });
     }
 }
 
@@ -969,6 +1482,691 @@ async function performDeepStudy(word) {
     }
 }
 
+/**
+ * Perform confusable words lookup for a word
+ * @param {string} word
+ */
+async function performConfusableLookup(word) {
+    const btn = document.getElementById('ai-dict-confusable-btn');
+    const contentElement = document.getElementById('ai-dict-confusable-content');
+
+    if (!contentElement) return;
+
+    // Disable button and show loading
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>正在查找形近词...</span>';
+    }
+
+    contentElement.style.display = 'block';
+    contentElement.innerHTML = '<p class="ai-dict-loading-text">正在获取形近词...</p>';
+
+    try {
+        // Build the confusable words prompt
+        const confusablePrompt = settings.confusableWordsPrompt.replace(/%word%/g, word);
+
+        // Build messages array
+        const messages = [
+            { role: 'system', content: settings.systemPrompt },
+            { role: 'user', content: confusablePrompt }
+        ];
+
+        // Check if streaming is enabled
+        const streamEnabled = oai_settings.stream_openai;
+
+        let fullResponse = '';
+
+        if (streamEnabled) {
+            // Use streaming but capture the full response
+            fullResponse = await fetchConfusableWithStreaming(messages, contentElement);
+        } else {
+            // Use non-streaming
+            fullResponse = await generateRaw({
+                prompt: confusablePrompt,
+                systemPrompt: settings.systemPrompt,
+            });
+
+            if (fullResponse) {
+                contentElement.innerHTML = `<p>${fullResponse.replace(/\n/g, '<br>')}</p>`;
+            } else {
+                contentElement.innerHTML = '<p class="ai-dict-error-text">无法获取形近词，请稍后重试。</p>';
+            }
+        }
+
+        // Parse the response and add save buttons
+        if (fullResponse) {
+            const parsed = parseConfusableResponse(fullResponse);
+            if (parsed && parsed.length > 0) {
+                displayParsedConfusables(parsed, word, contentElement, fullResponse);
+            }
+        }
+
+        // Update button to show completion
+        if (btn) {
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> <span>形近词查找完成</span>';
+        }
+    } catch (error) {
+        console.error('Confusable lookup error:', error);
+        contentElement.innerHTML = '<p class="ai-dict-error-text">无法获取形近词，请稍后重试。</p>';
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-shuffle"></i> <span>重试形近词</span>';
+        }
+    }
+}
+
+/**
+ * Fetch confusable words with streaming and return full response
+ * @param {Array} messages Messages array
+ * @param {HTMLElement} contentElement Element to display content
+ * @returns {Promise<string>} Full response text
+ */
+async function fetchConfusableWithStreaming(messages, contentElement) {
+    const abortController = new AbortController();
+    let fullText = '';
+
+    try {
+        const generator = await sendOpenAIRequest('normal', messages, abortController.signal);
+
+        if (typeof generator === 'function') {
+            contentElement.innerHTML = '';
+
+            for await (const data of generator()) {
+                if (data.text) {
+                    fullText = data.text;
+                    contentElement.innerHTML = fullText.replace(/\n/g, '<br>');
+                }
+            }
+        } else if (typeof generator === 'string') {
+            fullText = generator;
+            contentElement.innerHTML = generator.replace(/\n/g, '<br>');
+        }
+    } catch (error) {
+        console.error('Streaming confusable error:', error);
+        throw error;
+    }
+
+    return fullText;
+}
+
+/**
+ * Parse AI response to extract confusable words and their meanings
+ * @param {string} response AI response text
+ * @returns {Array<{word: string, meaning: string}>}
+ */
+function parseConfusableResponse(response) {
+    const result = [];
+
+    // Try to find the 【释义】 section
+    const meaningSection = response.match(/【释义】([\s\S]*?)(?=【|$)/);
+    if (!meaningSection) return result;
+
+    const meaningText = meaningSection[1];
+
+    // Parse each line that starts with "- word:" pattern
+    const lines = meaningText.split('\n');
+    for (const line of lines) {
+        // Match patterns like "- word: meaning" or "- word：meaning"
+        const match = line.match(/^[\s-]*([a-zA-Z]+)\s*[:：]\s*(.+)/);
+        if (match) {
+            const word = match[1].trim();
+            const meaning = match[2].trim();
+            if (word && meaning) {
+                result.push({ word, meaning });
+            }
+        }
+    }
+
+    return result;
+}
+
+/**
+ * Display parsed confusable words with save buttons
+ * @param {Array<{word: string, meaning: string}>} confusables Parsed confusable words
+ * @param {string} parentWord The parent word
+ * @param {HTMLElement} contentElement Element to display content
+ * @param {string} originalResponse Original AI response for display
+ */
+function displayParsedConfusables(confusables, parentWord, contentElement, originalResponse) {
+    // Get already saved confusables for this word (bidirectional)
+    const savedConfusables = getRelatedConfusables(parentWord);
+    const savedWords = savedConfusables.map(c => c.word.toLowerCase());
+
+    let html = `<div class="ai-dict-confusable-ai-result">`;
+    html += `<div class="ai-dict-confusable-ai-title">AI 生成的形近词：</div>`;
+    html += `<div class="ai-dict-confusable-ai-list">`;
+
+    for (const item of confusables) {
+        const isSaved = savedWords.includes(item.word.toLowerCase());
+        html += `
+            <div class="ai-dict-confusable-ai-item" data-word="${escapeHtml(item.word)}" data-meaning="${escapeHtml(item.meaning)}">
+                <span class="ai-dict-confusable-word">${escapeHtml(item.word)}</span>
+                <span class="ai-dict-confusable-ai-meaning">- ${escapeHtml(item.meaning)}</span>
+                <button class="ai-dict-confusable-save-btn ${isSaved ? 'saved' : ''}"
+                        data-parent="${escapeHtml(parentWord)}"
+                        data-word="${escapeHtml(item.word)}"
+                        data-meaning="${escapeHtml(item.meaning)}"
+                        ${isSaved ? 'disabled' : ''}>
+                    <i class="fa-solid ${isSaved ? 'fa-check' : 'fa-bookmark'}"></i>
+                    <span>${isSaved ? '已收藏' : '收藏'}</span>
+                </button>
+            </div>
+        `;
+    }
+
+    html += `</div></div>`;
+
+    contentElement.innerHTML = html;
+
+    // Bind save button events
+    bindConfusableSaveButtons(parentWord);
+}
+
+/**
+ * Save a confusable word (bidirectional)
+ * When saving "bow" -> "blow", also saves "blow" -> "bow"
+ * @param {string} parentWord The parent word (the word being looked up)
+ * @param {string} confusableWord The confusable word to save
+ * @param {string} meaning The meaning of the confusable word
+ * @param {string} parentMeaning The meaning of the parent word (optional)
+ */
+function saveConfusableWord(parentWord, confusableWord, meaning, parentMeaning = null) {
+    const parentKey = parentWord.toLowerCase();
+    const confusableKey = confusableWord.toLowerCase();
+
+    // 1. Save confusableWord under parentWord
+    if (!settings.confusableWords[parentKey]) {
+        settings.confusableWords[parentKey] = [];
+    }
+
+    const existingInParent = settings.confusableWords[parentKey].find(c => c.word.toLowerCase() === confusableKey);
+    if (!existingInParent) {
+        settings.confusableWords[parentKey].push({ word: confusableWord, meaning });
+    }
+
+    // 2. Also save parentWord under confusableWord (bidirectional)
+    if (!settings.confusableWords[confusableKey]) {
+        settings.confusableWords[confusableKey] = [];
+    }
+
+    const existingInConfusable = settings.confusableWords[confusableKey].find(c => c.word.toLowerCase() === parentKey);
+    if (!existingInConfusable) {
+        // Try to find meaning for parentWord
+        const foundParentMeaning = parentMeaning || findWordMeaning(parentWord);
+        settings.confusableWords[confusableKey].push({ word: parentWord, meaning: foundParentMeaning });
+    }
+
+    saveSettings();
+
+    // Update the saved confusables display
+    updateSavedConfusablesDisplay(parentWord);
+
+    // Re-highlight all confusable words
+    highlightAllConfusableWords();
+
+    return true;
+}
+
+/**
+ * Remove a confusable word (bidirectional)
+ * @param {string} parentWord The parent word
+ * @param {string} confusableWord The confusable word to remove
+ */
+function removeConfusableWord(parentWord, confusableWord) {
+    const parentKey = parentWord.toLowerCase();
+    const confusableKey = confusableWord.toLowerCase();
+
+    // 1. Remove confusableWord from parentWord's list
+    if (settings.confusableWords[parentKey]) {
+        const index = settings.confusableWords[parentKey].findIndex(c => c.word.toLowerCase() === confusableKey);
+        if (index !== -1) {
+            settings.confusableWords[parentKey].splice(index, 1);
+        }
+        // Clean up empty arrays
+        if (settings.confusableWords[parentKey].length === 0) {
+            delete settings.confusableWords[parentKey];
+        }
+    }
+
+    // 2. Also remove parentWord from confusableWord's list (bidirectional)
+    if (settings.confusableWords[confusableKey]) {
+        const index = settings.confusableWords[confusableKey].findIndex(c => c.word.toLowerCase() === parentKey);
+        if (index !== -1) {
+            settings.confusableWords[confusableKey].splice(index, 1);
+        }
+        // Clean up empty arrays
+        if (settings.confusableWords[confusableKey].length === 0) {
+            delete settings.confusableWords[confusableKey];
+        }
+    }
+
+    saveSettings();
+
+    // Update the saved confusables display
+    updateSavedConfusablesDisplay(parentWord);
+
+    // Re-highlight all confusable words
+    highlightAllConfusableWords();
+
+    return true;
+}
+
+/**
+ * Update the saved confusables display area
+ * @param {string} parentWord The parent word
+ */
+function updateSavedConfusablesDisplay(parentWord) {
+    const container = document.getElementById('ai-dict-saved-confusables');
+    if (!container) return;
+
+    // Use bidirectional confusables
+    const savedConfusables = getRelatedConfusables(parentWord);
+
+    if (savedConfusables.length === 0) {
+        container.style.display = 'none';
+        return;
+    }
+
+    container.style.display = 'block';
+    const listElement = container.querySelector('.ai-dict-saved-confusables-list');
+    if (listElement) {
+        listElement.innerHTML = formatSavedConfusables(savedConfusables, parentWord);
+        // Rebind events for the new elements
+        bindSavedConfusableEvents(parentWord);
+    }
+}
+
+/**
+ * Bind events for saved confusable word items
+ * @param {string} parentWord The parent word
+ */
+function bindSavedConfusableEvents(parentWord) {
+    // Bind meaning toggle buttons
+    const meaningBtns = document.querySelectorAll('.ai-dict-confusable-meaning-btn');
+    meaningBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const item = btn.closest('.ai-dict-saved-confusable-item');
+            const meaningDisplay = item?.querySelector('.ai-dict-confusable-meaning-display');
+            if (meaningDisplay) {
+                const isVisible = meaningDisplay.style.display !== 'none';
+                meaningDisplay.style.display = isVisible ? 'none' : 'block';
+                btn.innerHTML = isVisible
+                    ? '<i class="fa-solid fa-circle-info"></i>'
+                    : '<i class="fa-solid fa-circle-info active"></i>';
+            }
+        });
+    });
+
+    // Bind remove buttons
+    const removeBtns = document.querySelectorAll('.ai-dict-confusable-remove-btn');
+    removeBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const word = btn.getAttribute('data-word');
+            const parent = btn.getAttribute('data-parent');
+            if (word && parent) {
+                removeConfusableWord(parent, word);
+
+                // Also update the AI generated list if visible (re-enable save button)
+                const saveBtn = document.querySelector(`.ai-dict-confusable-save-btn[data-word="${word}"]`);
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.classList.remove('saved');
+                    saveBtn.innerHTML = '<i class="fa-solid fa-bookmark"></i><span>收藏</span>';
+                }
+            }
+        });
+    });
+}
+
+/**
+ * Bind events for AI-generated confusable save buttons
+ * @param {string} parentWord The parent word
+ */
+function bindConfusableSaveButtons(parentWord) {
+    const saveBtns = document.querySelectorAll('.ai-dict-confusable-save-btn:not(.saved)');
+    saveBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const word = btn.getAttribute('data-word');
+            const meaning = btn.getAttribute('data-meaning');
+            const parent = btn.getAttribute('data-parent');
+
+            if (word && meaning && parent) {
+                const saved = saveConfusableWord(parent, word, meaning);
+                if (saved) {
+                    btn.disabled = true;
+                    btn.classList.add('saved');
+                    btn.innerHTML = '<i class="fa-solid fa-check"></i><span>已收藏</span>';
+                }
+            }
+        });
+    });
+}
+
+/**
+ * Bind confusable button click event
+ * @param {string} word
+ */
+function bindConfusableButton(word) {
+    const btn = document.getElementById('ai-dict-confusable-btn');
+    if (btn) {
+        btn.addEventListener('click', () => performConfusableLookup(word));
+    }
+
+    // Also bind saved confusable events if there are any
+    bindSavedConfusableEvents(word);
+}
+
+/**
+ * Get all related confusable words for a given word (bidirectional)
+ * If bow has confusables [brow, bowl], then brow should show [bow, bowl] and bowl should show [bow, brow]
+ * @param {string} word The word to get confusables for
+ * @returns {Array<{word: string, meaning: string}>} Array of related confusable words
+ */
+function getRelatedConfusables(word) {
+    const wordLower = word.toLowerCase();
+    const result = [];
+    const seenWords = new Set();
+
+    // First, check if this word has direct confusables
+    const directConfusables = settings.confusableWords[wordLower] || [];
+    for (const item of directConfusables) {
+        if (!seenWords.has(item.word.toLowerCase())) {
+            result.push(item);
+            seenWords.add(item.word.toLowerCase());
+        }
+    }
+
+    // Then, check all other entries to see if this word is a confusable of another word
+    for (const [parentWord, confusables] of Object.entries(settings.confusableWords)) {
+        if (parentWord === wordLower) continue;
+
+        // Check if our word is in this parent's confusable list
+        const isRelated = confusables.some(c => c.word.toLowerCase() === wordLower);
+
+        if (isRelated) {
+            // Add the parent word itself (need to find its meaning from somewhere)
+            // We'll look for its meaning in other entries or use a placeholder
+            if (!seenWords.has(parentWord)) {
+                const parentMeaning = findWordMeaning(parentWord);
+                result.push({ word: parentWord, meaning: parentMeaning });
+                seenWords.add(parentWord);
+            }
+
+            // Add all other confusables of this parent (siblings)
+            for (const sibling of confusables) {
+                const siblingLower = sibling.word.toLowerCase();
+                if (siblingLower !== wordLower && !seenWords.has(siblingLower)) {
+                    result.push(sibling);
+                    seenWords.add(siblingLower);
+                }
+            }
+        }
+    }
+
+    return result;
+}
+
+/**
+ * Find the meaning of a word from confusableWords storage
+ * @param {string} word The word to find meaning for
+ * @returns {string} The meaning or a placeholder
+ */
+function findWordMeaning(word) {
+    const wordLower = word.toLowerCase();
+
+    // Search through all confusable lists to find this word's meaning
+    for (const confusables of Object.values(settings.confusableWords)) {
+        for (const item of confusables) {
+            if (item.word.toLowerCase() === wordLower) {
+                return item.meaning;
+            }
+        }
+    }
+
+    return '(点击形近词按钮获取释义)';
+}
+
+/**
+ * Get all confusable words that should be highlighted for a given word
+ * @param {string} word The current word being looked up
+ * @returns {Set<string>} Set of words to highlight (lowercase)
+ */
+function getWordsToHighlight(word) {
+    const wordsToHighlight = new Set();
+    const relatedConfusables = getRelatedConfusables(word);
+
+    for (const item of relatedConfusables) {
+        wordsToHighlight.add(item.word.toLowerCase());
+    }
+
+    return wordsToHighlight;
+}
+
+/**
+ * Get all confusable words from the entire collection for global highlighting
+ * @returns {Set<string>} Set of all words to highlight (lowercase)
+ */
+function getAllConfusableWords() {
+    const allWords = new Set();
+
+    for (const [parentWord, confusables] of Object.entries(settings.confusableWords)) {
+        // Add parent word
+        allWords.add(parentWord.toLowerCase());
+        // Add all confusables
+        for (const item of confusables) {
+            allWords.add(item.word.toLowerCase());
+        }
+    }
+
+    return allWords;
+}
+
+/**
+ * Highlight all confusable words in the page content (for page load)
+ */
+function highlightAllConfusableWords() {
+    if (!settings.highlightConfusables) return;
+
+    // Remove existing highlights first
+    removeConfusableHighlights();
+
+    const wordsToHighlight = getAllConfusableWords();
+    if (wordsToHighlight.size === 0) return;
+
+    // Find the chat container
+    const chatContainer = document.getElementById('chat');
+    if (!chatContainer) return;
+
+    // Create a regex pattern for all words to highlight
+    const wordsArray = Array.from(wordsToHighlight);
+    const pattern = new RegExp(`\\b(${wordsArray.join('|')})\\b`, 'gi');
+
+    // Walk through text nodes and wrap matches
+    const walker = document.createTreeWalker(
+        chatContainer,
+        NodeFilter.SHOW_TEXT,
+        {
+            acceptNode: (node) => {
+                // Skip if inside our panel or certain elements
+                if (node.parentElement.closest('#ai-dictionary-panel')) {
+                    return NodeFilter.FILTER_REJECT;
+                }
+                if (node.parentElement.closest('script, style, textarea, input')) {
+                    return NodeFilter.FILTER_REJECT;
+                }
+                return NodeFilter.FILTER_ACCEPT;
+            }
+        }
+    );
+
+    const textNodes = [];
+    while (walker.nextNode()) {
+        if (pattern.test(walker.currentNode.textContent)) {
+            textNodes.push(walker.currentNode);
+        }
+        pattern.lastIndex = 0; // Reset regex
+    }
+
+    // Process each text node
+    for (const textNode of textNodes) {
+        const text = textNode.textContent;
+        const fragment = document.createDocumentFragment();
+        let lastIndex = 0;
+
+        pattern.lastIndex = 0;
+        let match;
+        while ((match = pattern.exec(text)) !== null) {
+            // Add text before match
+            if (match.index > lastIndex) {
+                fragment.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+            }
+
+            // Add highlighted match
+            const span = document.createElement('span');
+            span.className = 'ai-dict-confusable-highlight';
+            span.textContent = match[0];
+            span.title = `收藏的形近词`;
+            fragment.appendChild(span);
+
+            lastIndex = pattern.lastIndex;
+        }
+
+        // Add remaining text
+        if (lastIndex < text.length) {
+            fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
+        }
+
+        // Replace text node with fragment
+        if (fragment.childNodes.length > 0) {
+            textNode.parentNode.replaceChild(fragment, textNode);
+        }
+    }
+}
+
+/**
+ * Highlight confusable words in the page content
+ * @param {string} currentWord The current word being looked up (optional, if not provided highlights all)
+ */
+function highlightConfusableWords(currentWord) {
+    if (!settings.highlightConfusables) return;
+
+    // Remove existing highlights first
+    removeConfusableHighlights();
+
+    // If no currentWord, highlight all confusable words
+    const wordsToHighlight = currentWord ? getWordsToHighlight(currentWord) : getAllConfusableWords();
+    if (wordsToHighlight.size === 0) return;
+
+    // Also add the current word itself if it's in any confusable list
+    if (currentWord) {
+        const allWords = getAllConfusableWords();
+        if (allWords.has(currentWord.toLowerCase())) {
+            // Highlight all related words
+            for (const word of allWords) {
+                wordsToHighlight.add(word);
+            }
+        }
+    }
+
+    // Find the chat container
+    const chatContainer = document.getElementById('chat');
+    if (!chatContainer) return;
+
+    // Create a regex pattern for all words to highlight
+    const wordsArray = Array.from(wordsToHighlight);
+    if (wordsArray.length === 0) return;
+
+    const pattern = new RegExp(`\\b(${wordsArray.join('|')})\\b`, 'gi');
+
+    // Walk through text nodes and wrap matches
+    const walker = document.createTreeWalker(
+        chatContainer,
+        NodeFilter.SHOW_TEXT,
+        {
+            acceptNode: (node) => {
+                // Skip if inside our panel or certain elements
+                if (node.parentElement.closest('#ai-dictionary-panel')) {
+                    return NodeFilter.FILTER_REJECT;
+                }
+                if (node.parentElement.closest('script, style, textarea, input')) {
+                    return NodeFilter.FILTER_REJECT;
+                }
+                return NodeFilter.FILTER_ACCEPT;
+            }
+        }
+    );
+
+    const textNodes = [];
+    while (walker.nextNode()) {
+        if (pattern.test(walker.currentNode.textContent)) {
+            textNodes.push(walker.currentNode);
+        }
+        pattern.lastIndex = 0; // Reset regex
+    }
+
+    // Process each text node
+    for (const textNode of textNodes) {
+        const text = textNode.textContent;
+        const fragment = document.createDocumentFragment();
+        let lastIndex = 0;
+
+        pattern.lastIndex = 0;
+        let match;
+        while ((match = pattern.exec(text)) !== null) {
+            // Add text before match
+            if (match.index > lastIndex) {
+                fragment.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+            }
+
+            // Add highlighted match
+            const span = document.createElement('span');
+            span.className = 'ai-dict-confusable-highlight';
+            span.textContent = match[0];
+            span.title = `形近词: ${currentWord}`;
+            fragment.appendChild(span);
+
+            lastIndex = pattern.lastIndex;
+        }
+
+        // Add remaining text
+        if (lastIndex < text.length) {
+            fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
+        }
+
+        // Replace text node with fragment
+        if (fragment.childNodes.length > 0) {
+            textNode.parentNode.replaceChild(fragment, textNode);
+        }
+    }
+}
+
+/**
+ * Remove all confusable word highlights from the page
+ */
+function removeConfusableHighlights() {
+    const highlights = document.querySelectorAll('.ai-dict-confusable-highlight');
+    for (const highlight of highlights) {
+        const textNode = document.createTextNode(highlight.textContent);
+        highlight.parentNode.replaceChild(textNode, highlight);
+    }
+
+    // Normalize the DOM to merge adjacent text nodes
+    const chatContainer = document.getElementById('chat');
+    if (chatContainer) {
+        chatContainer.normalize();
+    }
+}
+
+/**
+ * Update the highlight color CSS variable
+ */
+function updateHighlightColor() {
+    document.documentElement.style.setProperty('--ai-dict-highlight-color', settings.highlightColor);
+}
+
 async function fetchAIDefinition(word) {
     const extractedContext = extractContext(document.body.innerText);
 
@@ -1180,6 +2378,7 @@ async function fetchWithStreaming(messages, aiContentElement) {
 function createMergedContent(word, youdaoResults) {
     const collapsibleId = `youdao-definitions-${Date.now()}`;
     const promptCollapsibleId = `prompt-view-${Date.now()}`;
+    const historyCollapsibleId = `word-history-${Date.now()}`;
 
     // Check if we have Youdao results
     const hasYoudaoResults = youdaoResults && Array.isArray(youdaoResults) && youdaoResults.length > 0;
@@ -1189,6 +2388,12 @@ function createMergedContent(word, youdaoResults) {
 
     // Show deep study button for single words
     const showDeepStudy = isSingleWord(word);
+
+    // Get saved confusable words for this word (bidirectional)
+    const savedConfusables = getRelatedConfusables(word);
+
+    // Get word history
+    const wordHistory = getWordHistory(word);
 
     let youdaoSection = '';
 
@@ -1207,17 +2412,19 @@ function createMergedContent(word, youdaoResults) {
             </div>
         `;
     } else if (hasYoudaoResults) {
+        // Determine if youdao definitions should be expanded by default
+        const youdaoExpanded = !settings.autoCollapseYoudao;
         youdaoSection = `
             <!-- Youdao header section (always visible) -->
             ${formatYoudaoHeadSection(youdaoResults)}
 
             <!-- Collapsible definitions section -->
             <div class="ai-dict-collapsible-section">
-                <div class="ai-dict-collapsible-header" data-target="${collapsibleId}">
-                    <i class="fa-solid fa-chevron-right"></i>
+                <div class="ai-dict-collapsible-header${youdaoExpanded ? ' expanded' : ''}" data-target="${collapsibleId}">
+                    <i class="fa-solid fa-chevron-right${youdaoExpanded ? ' expanded' : ''}"></i>
                     <span>释义</span>
                 </div>
-                <div id="${collapsibleId}" class="ai-dict-collapsible-content">
+                <div id="${collapsibleId}" class="ai-dict-collapsible-content${youdaoExpanded ? ' expanded' : ''}">
                     ${formatYoudaoDefinitions(youdaoResults)}
                 </div>
             </div>
@@ -1242,6 +2449,43 @@ function createMergedContent(word, youdaoResults) {
             </div>
     ` : '';
 
+    // Confusable words section (only for single words)
+    const confusableSection = showDeepStudy ? `
+            <!-- Confusable Words section -->
+            <div class="ai-dict-confusable-section">
+                <button id="ai-dict-confusable-btn" class="menu_button ai-dict-confusable-btn">
+                    <i class="fa-solid fa-shuffle"></i>
+                    <span>形近词</span>
+                </button>
+                <!-- Saved confusable words -->
+                <div id="ai-dict-saved-confusables" class="ai-dict-saved-confusables" ${savedConfusables.length === 0 ? 'style="display: none;"' : ''}>
+                    <div class="ai-dict-saved-confusables-title">已收藏的形近词：</div>
+                    <div class="ai-dict-saved-confusables-list">
+                        ${formatSavedConfusables(savedConfusables, word)}
+                    </div>
+                </div>
+                <!-- AI generated confusable words -->
+                <div id="ai-dict-confusable-content" class="ai-dict-confusable-content" style="display: none;"></div>
+            </div>
+    ` : '';
+
+    // Word history section (only for single words)
+    const wordHistorySection = showDeepStudy ? `
+            <!-- Word History section -->
+            <div class="ai-dict-collapsible-section ai-dict-history-section">
+                <div class="ai-dict-collapsible-header" data-target="${historyCollapsibleId}">
+                    <i class="fa-solid fa-chevron-right"></i>
+                    <span>查词记录</span>
+                    ${wordHistory ? `<span class="ai-dict-history-count">(${wordHistory.count}次)</span>` : ''}
+                </div>
+                <div id="${historyCollapsibleId}" class="ai-dict-collapsible-content">
+                    <div id="ai-dict-word-history-content" class="ai-dict-word-history-content">
+                        ${formatWordHistory(word, wordHistory)}
+                    </div>
+                </div>
+            </div>
+    ` : '';
+
     const html = `
         <div class="ai-dict-merged-container">
             <!-- Youdao section container -->
@@ -1252,8 +2496,16 @@ function createMergedContent(word, youdaoResults) {
             <!-- AI Definition section -->
             <div class="ai-dict-ai-section">
                 <div id="ai-definition-content" class="ai-dict-ai-content">
-                    <p class="ai-dict-loading-text">正在获取 AI 定义...</p>
+                    ${settings.autoFetchAI
+                        ? '<p class="ai-dict-loading-text">正在获取 AI 定义...</p>'
+                        : '<p class="ai-dict-no-ai-text">点击右下角按钮获取 AI 释义</p>'
+                    }
                 </div>
+                ${!settings.autoFetchAI ? `
+                <button id="ai-dict-fetch-ai-btn" class="ai-dict-fetch-ai-btn" title="获取 AI 释义">
+                    <i class="fa-solid fa-sync-alt"></i>
+                </button>
+                ` : ''}
                 <!-- Chat trigger button -->
                 <button id="ai-dict-chat-trigger" class="ai-dict-chat-trigger" title="继续提问">
                     <i class="fa-solid fa-comments"></i>
@@ -1271,6 +2523,10 @@ function createMergedContent(word, youdaoResults) {
 
             ${deepStudySection}
 
+            ${confusableSection}
+
+            ${wordHistorySection}
+
             <!-- Prompt view section -->
             <div class="ai-dict-collapsible-section ai-dict-prompt-section">
                 <div class="ai-dict-collapsible-header" data-target="${promptCollapsibleId}">
@@ -1284,6 +2540,161 @@ function createMergedContent(word, youdaoResults) {
         </div>
     `;
     return html;
+}
+
+/**
+ * Format saved confusable words for display
+ * @param {Array} confusables Array of {word, meaning} objects
+ * @param {string} parentWord The parent word these confusables belong to
+ * @returns {string} HTML string
+ */
+function formatSavedConfusables(confusables, parentWord) {
+    if (!confusables || confusables.length === 0) return '';
+
+    return confusables.map((item, index) => `
+        <div class="ai-dict-saved-confusable-item" data-word="${escapeHtml(item.word)}" data-index="${index}">
+            <span class="ai-dict-confusable-word">${escapeHtml(item.word)}</span>
+            <div class="ai-dict-confusable-actions">
+                <button class="ai-dict-confusable-meaning-btn" title="显示释义" data-word="${escapeHtml(item.word)}" data-meaning="${escapeHtml(item.meaning)}">
+                    <i class="fa-solid fa-circle-info"></i>
+                </button>
+                <button class="ai-dict-confusable-remove-btn" title="取消收藏" data-parent="${escapeHtml(parentWord)}" data-word="${escapeHtml(item.word)}">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            </div>
+            <div class="ai-dict-confusable-meaning-display" style="display: none;">${escapeHtml(item.meaning)}</div>
+        </div>
+    `).join('');
+}
+
+/**
+ * Format word history for display
+ * @param {string} word The word
+ * @param {{count: number, contexts: string[]} | null} history Word history object
+ * @returns {string} HTML string
+ */
+function formatWordHistory(word, history) {
+    if (!history) {
+        return '<p class="ai-dict-history-empty">暂无查词记录</p>';
+    }
+
+    let html = `
+        <div class="ai-dict-history-info">
+            <span class="ai-dict-history-label">查词次数：</span>
+            <span class="ai-dict-history-value">${history.count} 次</span>
+        </div>
+    `;
+
+    if (history.contexts && history.contexts.length > 0) {
+        html += `
+            <div class="ai-dict-history-contexts">
+                <div class="ai-dict-history-contexts-title">保存的上下文：</div>
+                <div class="ai-dict-history-contexts-list">
+        `;
+
+        history.contexts.forEach((context, index) => {
+            // Highlight the word in context
+            const highlightedContext = highlightWordInContext(context, word);
+            html += `
+                <div class="ai-dict-history-context-item" data-index="${index}">
+                    <div class="ai-dict-history-context-text">${highlightedContext}</div>
+                    <button class="ai-dict-history-context-remove" title="删除此上下文" data-word="${escapeHtml(word)}" data-index="${index}">
+                        <i class="fa-solid fa-times"></i>
+                    </button>
+                </div>
+            `;
+        });
+
+        html += `
+                </div>
+            </div>
+        `;
+    } else {
+        html += '<p class="ai-dict-history-no-context">暂无保存的上下文</p>';
+    }
+
+    // Add clear all button
+    html += `
+        <div class="ai-dict-history-actions">
+            <button class="ai-dict-history-clear-btn" title="清除此单词的所有记录" data-word="${escapeHtml(word)}">
+                <i class="fa-solid fa-trash"></i>
+                <span>清除全部记录</span>
+            </button>
+        </div>
+    `;
+
+    return html;
+}
+
+/**
+ * Highlight the word in context text
+ * @param {string} context The context text
+ * @param {string} word The word to highlight
+ * @returns {string} HTML string with highlighted word
+ */
+function highlightWordInContext(context, word) {
+    if (!context || !word) return escapeHtml(context);
+
+    const escapedContext = escapeHtml(context);
+    const escapedWord = escapeHtml(word);
+
+    // Create a case-insensitive regex to find the word
+    const regex = new RegExp(`(${escapedWord})`, 'gi');
+    return escapedContext.replace(regex, '<mark class="ai-dict-history-highlight">$1</mark>');
+}
+
+/**
+ * Bind word history events
+ * @param {string} word The word being looked up
+ */
+function bindWordHistoryEvents(word) {
+    // Bind remove context buttons
+    const removeContextBtns = document.querySelectorAll('.ai-dict-history-context-remove');
+    removeContextBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const targetWord = btn.getAttribute('data-word');
+            const index = parseInt(btn.getAttribute('data-index'), 10);
+            if (targetWord && !isNaN(index)) {
+                removeWordHistoryContext(targetWord, index);
+                updateWordHistoryDisplay(word);
+            }
+        });
+    });
+
+    // Bind clear all button
+    const clearBtn = document.querySelector('.ai-dict-history-clear-btn');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const targetWord = clearBtn.getAttribute('data-word');
+            if (targetWord && confirm(`确定要清除 "${targetWord}" 的所有查词记录吗？`)) {
+                clearWordHistory(targetWord);
+                updateWordHistoryDisplay(word);
+            }
+        });
+    }
+}
+
+/**
+ * Update word history display dynamically
+ * @param {string} word The word
+ */
+function updateWordHistoryDisplay(word) {
+    const container = document.getElementById('ai-dict-word-history-content');
+    if (!container) return;
+
+    const history = getWordHistory(word);
+    container.innerHTML = formatWordHistory(word, history);
+
+    // Update the count in header
+    const countSpan = document.querySelector('.ai-dict-history-count');
+    if (countSpan) {
+        countSpan.textContent = history ? `(${history.count}次)` : '';
+    }
+
+    // Rebind events
+    bindWordHistoryEvents(word);
 }
 
 /**
@@ -1320,17 +2731,19 @@ function updateYoudaoSection(word, youdaoResults) {
             </div>
         `;
     } else if (hasYoudaoResults) {
+        // Determine if youdao definitions should be expanded by default
+        const youdaoExpanded = !settings.autoCollapseYoudao;
         youdaoSection = `
             <!-- Youdao header section (always visible) -->
             ${formatYoudaoHeadSection(youdaoResults)}
 
             <!-- Collapsible definitions section -->
             <div class="ai-dict-collapsible-section">
-                <div class="ai-dict-collapsible-header" data-target="${collapsibleId}">
-                    <i class="fa-solid fa-chevron-right"></i>
+                <div class="ai-dict-collapsible-header${youdaoExpanded ? ' expanded' : ''}" data-target="${collapsibleId}">
+                    <i class="fa-solid fa-chevron-right${youdaoExpanded ? ' expanded' : ''}"></i>
                     <span>释义</span>
                 </div>
-                <div id="${collapsibleId}" class="ai-dict-collapsible-content">
+                <div id="${collapsibleId}" class="ai-dict-collapsible-content${youdaoExpanded ? ' expanded' : ''}">
                     ${formatYoudaoDefinitions(youdaoResults)}
                 </div>
             </div>
@@ -1607,12 +3020,17 @@ function createSidePanel() {
     }
 
     panel.appendChild(header);
-    
+
     // Content
     const contentEl = document.createElement('div');
     contentEl.className = 'ai-dict-panel-content';
     panel.appendChild(contentEl);
-    
+
+    // Prevent clicks inside panel from closing it (stop propagation)
+    panel.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+
     document.body.appendChild(panel);
     panelElement = panel;
     
@@ -2155,11 +3573,11 @@ function handleGlobalClick(event) {
 
     const target = event.target;
 
-    // Check if click is inside panel or icon
-    const clickedInsidePanel = panelElement.contains(target);
+    // Check if click is inside icon or stats panel (panel clicks are already stopped by stopPropagation)
     const clickedInsideIcon = target.closest('#ai-dictionary-icon');
+    const clickedInsideStatsPanel = target.closest('#ai-dict-stats-panel');
 
-    if (clickedInsidePanel || clickedInsideIcon) return;
+    if (clickedInsideIcon || clickedInsideStatsPanel) return;
 
     if (isMobile()) {
         // Mobile: collapse if expanded
@@ -2192,6 +3610,9 @@ const init = async () => {
     await loadSettings();
     console.log(`[${EXTENSION_NAME}] Settings loaded`, settings);
 
+    // Load word history from file
+    await loadWordHistoryFromFile();
+
     manager = new SettingsUi();
     const renderedUi = await manager.render();
     if (renderedUi) {
@@ -2222,14 +3643,34 @@ const init = async () => {
 
     // 4. Global click for collapse
     document.addEventListener('click', handleGlobalClick);
-    
+
     // Expose global function for context menu
     window.performDictionaryLookup = performDictionaryLookup;
 
     // Initialize the side panel (hidden/collapsed by default)
-    // We can't do this immediately on init because body might not be fully ready? 
+    // We can't do this immediately on init because body might not be fully ready?
     // Usually extensions load after DOM ready.
     createSidePanel();
+
+    // 5. Listen for chat messages to re-highlight confusable words
+    eventSource.on(event_types.MESSAGE_RECEIVED, () => {
+        // Delay to allow DOM to update
+        setTimeout(() => highlightAllConfusableWords(), 100);
+    });
+
+    eventSource.on(event_types.MESSAGE_SENT, () => {
+        setTimeout(() => highlightAllConfusableWords(), 100);
+    });
+
+    eventSource.on(event_types.CHAT_CHANGED, () => {
+        setTimeout(() => highlightAllConfusableWords(), 100);
+    });
+
+    // Initialize highlight color from settings
+    updateHighlightColor();
+
+    // Initial highlight on page load
+    setTimeout(() => highlightAllConfusableWords(), 500);
 
     isReady = true;
     console.log(`[${EXTENSION_NAME}] Ready`);
