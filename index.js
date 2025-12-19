@@ -913,7 +913,8 @@ async function checkProxyAvailable() {
 
     try {
         // Try a simple request to the proxy endpoint
-        const response = await fetch('/proxy/https://www.google.com', {
+        // Use Youdao itself to test - avoids issues with blocked sites like Google
+        const response = await fetch('/proxy/https://dict.youdao.com/', {
             method: 'HEAD',
             signal: AbortSignal.timeout(3000)
         });
