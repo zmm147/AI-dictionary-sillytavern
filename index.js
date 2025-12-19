@@ -903,6 +903,17 @@ function bindManualAIFetchButton(word) {
 let proxyAvailable = null;
 
 /**
+ * Create an AbortSignal with timeout (compatible with older browsers)
+ * @param {number} ms Timeout in milliseconds
+ * @returns {AbortSignal}
+ */
+function createTimeoutSignal(ms) {
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), ms);
+    return controller.signal;
+}
+
+/**
  * Check if local SillyTavern proxy is available
  * @returns {Promise<boolean>}
  */
@@ -917,7 +928,7 @@ async function checkProxyAvailable() {
         // Use Youdao itself to test - avoids issues with blocked sites like Google
         const response = await fetch('/proxy/https://dict.youdao.com/', {
             method: 'HEAD',
-            signal: AbortSignal.timeout(3000)
+            signal: createTimeoutSignal(3000)
         });
         proxyAvailable = response.ok || response.status !== 404;
         errorMsg = `status: ${response.status}`;
@@ -927,12 +938,6 @@ async function checkProxyAvailable() {
     }
 
     console.log(`[${EXTENSION_NAME}] Local proxy available:`, proxyAvailable, errorMsg);
-
-    // Debug: show alert on mobile for troubleshooting (can remove later)
-    if (isMobile()) {
-        alert(`[AI Dictionary Debug]\nProxy available: ${proxyAvailable}\nInfo: ${errorMsg}\nUser-Agent: ${navigator.userAgent.substring(0, 50)}...`);
-    }
-
     return proxyAvailable;
 }
 
@@ -972,7 +977,7 @@ async function fetchYoudaoDictionary(word) {
 
                     response = await fetch(proxyUrl, {
                         method: 'GET',
-                        signal: AbortSignal.timeout(10000)
+                        signal: createTimeoutSignal(10000)
                     });
 
                     if (response.ok) {
