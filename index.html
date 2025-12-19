@@ -21,10 +21,20 @@
                 <option value="">使用当前连接</option>
             </select>
 
-            <label for="ai-dict-system-prompt">System Prompt:</label>
+            <div class="ai-dict-prompt-label-row">
+                <label for="ai-dict-system-prompt">System Prompt:</label>
+                <button id="ai-dict-reset-system-prompt" class="menu_button menu_button_icon" title="重置为默认">
+                    <i class="fa-solid fa-rotate-left"></i>
+                </button>
+            </div>
             <textarea id="ai-dict-system-prompt" class="text_pole textarea_compact" rows="2" placeholder="Enter system prompt for dictionary lookups"></textarea>
 
-            <label for="ai-dict-user-prompt">User Prompt (支持变量: %word%, %context%):</label>
+            <div class="ai-dict-prompt-label-row">
+                <label for="ai-dict-user-prompt">User Prompt (支持变量: %word%, %context%):</label>
+                <button id="ai-dict-reset-user-prompt" class="menu_button menu_button_icon" title="重置为默认">
+                    <i class="fa-solid fa-rotate-left"></i>
+                </button>
+            </div>
             <textarea id="ai-dict-user-prompt" class="text_pole textarea_compact" rows="5" placeholder="Enter user prompt for dictionary lookups"></textarea>
 
             <label for="ai-dict-context-range">Context Range (上下文范围):</label>
@@ -57,7 +67,12 @@
 
             <hr class="sysHR">
 
-            <label for="ai-dict-deep-study-prompt">深度学习提示词 (支持变量: %word%):</label>
+            <div class="ai-dict-prompt-label-row">
+                <label for="ai-dict-deep-study-prompt">深度学习提示词 (支持变量: %word%):</label>
+                <button id="ai-dict-reset-deep-study-prompt" class="menu_button menu_button_icon" title="重置为默认">
+                    <i class="fa-solid fa-rotate-left"></i>
+                </button>
+            </div>
             <textarea id="ai-dict-deep-study-prompt" class="text_pole textarea_compact" rows="5" placeholder="Enter deep study prompt"></textarea>
 
             <hr class="sysHR">

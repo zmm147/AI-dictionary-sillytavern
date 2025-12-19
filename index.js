@@ -266,6 +266,43 @@ class SettingsUi {
                 showStatisticsPanel();
             });
         }
+
+        // Reset Buttons for Prompts
+        const resetSystemPromptBtn = this.dom.querySelector('#ai-dict-reset-system-prompt');
+        if (resetSystemPromptBtn) {
+            resetSystemPromptBtn.addEventListener('click', () => {
+                const promptInput = this.dom.querySelector('#ai-dict-system-prompt');
+                if (promptInput) {
+                    promptInput.value = defaultSettings.systemPrompt;
+                    settings.systemPrompt = defaultSettings.systemPrompt;
+                    saveSettings();
+                }
+            });
+        }
+
+        const resetUserPromptBtn = this.dom.querySelector('#ai-dict-reset-user-prompt');
+        if (resetUserPromptBtn) {
+            resetUserPromptBtn.addEventListener('click', () => {
+                const promptInput = this.dom.querySelector('#ai-dict-user-prompt');
+                if (promptInput) {
+                    promptInput.value = defaultSettings.userPrompt;
+                    settings.userPrompt = defaultSettings.userPrompt;
+                    saveSettings();
+                }
+            });
+        }
+
+        const resetDeepStudyPromptBtn = this.dom.querySelector('#ai-dict-reset-deep-study-prompt');
+        if (resetDeepStudyPromptBtn) {
+            resetDeepStudyPromptBtn.addEventListener('click', () => {
+                const promptInput = this.dom.querySelector('#ai-dict-deep-study-prompt');
+                if (promptInput) {
+                    promptInput.value = defaultSettings.deepStudyPrompt;
+                    settings.deepStudyPrompt = defaultSettings.deepStudyPrompt;
+                    saveSettings();
+                }
+            });
+        }
     }
 }
 
@@ -875,28 +912,26 @@ async function performDictionaryLookup() {
  * @param {string} word The word to lookup
  */
 function bindManualAIFetchButton(word) {
-    const fetchBtn = document.getElementById('ai-dict-fetch-ai-btn');
-    if (fetchBtn) {
-        fetchBtn.addEventListener('click', async () => {
-            // Show loading state
-            const aiContentElement = document.getElementById('ai-definition-content');
-            if (aiContentElement) {
-                aiContentElement.innerHTML = '<p class="ai-dict-loading-text">正在获取 AI 定义...</p>';
-            }
+    const aiContentElement = document.getElementById('ai-definition-content');
+    if (!aiContentElement || !aiContentElement.classList.contains('ai-dict-clickable')) return;
 
-            // Disable button
-            fetchBtn.disabled = true;
+    const handleClick = async () => {
+        // Remove clickable class and event listener after first click
+        aiContentElement.classList.remove('ai-dict-clickable');
+        aiContentElement.removeEventListener('click', handleClick);
 
-            try {
-                await fetchAIDefinition(word);
-            } catch (error) {
-                console.error('AI definition fetch error:', error);
-                if (aiContentElement) {
-                    aiContentElement.innerHTML = '<p class="ai-dict-error-text">无法获取 AI 定义，请稍后重试。</p>';
-                }
-            }
-        });
-    }
+        // Show loading state
+        aiContentElement.innerHTML = '<p class="ai-dict-loading-text">正在获取 AI 定义...</p>';
+
+        try {
+            await fetchAIDefinition(word);
+        } catch (error) {
+            console.error('AI definition fetch error:', error);
+            aiContentElement.innerHTML = '<p class="ai-dict-error-text">无法获取 AI 定义，请稍后重试。</p>';
+        }
+    };
+
+    aiContentElement.addEventListener('click', handleClick);
 }
 
 // Cache for proxy availability check
@@ -2510,17 +2545,12 @@ function createMergedContent(word, youdaoResults) {
 
             <!-- AI Definition section -->
             <div class="ai-dict-ai-section">
-                <div id="ai-definition-content" class="ai-dict-ai-content">
+                <div id="ai-definition-content" class="ai-dict-ai-content${!settings.autoFetchAI ? ' ai-dict-clickable' : ''}">
                     ${settings.autoFetchAI
                         ? '<p class="ai-dict-loading-text">正在获取 AI 定义...</p>'
-                        : '<p class="ai-dict-no-ai-text">点击右下角按钮获取 AI 释义</p>'
+                        : '<p class="ai-dict-no-ai-text"><i class="fa-solid fa-hand-pointer"></i> 点击获取 AI 释义</p>'
                     }
                 </div>
-                ${!settings.autoFetchAI ? `
-                <button id="ai-dict-fetch-ai-btn" class="ai-dict-fetch-ai-btn" title="获取 AI 释义">
-                    <i class="fa-solid fa-sync-alt"></i>
-                </button>
-                ` : ''}
                 <!-- Chat trigger button -->
                 <button id="ai-dict-chat-trigger" class="ai-dict-chat-trigger" title="继续提问">
                     <i class="fa-solid fa-comments"></i>
