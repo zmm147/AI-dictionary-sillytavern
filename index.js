@@ -911,6 +911,7 @@ async function checkProxyAvailable() {
         return proxyAvailable;
     }
 
+    let errorMsg = '';
     try {
         // Try a simple request to the proxy endpoint
         // Use Youdao itself to test - avoids issues with blocked sites like Google
@@ -919,11 +920,19 @@ async function checkProxyAvailable() {
             signal: AbortSignal.timeout(3000)
         });
         proxyAvailable = response.ok || response.status !== 404;
+        errorMsg = `status: ${response.status}`;
     } catch (error) {
         proxyAvailable = false;
+        errorMsg = error.message || String(error);
     }
 
-    console.log(`[${EXTENSION_NAME}] Local proxy available:`, proxyAvailable);
+    console.log(`[${EXTENSION_NAME}] Local proxy available:`, proxyAvailable, errorMsg);
+
+    // Debug: show alert on mobile for troubleshooting (can remove later)
+    if (isMobile()) {
+        alert(`[AI Dictionary Debug]\nProxy available: ${proxyAvailable}\nInfo: ${errorMsg}\nUser-Agent: ${navigator.userAgent.substring(0, 50)}...`);
+    }
+
     return proxyAvailable;
 }
 
