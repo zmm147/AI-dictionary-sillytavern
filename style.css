@@ -1253,6 +1253,85 @@ body:not(.ai-dict-mobile-active) #ai-dictionary-panel-toggle {
     margin-bottom: 4px;
 }
 
+.ai-dict-confusable-ai-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.ai-dict-confusable-ai-title-row .ai-dict-confusable-ai-title {
+    margin-bottom: 0;
+}
+
+.ai-dict-confusable-refresh-btn {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 1px solid #ffcc80;
+    border-radius: 4px;
+    background-color: #fff8e1;
+    color: #f57c00;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.ai-dict-confusable-refresh-btn:hover {
+    background-color: #ffe0b2;
+    border-color: #ff9800;
+    transform: rotate(180deg);
+}
+
+.ai-dict-confusable-refresh-btn i {
+    font-size: 0.85em;
+}
+
+/* Confusable parse error styles */
+.ai-dict-confusable-parse-error {
+    padding: 10px;
+    background-color: #fff3e0;
+    border: 1px solid #ffcc80;
+    border-radius: 6px;
+}
+
+.ai-dict-confusable-parse-error .ai-dict-confusable-ai-title {
+    color: #e65100;
+}
+
+.ai-dict-confusable-parse-error .ai-dict-confusable-ai-title i {
+    margin-right: 6px;
+}
+
+.ai-dict-confusable-raw-response {
+    margin-top: 8px;
+    padding: 8px;
+    background-color: #ffffff;
+    border: 1px solid #ffe0b2;
+    border-radius: 4px;
+    font-size: 0.9em;
+    line-height: 1.5;
+    color: #666;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.ai-dict-confusable-error-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 15px;
+}
+
+.ai-dict-confusable-error-container .ai-dict-confusable-refresh-btn {
+    width: auto;
+    padding: 6px 12px;
+    gap: 6px;
+}
+
 .ai-dict-confusable-ai-list {
     display: flex;
     flex-direction: column;
@@ -1811,4 +1890,63 @@ body:not(.ai-dict-mobile-active) #ai-dictionary-panel-toggle {
 .ai-dict-fetch-ai-btn i {
     font-size: 12px;
 }
+
+/* ==================== Trend Chart Styles ==================== */
+.ai-dict-stats-chart-section {
+    padding: 15px 20px;
+    background-color: rgba(102, 126, 234, 0.03);
+    border-bottom: 1px solid var(--SmartThemeBorderColor, #444);
+}
+
+.ai-dict-stats-chart-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.95em;
+    font-weight: 500;
+    color: var(--SmartThemeBodyColor, #e5e5e5);
+    margin-bottom: 12px;
+}
+
+.ai-dict-stats-chart-title i {
+    color: #667eea;
+}
+
+.ai-dict-stats-chart-container {
+    background-color: var(--SmartThemeBlurTintColor, rgba(255, 255, 255, 0.02));
+    border: 1px solid var(--SmartThemeBorderColor, #444);
+    border-radius: 8px;
+    padding: 10px;
+    overflow: hidden;
+}
+
+.ai-dict-trend-chart {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.ai-dict-trend-chart text {
+    font-family: 'Noto Sans', sans-serif;
+}
+
+.ai-dict-chart-empty {
+    text-align: center;
+    padding: 30px;
+    color: var(--SmartThemeBodyColor, #999);
+    opacity: 0.7;
+    font-style: italic;
+}
+
+/* Hover effect for chart points */
+.ai-dict-chart-hover-area {
+    cursor: pointer;
+}
+
+.ai-dict-chart-hover-area:hover + circle,
+.ai-dict-trend-chart circle:hover {
+    r: 6;
+    filter: drop-shadow(0 0 4px rgba(102, 126, 234, 0.6));
+}
+
 

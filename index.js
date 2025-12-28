@@ -58,6 +58,7 @@ const defaultSettings = {
     highlightColor: '#e0a800', // 高亮字体颜色
     autoCollapseYoudao: false, // 是否自动折叠有道词典释义
     autoFetchAI: true, // 是否自动获取AI释义
+    fetchAIOnYoudaoExpand: true, // 折叠有道释义时自动获取AI（当AI释义为空时）
 };
 
 /** @type {Object} */
@@ -199,6 +200,16 @@ class SettingsUi {
             autoFetchAIInput.checked = settings.autoFetchAI;
             autoFetchAIInput.addEventListener('change', () => {
                 settings.autoFetchAI = autoFetchAIInput.checked;
+                saveSettings();
+            });
+        }
+
+        // Fetch AI on Youdao Expand
+        const fetchAIOnYoudaoExpandInput = this.dom.querySelector('#ai-dict-fetch-ai-on-youdao-expand');
+        if (fetchAIOnYoudaoExpandInput) {
+            fetchAIOnYoudaoExpandInput.checked = settings.fetchAIOnYoudaoExpand;
+            fetchAIOnYoudaoExpandInput.addEventListener('change', () => {
+                settings.fetchAIOnYoudaoExpand = fetchAIOnYoudaoExpandInput.checked;
                 saveSettings();
             });
         }
@@ -588,6 +599,164 @@ function groupWordsByCount(stats) {
 }
 
 /**
+ * Get daily lookup counts for trend chart
+ * @param {'week' | 'month' | 'all'} range
+ * @returns {Array<{date: string, count: number}>}
+ */
+function getDailyLookupCounts(range) {
+    const now = Date.now();
+    let days;
+
+    switch (range) {
+        case 'week':
+            days = 7;
+            break;
+        case 'month':
+            days = 30;
+            break;
+        case 'all':
+            days = 90; // Show last 90 days for 'all'
+            break;
+        default:
+            days = 7;
+    }
+
+    // Create a map for each day
+    const dailyCounts = {};
+    for (let i = days - 1; i >= 0; i--) {
+        const date = new Date(now - i * 24 * 60 * 60 * 1000);
+        const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
+        dailyCounts[dateStr] = 0;
+    }
+
+    // Count lookups per day
+    for (const data of Object.values(wordHistoryData)) {
+        const lookups = data.lookups || [];
+        for (const ts of lookups) {
+            const date = new Date(ts);
+            const dateStr = date.toISOString().split('T')[0];
+            if (dateStr in dailyCounts) {
+                dailyCounts[dateStr]++;
+            }
+        }
+    }
+
+    // Convert to array
+    return Object.entries(dailyCounts).map(([date, count]) => ({
+        date,
+        count,
+        displayDate: formatDateForChart(date)
+    }));
+}
+
+/**
+ * Format date for chart display
+ * @param {string} dateStr - YYYY-MM-DD format
+ * @returns {string}
+ */
+function formatDateForChart(dateStr) {
+    const date = new Date(dateStr);
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    return `${month}/${day}`;
+}
+
+/**
+ * Create SVG trend chart
+ * @param {Array<{date: string, count: number, displayDate: string}>} data
+ * @returns {string} SVG HTML
+ */
+function createTrendChart(data) {
+    if (!data || data.length === 0) {
+        return '<div class="ai-dict-chart-empty">暂无数据</div>';
+    }
+
+    const width = 520;
+    const height = 150;
+    const padding = { top: 20, right: 20, bottom: 35, left: 40 };
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
+
+    const maxCount = Math.max(...data.map(d => d.count), 1);
+    const minCount = 0;
+
+    // Calculate points
+    const points = data.map((d, i) => ({
+        x: padding.left + (i / (data.length - 1 || 1)) * chartWidth,
+        y: padding.top + chartHeight - ((d.count - minCount) / (maxCount - minCount || 1)) * chartHeight,
+        count: d.count,
+        date: d.displayDate
+    }));
+
+    // Create path for the line
+    const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+
+    // Create path for the area fill
+    const areaPath = `${linePath} L ${points[points.length - 1].x} ${padding.top + chartHeight} L ${points[0].x} ${padding.top + chartHeight} Z`;
+
+    // Generate Y-axis labels (5 levels)
+    const yLabels = [];
+    for (let i = 0; i <= 4; i++) {
+        const value = Math.round(minCount + (maxCount - minCount) * (i / 4));
+        const y = padding.top + chartHeight - (chartHeight * i / 4);
+        yLabels.push({ value, y });
+    }
+
+    // Generate X-axis labels (show every few days depending on data length)
+    const xLabelInterval = data.length <= 7 ? 1 : data.length <= 14 ? 2 : Math.ceil(data.length / 7);
+    const xLabels = points.filter((_, i) => i % xLabelInterval === 0 || i === points.length - 1);
+
+    return `
+        <svg class="ai-dict-trend-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet">
+            <defs>
+                <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" style="stop-color:#667eea;stop-opacity:0.3" />
+                    <stop offset="100%" style="stop-color:#667eea;stop-opacity:0.05" />
+                </linearGradient>
+            </defs>
+
+            <!-- Grid lines -->
+            ${yLabels.map(l => `
+                <line x1="${padding.left}" y1="${l.y}" x2="${width - padding.right}" y2="${l.y}"
+                      stroke="var(--SmartThemeBorderColor, #444)" stroke-width="0.5" stroke-dasharray="3,3" opacity="0.5"/>
+            `).join('')}
+
+            <!-- Y-axis labels -->
+            ${yLabels.map(l => `
+                <text x="${padding.left - 8}" y="${l.y + 4}" text-anchor="end"
+                      fill="var(--SmartThemeBodyColor, #999)" font-size="10">${l.value}</text>
+            `).join('')}
+
+            <!-- X-axis labels -->
+            ${xLabels.map(p => `
+                <text x="${p.x}" y="${height - 8}" text-anchor="middle"
+                      fill="var(--SmartThemeBodyColor, #999)" font-size="10">${p.date}</text>
+            `).join('')}
+
+            <!-- Area fill -->
+            <path d="${areaPath}" fill="url(#areaGradient)" />
+
+            <!-- Line -->
+            <path d="${linePath}" fill="none" stroke="#667eea" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+            <!-- Data points -->
+            ${points.map(p => `
+                <circle cx="${p.x}" cy="${p.y}" r="4" fill="#667eea" stroke="#fff" stroke-width="2">
+                    <title>${p.date}: ${p.count}次</title>
+                </circle>
+            `).join('')}
+
+            <!-- Hover areas for tooltips -->
+            ${points.map(p => `
+                <circle cx="${p.x}" cy="${p.y}" r="12" fill="transparent" class="ai-dict-chart-hover-area">
+                    <title>${p.date}: ${p.count}次</title>
+                </circle>
+            `).join('')}
+        </svg>
+    `;
+}
+
+/**
  * Create and show the statistics panel
  */
 function showStatisticsPanel() {
@@ -618,6 +787,11 @@ function createStatisticsPanelContent(range) {
     const groups = groupWordsByCount(stats);
     const totalWords = stats.length;
     const totalLookups = stats.reduce((sum, item) => sum + item.count, 0);
+
+    // Get daily data for trend chart (not for 'today' since it's just one day)
+    const chartRange = range === 'today' ? 'week' : range;
+    const dailyData = getDailyLookupCounts(chartRange);
+    const trendChartHtml = createTrendChart(dailyData);
 
     let groupsHtml = '';
     for (const [key, group] of Object.entries(groups)) {
@@ -667,6 +841,15 @@ function createStatisticsPanelContent(range) {
                 <div class="ai-dict-stats-summary-item">
                     <span class="ai-dict-stats-summary-value">${totalLookups}</span>
                     <span class="ai-dict-stats-summary-label">查词次数</span>
+                </div>
+            </div>
+            <div class="ai-dict-stats-chart-section">
+                <div class="ai-dict-stats-chart-title">
+                    <i class="fa-solid fa-chart-line"></i>
+                    每日查词趋势 ${range === 'today' ? '(近7天)' : range === 'week' ? '(本周)' : range === 'month' ? '(近30天)' : '(近90天)'}
+                </div>
+                <div class="ai-dict-stats-chart-container">
+                    ${trendChartHtml}
                 </div>
             </div>
             <div class="ai-dict-stats-content">
@@ -752,22 +935,86 @@ function markSelectionInContext(context, selected) {
 
     // If we have range info, try to find the exact position
     if (selectionRangeInfo && selectedParentElement) {
-        const fullText = selectedParentElement.textContent || '';
-        const beforeText = fullText.substring(0, selectionRangeInfo.startOffset);
-        const afterText = fullText.substring(selectionRangeInfo.endOffset);
+        const parentText = selectedParentElement.textContent || '';
 
-        // Find this pattern in the context
-        const pattern = beforeText.slice(-30) + selected + afterText.slice(0, 30);
-        const patternIndex = context.indexOf(pattern.trim());
+        // First, find where the parent element's text appears in the full context
+        // The context may have multiple paragraphs joined by \n\n
+        const parentTextTrimmed = parentText.trim();
+        const parentIndexInContext = context.indexOf(parentTextTrimmed);
 
-        if (patternIndex !== -1) {
-            // Found the exact location, mark it
-            const beforePart = beforeText.slice(-30);
-            const afterPart = afterText.slice(0, 30);
-            const searchStart = context.indexOf(beforePart);
-            if (searchStart !== -1) {
-                const selectStart = searchStart + beforePart.length;
+        if (parentIndexInContext !== -1) {
+            // Calculate the absolute position of the selected word in the full context
+            // selectionRangeInfo.startOffset is relative to parentText
+            // But parentText might have leading whitespace that was trimmed
+
+            // Find leading whitespace length difference
+            const leadingWhitespace = parentText.length - parentText.trimStart().length;
+            const adjustedOffset = selectionRangeInfo.startOffset - leadingWhitespace;
+
+            if (adjustedOffset >= 0) {
+                const absolutePosition = parentIndexInContext + adjustedOffset;
+
+                // Verify the word at this position matches
+                const wordAtPosition = context.substring(absolutePosition, absolutePosition + selected.length);
+
+                if (wordAtPosition === selected) {
+                    return context.substring(0, absolutePosition) + marker + context.substring(absolutePosition + selected.length);
+                }
+            }
+        }
+
+        // Fallback: Use surrounding text pattern matching
+        const beforeTextInParagraph = parentText.substring(0, selectionRangeInfo.startOffset);
+        const afterTextInParagraph = parentText.substring(selectionRangeInfo.endOffset);
+
+        // Try different window sizes for pattern matching
+        for (let windowSize = 30; windowSize >= 5; windowSize -= 5) {
+            const beforePattern = beforeTextInParagraph.slice(-windowSize);
+            const afterPattern = afterTextInParagraph.slice(0, windowSize);
+
+            if (beforePattern.length === 0 && afterPattern.length === 0) continue;
+
+            const uniquePattern = beforePattern + selected + afterPattern;
+            const patternIndex = context.indexOf(uniquePattern);
+
+            if (patternIndex !== -1) {
+                const selectStart = patternIndex + beforePattern.length;
                 return context.substring(0, selectStart) + marker + context.substring(selectStart + selected.length);
+            }
+        }
+    }
+
+    // Alternative approach: use selectedContext (single paragraph) to locate in full context
+    if (selectedParentElement && selectedContext) {
+        const parentText = selectedParentElement.textContent || '';
+        const parentTextTrimmed = parentText.trim();
+
+        // Find the paragraph in the full context
+        const parentIndexInContext = context.indexOf(parentTextTrimmed);
+
+        if (parentIndexInContext !== -1) {
+            // Find all occurrences of the selected word within this paragraph's range in context
+            const paragraphEndInContext = parentIndexInContext + parentTextTrimmed.length;
+
+            // Search for the word only within this paragraph's bounds
+            let searchStart = parentIndexInContext;
+            let foundPositions = [];
+
+            while (searchStart < paragraphEndInContext) {
+                const pos = context.indexOf(selected, searchStart);
+                if (pos === -1 || pos >= paragraphEndInContext) break;
+                foundPositions.push(pos);
+                searchStart = pos + 1;
+            }
+
+            if (foundPositions.length === 1) {
+                // Only one occurrence in this paragraph - use it
+                return context.substring(0, foundPositions[0]) + marker + context.substring(foundPositions[0] + selected.length);
+            } else if (foundPositions.length > 1) {
+                // Multiple occurrences - need to use selectedContext to narrow down
+                // selectedContext should be the same as parentTextTrimmed
+                // Just mark the first one in this paragraph (better than marking in wrong paragraph)
+                return context.substring(0, foundPositions[0]) + marker + context.substring(foundPositions[0] + selected.length);
             }
         }
     }
@@ -821,15 +1068,29 @@ async function performDictionaryLookup() {
     // Remove icon if present
     hideIcon();
 
+    // Save selection range info before clearing selection
+    // (clearing selection triggers selectionchange which would reset selectionRangeInfo)
+    const savedSelectionRangeInfo = selectionRangeInfo;
+    const savedSelectedParentElement = selectedParentElement;
+
     // Clear text selection
     if (window.getSelection) {
         window.getSelection().removeAllRanges();
     }
 
+    // Restore the saved values after selection is cleared
+    selectionRangeInfo = savedSelectionRangeInfo;
+    selectedParentElement = savedSelectedParentElement;
+
     if (!selectedText.trim()) {
         showPanel('No word selected', 'Please select a word on the page first.', 'error');
         return;
     }
+
+    // Check if the selected text is a phrase or sentence (not a single word)
+    const isPhrase = !isSingleWord(selectedText);
+    // Auto fetch AI if: setting is enabled OR it's a phrase/sentence
+    const shouldAutoFetchAI = settings.autoFetchAI || isPhrase;
 
     try {
         // Show loading state and ensure panel is expanded
@@ -845,7 +1106,8 @@ async function performDictionaryLookup() {
         saveWordHistory(selectedText, selectedContext);
 
         // Show panel immediately with loading states for both sections
-        const initialHtmlContent = createMergedContent(selectedText, null);
+        // Pass shouldAutoFetchAI to createMergedContent
+        const initialHtmlContent = createMergedContent(selectedText, null, shouldAutoFetchAI);
         showPanelHtml(`${selectedText}`, initialHtmlContent, 'success');
 
         // Clear chat history for new word
@@ -867,20 +1129,23 @@ async function performDictionaryLookup() {
         // Bind word history events
         bindWordHistoryEvents(selectedText);
 
-        // Bind manual AI fetch button if auto fetch is disabled
-        if (!settings.autoFetchAI) {
+        // Bind manual AI fetch button if auto fetch is disabled and it's a single word
+        if (!shouldAutoFetchAI) {
             bindManualAIFetchButton(selectedText);
         }
 
-        // Start Youdao lookup
-        const youdaoPromise = fetchYoudaoDictionary(selectedText).catch(error => {
-            console.warn('Youdao dictionary fetch failed:', error);
-            return null;
-        });
+        // Start Youdao lookup (only for single words)
+        let youdaoPromise = Promise.resolve(null);
+        if (!isPhrase) {
+            youdaoPromise = fetchYoudaoDictionary(selectedText).catch(error => {
+                console.warn('Youdao dictionary fetch failed:', error);
+                return null;
+            });
+        }
 
-        // Only start AI lookup if auto fetch is enabled
+        // Start AI lookup if should auto fetch
         let aiPromise = Promise.resolve();
-        if (settings.autoFetchAI) {
+        if (shouldAutoFetchAI) {
             aiPromise = fetchAIDefinition(selectedText).catch(error => {
                 console.error('AI definition fetch error:', error);
                 const aiContentElement = document.getElementById('ai-definition-content');
@@ -897,7 +1162,7 @@ async function performDictionaryLookup() {
         }
 
         // Wait for AI to complete (it updates UI via streaming) if auto fetch is enabled
-        if (settings.autoFetchAI) {
+        if (shouldAutoFetchAI) {
             await aiPromise;
         }
 
@@ -932,6 +1197,30 @@ function bindManualAIFetchButton(word) {
     };
 
     aiContentElement.addEventListener('click', handleClick);
+}
+
+/**
+ * Trigger AI fetch if the AI content area is still empty/clickable
+ * Used when collapsing Youdao definitions with fetchAIOnYoudaoExpand enabled
+ */
+function triggerAIFetchIfEmpty() {
+    const aiContentElement = document.getElementById('ai-definition-content');
+    if (!aiContentElement) return;
+
+    // Check if AI content is still in "click to fetch" state
+    if (aiContentElement.classList.contains('ai-dict-clickable')) {
+        // Remove clickable class
+        aiContentElement.classList.remove('ai-dict-clickable');
+
+        // Show loading state
+        aiContentElement.innerHTML = '<p class="ai-dict-loading-text">正在获取 AI 定义...</p>';
+
+        // Fetch AI definition
+        fetchAIDefinition(currentWord).catch(error => {
+            console.error('AI definition fetch error:', error);
+            aiContentElement.innerHTML = '<p class="ai-dict-error-text">无法获取 AI 定义，请稍后重试。</p>';
+        });
+    }
 }
 
 // Cache for proxy availability check
@@ -1588,20 +1877,72 @@ async function performConfusableLookup(word) {
             const parsed = parseConfusableResponse(fullResponse);
             if (parsed && parsed.length > 0) {
                 displayParsedConfusables(parsed, word, contentElement, fullResponse);
+            } else {
+                // Parsing failed, show error with refresh button
+                displayConfusableParseError(word, fullResponse, contentElement);
             }
         }
 
         // Update button to show completion
         if (btn) {
             btn.innerHTML = '<i class="fa-solid fa-check"></i> <span>形近词查找完成</span>';
+            // Keep button enabled for re-lookup
+            btn.disabled = false;
         }
     } catch (error) {
         console.error('Confusable lookup error:', error);
-        contentElement.innerHTML = '<p class="ai-dict-error-text">无法获取形近词，请稍后重试。</p>';
+        contentElement.innerHTML = `
+            <div class="ai-dict-confusable-error-container">
+                <p class="ai-dict-error-text">无法获取形近词，请稍后重试。</p>
+                <button class="ai-dict-confusable-refresh-btn" title="重新获取" data-word="${escapeHtml(word)}">
+                    <i class="fa-solid fa-rotate"></i> 重试
+                </button>
+            </div>
+        `;
+        bindConfusableRefreshButton(contentElement, word);
         if (btn) {
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-shuffle"></i> <span>重试形近词</span>';
         }
+    }
+}
+
+/**
+ * Display error when confusable parsing fails
+ * @param {string} word The word being looked up
+ * @param {string} response The original AI response
+ * @param {HTMLElement} contentElement Element to display content
+ */
+function displayConfusableParseError(word, response, contentElement) {
+    contentElement.innerHTML = `
+        <div class="ai-dict-confusable-parse-error">
+            <div class="ai-dict-confusable-ai-title-row">
+                <span class="ai-dict-confusable-ai-title">
+                    <i class="fa-solid fa-triangle-exclamation"></i> AI 返回格式有误
+                </span>
+                <button class="ai-dict-confusable-refresh-btn" title="重新获取" data-word="${escapeHtml(word)}">
+                    <i class="fa-solid fa-rotate"></i>
+                </button>
+            </div>
+            <div class="ai-dict-confusable-raw-response">
+                ${escapeHtml(response).replace(/\n/g, '<br>')}
+            </div>
+        </div>
+    `;
+    bindConfusableRefreshButton(contentElement, word);
+}
+
+/**
+ * Bind refresh button event in confusable content
+ * @param {HTMLElement} contentElement The content element
+ * @param {string} word The word to refresh
+ */
+function bindConfusableRefreshButton(contentElement, word) {
+    const refreshBtn = contentElement.querySelector('.ai-dict-confusable-refresh-btn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            performConfusableLookup(word);
+        });
     }
 }
 
@@ -1683,7 +2024,12 @@ function displayParsedConfusables(confusables, parentWord, contentElement, origi
     const savedWords = savedConfusables.map(c => c.word.toLowerCase());
 
     let html = `<div class="ai-dict-confusable-ai-result">`;
-    html += `<div class="ai-dict-confusable-ai-title">AI 生成的形近词：</div>`;
+    html += `<div class="ai-dict-confusable-ai-title-row">
+        <span class="ai-dict-confusable-ai-title">AI 生成的形近词：</span>
+        <button class="ai-dict-confusable-refresh-btn" title="重新获取" data-word="${escapeHtml(parentWord)}">
+            <i class="fa-solid fa-rotate"></i>
+        </button>
+    </div>`;
     html += `<div class="ai-dict-confusable-ai-list">`;
 
     for (const item of confusables) {
@@ -1710,6 +2056,15 @@ function displayParsedConfusables(confusables, parentWord, contentElement, origi
 
     // Bind save button events
     bindConfusableSaveButtons(parentWord);
+
+    // Bind refresh button event
+    const refreshBtn = contentElement.querySelector('.ai-dict-confusable-refresh-btn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            const word = refreshBtn.dataset.word;
+            performConfusableLookup(word);
+        });
+    }
 }
 
 /**
@@ -2425,7 +2780,7 @@ async function fetchWithStreaming(messages, aiContentElement) {
     }
 }
 
-function createMergedContent(word, youdaoResults) {
+function createMergedContent(word, youdaoResults, autoFetchAI = settings.autoFetchAI) {
     const collapsibleId = `youdao-definitions-${Date.now()}`;
     const promptCollapsibleId = `prompt-view-${Date.now()}`;
     const historyCollapsibleId = `word-history-${Date.now()}`;
@@ -2545,8 +2900,8 @@ function createMergedContent(word, youdaoResults) {
 
             <!-- AI Definition section -->
             <div class="ai-dict-ai-section">
-                <div id="ai-definition-content" class="ai-dict-ai-content${!settings.autoFetchAI ? ' ai-dict-clickable' : ''}">
-                    ${settings.autoFetchAI
+                <div id="ai-definition-content" class="ai-dict-ai-content${!autoFetchAI ? ' ai-dict-clickable' : ''}">
+                    ${autoFetchAI
                         ? '<p class="ai-dict-loading-text">正在获取 AI 定义...</p>'
                         : '<p class="ai-dict-no-ai-text"><i class="fa-solid fa-hand-pointer"></i> 点击获取 AI 释义</p>'
                     }
@@ -2821,10 +3176,17 @@ function updateYoudaoSection(word, youdaoResults) {
             if (targetId) {
                 const targetElement = document.getElementById(targetId);
                 if (targetElement) {
+                    const wasExpanded = targetElement.classList.contains('expanded');
                     targetElement.classList.toggle('expanded');
                     const icon = header.querySelector('i');
                     if (icon) {
                         icon.classList.toggle('expanded');
+                    }
+
+                    // Check if this is a Youdao definitions header being collapsed
+                    // and if we should auto-fetch AI
+                    if (wasExpanded && settings.fetchAIOnYoudaoExpand && targetId.startsWith('youdao-definitions-')) {
+                        triggerAIFetchIfEmpty();
                     }
                 }
             }
@@ -3274,10 +3636,17 @@ function showPanelHtml(title, htmlContent, type = 'info') {
                 if (targetId) {
                     const targetElement = document.getElementById(targetId);
                     if (targetElement) {
+                        const wasExpanded = targetElement.classList.contains('expanded');
                         targetElement.classList.toggle('expanded');
                         const icon = header.querySelector('i');
                         if (icon) {
                             icon.classList.toggle('expanded');
+                        }
+
+                        // Check if this is a Youdao definitions header being collapsed
+                        // and if we should auto-fetch AI
+                        if (wasExpanded && settings.fetchAIOnYoudaoExpand && targetId.startsWith('youdao-definitions-')) {
+                            triggerAIFetchIfEmpty();
                         }
                     }
                 }
@@ -3426,22 +3795,23 @@ function handleTouchEnd(event) {
             selectedParentElement = element;
 
             // Save selection range info for marking position in context
+            selectionRangeInfo = null; // Reset first
             try {
                 const range = selected.getRangeAt(0);
+                // Calculate offset relative to the parent element using Range API
                 if (element && range.startContainer) {
-                    const treeWalker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
-                    let offset = 0;
-                    let node;
-                    while ((node = treeWalker.nextNode())) {
-                        if (node === range.startContainer) {
-                            selectionRangeInfo = {
-                                startOffset: offset + range.startOffset,
-                                endOffset: offset + range.startOffset + selectionString.length
-                            };
-                            break;
-                        }
-                        offset += node.textContent.length;
-                    }
+                    // Create a range from the start of the parent element to the selection start
+                    const preSelectionRange = document.createRange();
+                    preSelectionRange.selectNodeContents(element);
+                    preSelectionRange.setEnd(range.startContainer, range.startOffset);
+
+                    // The length of this range's text content is the offset
+                    const startOffset = preSelectionRange.toString().length;
+
+                    selectionRangeInfo = {
+                        startOffset: startOffset,
+                        endOffset: startOffset + selectionString.length
+                    };
                 }
             } catch (e) {
                 selectionRangeInfo = null;
@@ -3524,23 +3894,23 @@ function handleTextSelection(event) {
         selectedParentElement = element; // Store the parent element for context extraction
 
         // Save selection range info for marking position in context
+        selectionRangeInfo = null; // Reset first
         try {
             const range = selected.getRangeAt(0);
-            // Calculate offset relative to the parent element
+            // Calculate offset relative to the parent element using Range API
             if (element && range.startContainer) {
-                const treeWalker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
-                let offset = 0;
-                let node;
-                while ((node = treeWalker.nextNode())) {
-                    if (node === range.startContainer) {
-                        selectionRangeInfo = {
-                            startOffset: offset + range.startOffset,
-                            endOffset: offset + range.startOffset + selectionString.length
-                        };
-                        break;
-                    }
-                    offset += node.textContent.length;
-                }
+                // Create a range from the start of the parent element to the selection start
+                const preSelectionRange = document.createRange();
+                preSelectionRange.selectNodeContents(element);
+                preSelectionRange.setEnd(range.startContainer, range.startOffset);
+
+                // The length of this range's text content is the offset
+                const startOffset = preSelectionRange.toString().length;
+
+                selectionRangeInfo = {
+                    startOffset: startOffset,
+                    endOffset: startOffset + selectionString.length
+                };
             }
         } catch (e) {
             selectionRangeInfo = null;
