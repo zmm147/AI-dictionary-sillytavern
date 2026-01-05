@@ -223,8 +223,47 @@ body:not(.ai-dict-mobile-active) #ai-dictionary-panel-toggle {
     letter-spacing: 0.5px;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     flex: 1;
+}
+
+.ai-dict-title-word {
+    font-weight: 700;
+}
+
+.ai-dict-title-count {
+    font-size: 0.75em;
+    font-weight: 400;
+    color: var(--SmartThemeQuoteColor, #888);
+    background: rgba(128, 128, 128, 0.2);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.ai-dict-review-icon {
+    background: transparent;
+    border: none;
+    color: var(--SmartThemeQuoteColor, #888);
+    cursor: pointer;
+    padding: 4px;
+    font-size: 0.9em;
+    transition: color 0.2s, transform 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ai-dict-review-icon:hover {
+    color: var(--SmartThemeBodyColor, #fff);
+    transform: scale(1.1);
+}
+
+.ai-dict-review-icon.active {
+    color: #f0ad4e;
+}
+
+.ai-dict-review-icon.active:hover {
+    color: #ec971f;
 }
 
 .ai-dict-header-actions {
@@ -1948,5 +1987,904 @@ body:not(.ai-dict-mobile-active) #ai-dictionary-panel-toggle {
     r: 6;
     filter: drop-shadow(0 0 4px rgba(102, 126, 234, 0.6));
 }
+
+/* ===== Farm Game Styles ===== */
+
+/* Farm Game Panel (Popup) */
+.ai-dict-farm-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    backdrop-filter: blur(3px);
+}
+
+.ai-dict-farm-panel-content {
+    background: var(--SmartThemeBlurTintColor, #1a1a2e);
+    border-radius: 16px;
+    padding: 20px;
+    max-width: 400px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--SmartThemeBorderColor, #333);
+}
+
+.ai-dict-farm-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--SmartThemeBorderColor, #333);
+}
+
+.ai-dict-farm-panel-header > span {
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--SmartThemeBodyColor, #fff);
+}
+
+.ai-dict-farm-panel-btns {
+    display: flex;
+    gap: 8px;
+}
+
+.ai-dict-farm-panel-btns .menu_button {
+    padding: 6px 10px;
+    font-size: 14px;
+}
+
+.farm-game {
+    padding: 15px;
+    background: linear-gradient(135deg, #2d5016 0%, #1a3009 100%);
+    border-radius: 12px;
+    margin: 10px 0;
+}
+
+.farm-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+}
+
+.farm-coins {
+    font-size: 18px;
+    font-weight: bold;
+    color: #ffd700;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.farm-harvested {
+    font-size: 14px;
+    color: #90ee90;
+}
+
+.farm-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.farm-plot {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #8b4513;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 2px solid #5d3a1a;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.farm-plot:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+.farm-plot.empty {
+    background: linear-gradient(135deg, #8b4513 0%, #654321 100%);
+}
+
+.farm-plot.growing {
+    background: linear-gradient(135deg, #654321 0%, #4a3520 100%);
+    animation: growing-pulse 2s infinite;
+}
+
+.farm-plot.ripe {
+    background: linear-gradient(135deg, #228b22 0%, #006400 100%);
+    border-color: #32cd32;
+    animation: ripe-glow 1s infinite;
+}
+
+@keyframes growing-pulse {
+    0%, 100% { box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3); }
+    50% { box-shadow: inset 0 2px 8px rgba(144, 238, 144, 0.3); }
+}
+
+@keyframes ripe-glow {
+    0%, 100% { box-shadow: 0 0 5px #32cd32; }
+    50% { box-shadow: 0 0 15px #32cd32, 0 0 25px #228b22; }
+}
+
+.plot-emoji {
+    font-size: 28px;
+    user-select: none;
+}
+
+.farm-shop {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+.farm-shop-title {
+    font-size: 14px;
+    color: #fff;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.farm-seeds {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+}
+
+.farm-seed {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 2px solid transparent;
+}
+
+.farm-seed:hover:not(.disabled) {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+}
+
+.farm-seed.selected {
+    border-color: #ffd700;
+    background: rgba(255, 215, 0, 0.2);
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+}
+
+.farm-seed.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.seed-emoji {
+    font-size: 24px;
+}
+
+.seed-price {
+    font-size: 11px;
+    color: #ffd700;
+    margin-top: 4px;
+}
+
+.farm-tips {
+    text-align: center;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.7);
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+}
+
+/* Farm 状态栏 */
+.farm-status {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+    margin-bottom: 10px;
+    font-size: 13px;
+}
+
+.farm-selected-seed {
+    color: #90ee90;
+}
+
+.farm-no-seed {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.farm-boost-badge {
+    background: linear-gradient(135deg, #ff6b35, #f7931e);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    color: #fff;
+    font-weight: bold;
+}
+
+/* Farm 操作按钮 */
+.farm-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.farm-action-btn {
+    flex: 1;
+    padding: 10px !important;
+    font-size: 13px !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+
+/* Farm 商店页面 */
+.farm-shop-page {
+    padding: 10px;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border-radius: 12px;
+    height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+}
+
+.farm-shop-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.farm-back-btn {
+    padding: 6px 12px !important;
+    font-size: 13px !important;
+}
+
+.farm-shop-coins {
+    font-size: 16px;
+    color: #ffd700;
+    font-weight: bold;
+}
+
+.farm-shop-page .farm-shop-title {
+    text-align: center;
+    font-size: 16px;
+    color: #fff;
+    margin-bottom: 12px;
+}
+
+.farm-shop-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.farm-shop-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 2px solid transparent;
+}
+
+.farm-shop-item:hover:not(.disabled) {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.farm-shop-item.selected {
+    border-color: #ffd700;
+    background: rgba(255, 215, 0, 0.15);
+}
+
+.farm-shop-item.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.shop-item-emoji {
+    font-size: 28px;
+}
+
+.shop-item-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.shop-item-name {
+    font-size: 14px;
+    color: #fff;
+    font-weight: bold;
+}
+
+.shop-item-detail {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.shop-item-price {
+    font-size: 14px;
+    color: #ffd700;
+    font-weight: bold;
+}
+
+.farm-harvest-msg {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 24px;
+    font-weight: bold;
+    color: #ffd700;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+    animation: harvest-float 1s ease-out forwards;
+    pointer-events: none;
+}
+
+@keyframes harvest-float {
+    0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -100%) scale(1.5); }
+}
+
+/* ===== Flashcard Styles ===== */
+
+.flashcard-container {
+    padding: 15px;
+}
+
+.flashcard-progress {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 15px;
+    font-size: 14px;
+    color: var(--SmartThemeBodyColor, #ccc);
+}
+
+.flashcard-card {
+    position: relative;
+    width: 100%;
+    height: 200px;
+    perspective: 1000px;
+    cursor: pointer;
+    margin-bottom: 15px;
+}
+
+.flashcard-front,
+.flashcard-back {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    box-sizing: border-box;
+    transition: transform 0.5s ease;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.flashcard-front {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.flashcard-back {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    color: white;
+    transform: rotateY(180deg);
+}
+
+.flashcard-card.flipped .flashcard-front {
+    transform: rotateY(180deg);
+}
+
+.flashcard-card.flipped .flashcard-back {
+    transform: rotateY(0deg);
+}
+
+.flashcard-word {
+    font-size: 32px;
+    font-weight: bold;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+    margin-bottom: 10px;
+}
+
+.flashcard-word-small {
+    font-size: 20px;
+    font-weight: bold;
+    margin-bottom: 15px;
+    opacity: 0.9;
+}
+
+.flashcard-hint {
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+.flashcard-context {
+    font-size: 14px;
+    line-height: 1.5;
+    text-align: center;
+    max-height: 120px;
+    overflow-y: auto;
+    padding: 0 10px;
+}
+
+.flashcard-lookup {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 15px;
+}
+
+.flashcard-lookup-btn {
+    padding: 8px 16px !important;
+    font-size: 14px !important;
+    display: inline-flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 6px !important;
+    white-space: nowrap !important;
+}
+
+.flashcard-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+}
+
+.flashcard-btn {
+    flex: 1;
+    max-width: 150px;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+}
+
+.flashcard-btn i {
+    font-size: 18px;
+}
+
+.flashcard-btn-forgot {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
+    color: white;
+}
+
+.flashcard-btn-forgot:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 15px rgba(238, 90, 90, 0.4);
+}
+
+.flashcard-btn-remember {
+    background: linear-gradient(135deg, #51cf66 0%, #40c057 100%);
+    color: white;
+}
+
+.flashcard-btn-remember:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 15px rgba(64, 192, 87, 0.4);
+}
+
+.flashcard-empty {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.flashcard-empty-icon {
+    font-size: 60px;
+    margin-bottom: 15px;
+}
+
+.flashcard-empty-text {
+    font-size: 18px;
+    color: var(--SmartThemeBodyColor, #fff);
+    margin-bottom: 10px;
+}
+
+.flashcard-empty-stats {
+    font-size: 14px;
+    color: var(--SmartThemeBodyColor, #ccc);
+    opacity: 0.7;
+}
+
+/* Farm game flashcard button */
+.farm-flashcard-section {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.farm-flashcard-btn {
+    width: 100%;
+    padding: 12px !important;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    border: none !important;
+    color: white !important;
+    font-size: 14px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+}
+
+.farm-flashcard-btn:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.farm-boost-info {
+    text-align: center;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.7);
+    margin-top: 8px;
+}
+
+.farm-boost-active {
+    background: rgba(255, 215, 0, 0.2);
+    border-radius: 6px;
+    padding: 8px;
+    margin-top: 10px;
+    text-align: center;
+    color: #ffd700;
+    font-size: 13px;
+}
+
+/* Flashcard panel in farm */
+.flashcard-panel-content {
+    background: var(--SmartThemeBlurTintColor, #1a1a2e);
+}
+
+.flashcard-back-btn {
+    margin-bottom: 15px;
+    display: inline-flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 6px !important;
+    white-space: nowrap !important;
+}
+
+/* ==================== Mobile Responsive - Farm & Flashcard ==================== */
+@media screen and (max-width: 768px) {
+    /* Farm Panel - 移动端优化，确保一屏显示 */
+    .ai-dict-farm-panel {
+        align-items: center;
+        justify-content: center;
+        padding: 8px;
+        height: 100%;
+        height: 100dvh;
+        box-sizing: border-box;
+    }
+
+    .ai-dict-farm-panel-content {
+        width: 100%;
+        max-width: 100%;
+        max-height: calc(100% - 16px);
+        max-height: calc(100dvh - 16px);
+        border-radius: 10px;
+        padding: 8px;
+        box-sizing: border-box;
+        overflow: hidden; /* 不允许滚动，强制一屏显示 */
+        display: flex;
+        flex-direction: column;
+    }
+
+    .ai-dict-farm-panel-header {
+        margin-bottom: 6px;
+        padding-bottom: 6px;
+        flex-shrink: 0;
+    }
+
+    .ai-dict-farm-panel-header > span {
+        font-size: 14px;
+    }
+
+    #farm-game-container {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Farm Game - 紧凑布局 */
+    .farm-game {
+        padding: 8px;
+        margin: 0;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .farm-header {
+        padding: 4px 8px;
+        margin-bottom: 6px;
+        flex-shrink: 0;
+    }
+
+    .farm-coins {
+        font-size: 14px;
+    }
+
+    .farm-harvested {
+        font-size: 12px;
+    }
+
+    /* Farm Grid - 自适应大小 */
+    .farm-grid {
+        gap: 4px;
+        margin-bottom: 6px;
+        flex: 1;
+        min-height: 0;
+        max-height: 45vh; /* 增大格子区域 */
+    }
+
+    .farm-plot {
+        border-radius: 5px;
+        border-width: 1px;
+    }
+
+    .farm-plot:hover {
+        transform: none;
+    }
+
+    .farm-plot:active {
+        transform: scale(0.95);
+    }
+
+    .plot-emoji {
+        font-size: min(6vw, 24px);
+    }
+
+    /* Farm 状态栏 - 移动端 */
+    .farm-status {
+        padding: 6px;
+        margin-bottom: 6px;
+        font-size: 12px;
+        flex-shrink: 0;
+    }
+
+    .farm-boost-badge {
+        font-size: 10px;
+        padding: 2px 6px;
+    }
+
+    /* Farm 操作按钮 - 移动端 */
+    .farm-actions {
+        gap: 8px;
+        flex-shrink: 0;
+    }
+
+    .farm-action-btn {
+        padding: 8px !important;
+        font-size: 12px !important;
+    }
+
+    /* Farm 商店页面 - 移动端 */
+    .farm-shop-page {
+        padding: 8px;
+    }
+
+    .farm-shop-header {
+        margin-bottom: 8px;
+    }
+
+    .farm-back-btn {
+        padding: 5px 10px !important;
+        font-size: 12px !important;
+    }
+
+    .farm-shop-coins {
+        font-size: 14px;
+    }
+
+    .farm-shop-page .farm-shop-title {
+        font-size: 14px;
+        margin-bottom: 8px;
+    }
+
+    .farm-shop-list {
+        gap: 6px;
+    }
+
+    .farm-shop-item {
+        padding: 8px 10px;
+        gap: 10px;
+    }
+
+    .shop-item-emoji {
+        font-size: 24px;
+    }
+
+    .shop-item-name {
+        font-size: 13px;
+    }
+
+    .shop-item-detail {
+        font-size: 10px;
+    }
+
+    .shop-item-price {
+        font-size: 13px;
+    }
+
+    .farm-tips {
+        font-size: 10px;
+        padding: 4px;
+        flex-shrink: 0;
+    }
+
+    .farm-boost-active {
+        font-size: 10px;
+        padding: 4px;
+        margin-top: 4px;
+        flex-shrink: 0;
+    }
+
+    /* ===== Flashcard Mobile ===== */
+    .flashcard-container {
+        padding: 10px;
+    }
+
+    .flashcard-progress {
+        font-size: 12px;
+        margin-bottom: 10px;
+    }
+
+    .flashcard-card {
+        height: 180px;
+        margin-bottom: 10px;
+    }
+
+    .flashcard-front,
+    .flashcard-back {
+        padding: 15px;
+    }
+
+    .flashcard-word {
+        font-size: 24px;
+        margin-bottom: 8px;
+    }
+
+    .flashcard-word-small {
+        font-size: 16px;
+        margin-bottom: 10px;
+    }
+
+    .flashcard-hint {
+        font-size: 11px;
+    }
+
+    .flashcard-context {
+        font-size: 12px;
+        max-height: 80px;
+    }
+
+    .flashcard-lookup {
+        margin-bottom: 10px;
+    }
+
+    .flashcard-lookup-btn {
+        padding: 8px 16px !important;
+        font-size: 13px !important;
+    }
+
+    .flashcard-actions {
+        gap: 10px;
+    }
+
+    .flashcard-btn {
+        max-width: none;
+        flex: 1;
+        padding: 12px 10px;
+        font-size: 14px;
+        border-radius: 8px;
+    }
+
+    .flashcard-btn:hover {
+        transform: none;
+    }
+
+    .flashcard-btn:active {
+        transform: scale(0.98);
+    }
+
+    .flashcard-btn i {
+        font-size: 14px;
+    }
+
+    .flashcard-back-btn {
+        margin-bottom: 10px;
+        padding: 8px 12px !important;
+    }
+
+    .flashcard-empty {
+        padding: 20px 10px;
+    }
+
+    .flashcard-empty-icon {
+        font-size: 40px;
+        margin-bottom: 10px;
+    }
+
+    .flashcard-empty-text {
+        font-size: 14px;
+        margin-bottom: 6px;
+    }
+
+    .flashcard-empty-stats {
+        font-size: 12px;
+    }
+}
+
+/* 更小屏幕的额外适配 */
+@media screen and (max-width: 400px) {
+    .farm-grid {
+        gap: 4px;
+    }
+
+    .plot-emoji {
+        font-size: 18px;
+    }
+
+    .seed-emoji {
+        font-size: 16px;
+    }
+
+    .flashcard-word {
+        font-size: 20px;
+    }
+
+    .flashcard-card {
+        height: 160px;
+    }
+
+    .flashcard-btn {
+        padding: 10px 8px;
+        font-size: 13px;
+    }
+}
+
 
 

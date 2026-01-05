@@ -1,5 +1,5 @@
 import { extension_settings, getContext } from '../../../extensions.js';
-import { getRequestHeaders, eventSource, event_types, generateRaw, saveSettingsDebounced } from '../../../../script.js';
+import { getRequestHeaders, eventSource, event_types, generateRaw, saveSettingsDebounced, setExtensionPrompt, extension_prompt_types } from '../../../../script.js';
 import { oai_settings, chat_completion_sources, sendOpenAIRequest } from '../../../openai.js';
 
 const EXTENSION_NAME = 'ai-dictionary';
@@ -19,6 +19,12 @@ const EXTENSION_URL = getExtensionUrl();
 function isMobile() {
     const userAgent = navigator.userAgent || navigator.vendor || window.opera;
     return /android|ipad|iphone|ipod/i.test(userAgent.toLowerCase()) || window.innerWidth <= 800;
+}
+
+// Helper to detect Android device specifically
+function isAndroid() {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    return /android/i.test(userAgent.toLowerCase());
 }
 
 const defaultSettings = {
@@ -59,6 +65,9 @@ const defaultSettings = {
     autoCollapseYoudao: false, // 是否自动折叠有道词典释义
     autoFetchAI: true, // 是否自动获取AI释义
     fetchAIOnYoudaoExpand: true, // 折叠有道释义时自动获取AI（当AI释义为空时）
+    // 沉浸式复习设置
+    immersiveReview: true, // 是否开启沉浸式复习（默认开启）
+    reviewPrompt: `Naturally incorporate the following words into the narrative at least once, without making the story feel forced or awkward: [%words%]. If the current part of the story does not naturally fit these words, you may develop the scene to make their use plausible.`, // 复习提示词
 };
 
 /** @type {Object} */
@@ -278,6 +287,47 @@ class SettingsUi {
             });
         }
 
+        // Immersive Review Toggle
+        const immersiveReviewInput = this.dom.querySelector('#ai-dict-immersive-review');
+        const reviewPromptContainer = this.dom.querySelector('#ai-dict-review-prompt-container');
+        if (immersiveReviewInput) {
+            immersiveReviewInput.checked = settings.immersiveReview;
+            // 初始化时显示/隐藏 prompt container
+            if (reviewPromptContainer) {
+                reviewPromptContainer.style.display = settings.immersiveReview ? 'block' : 'none';
+            }
+            immersiveReviewInput.addEventListener('change', () => {
+                settings.immersiveReview = immersiveReviewInput.checked;
+                // 显示/隐藏 prompt container
+                if (reviewPromptContainer) {
+                    reviewPromptContainer.style.display = immersiveReviewInput.checked ? 'block' : 'none';
+                }
+                saveSettings();
+            });
+        }
+
+        // Review Prompt Textarea
+        const reviewPromptInput = this.dom.querySelector('#ai-dict-review-prompt');
+        if (reviewPromptInput) {
+            reviewPromptInput.value = settings.reviewPrompt || defaultSettings.reviewPrompt;
+            reviewPromptInput.addEventListener('input', () => {
+                settings.reviewPrompt = reviewPromptInput.value;
+                saveSettings();
+            });
+        }
+
+        const resetReviewPromptBtn = this.dom.querySelector('#ai-dict-reset-review-prompt');
+        if (resetReviewPromptBtn) {
+            resetReviewPromptBtn.addEventListener('click', () => {
+                const promptInput = this.dom.querySelector('#ai-dict-review-prompt');
+                if (promptInput) {
+                    promptInput.value = defaultSettings.reviewPrompt;
+                    settings.reviewPrompt = defaultSettings.reviewPrompt;
+                    saveSettings();
+                }
+            });
+        }
+
         // Reset Buttons for Prompts
         const resetSystemPromptBtn = this.dom.querySelector('#ai-dict-reset-system-prompt');
         if (resetSystemPromptBtn) {
@@ -312,6 +362,14 @@ class SettingsUi {
                     settings.deepStudyPrompt = defaultSettings.deepStudyPrompt;
                     saveSettings();
                 }
+            });
+        }
+
+        // Farm Game Button
+        const farmBtn = this.dom.querySelector('#ai-dict-farm-btn');
+        if (farmBtn) {
+            farmBtn.addEventListener('click', () => {
+                showFarmGamePanel();
             });
         }
     }
@@ -357,69 +415,655 @@ function saveSettings() {
 // Word history limits
 const WORD_HISTORY_MAX_CONTEXTS = 10;       // 每个单词最多保存多少条上下文
 const WORD_HISTORY_MAX_CONTEXT_LENGTH = 500; // 每条上下文最大字符数
-const WORD_HISTORY_FILE_NAME = 'ai-dictionary-word-history.json'; // 独立存储文件名
+
+// 艾宾浩斯复习间隔（天数）：1, 2, 4, 7, 15, 30
+const EBBINGHAUS_INTERVALS = [1, 2, 4, 7, 15, 30];
+const MAX_DAILY_REVIEW_WORDS = 20; // 每次最多复习20个单词
+
+// --- IndexedDB 数据库配置 ---
+const DB_NAME = 'ai-dictionary-db';
+const DB_VERSION = 1;
+const STORE_WORD_HISTORY = 'wordHistory';
+const STORE_REVIEW_PENDING = 'reviewPending';
+const STORE_REVIEW_PROGRESS = 'reviewProgress';
+const STORE_REVIEW_MASTERED = 'reviewMastered';
+const STORE_SESSION = 'sessionData';
+
+// --- JSON 备份文件名 ---
+const BACKUP_WORD_HISTORY_FILE = 'ai-dictionary-word-history.json';
+const BACKUP_REVIEW_DATA_FILE = 'ai-dictionary-review-data.json';
+
+/** @type {IDBDatabase|null} */
+let db = null;
 
 /** @type {Object} */
 let wordHistoryData = {}; // 内存中的查词记录缓存
 
+/** @type {Object} */
+let reviewData = {
+    pendingWords: [],
+    reviewingWords: {},
+    masteredWords: [],
+    currentSession: { words: [], lastUpdated: null }
+};
+
 /**
- * Load word history from file
- * @returns {Promise<Object>}
+ * 初始化 IndexedDB 数据库
  */
-async function loadWordHistoryFromFile() {
+function initDatabase() {
+    return new Promise((resolve, reject) => {
+        if (db) { resolve(db); return; }
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => { db = request.result; resolve(db); };
+        request.onupgradeneeded = (event) => {
+            const database = event.target.result;
+            if (!database.objectStoreNames.contains(STORE_WORD_HISTORY)) {
+                const ws = database.createObjectStore(STORE_WORD_HISTORY, { keyPath: 'word' });
+                ws.createIndex('count', 'count', { unique: false });
+            }
+            if (!database.objectStoreNames.contains(STORE_REVIEW_PENDING)) {
+                database.createObjectStore(STORE_REVIEW_PENDING, { keyPath: 'word' });
+            }
+            if (!database.objectStoreNames.contains(STORE_REVIEW_PROGRESS)) {
+                database.createObjectStore(STORE_REVIEW_PROGRESS, { keyPath: 'word' });
+            }
+            if (!database.objectStoreNames.contains(STORE_REVIEW_MASTERED)) {
+                database.createObjectStore(STORE_REVIEW_MASTERED, { keyPath: 'word' });
+            }
+            if (!database.objectStoreNames.contains(STORE_SESSION)) {
+                database.createObjectStore(STORE_SESSION, { keyPath: 'id' });
+            }
+        };
+    });
+}
+
+function dbGetAll(storeName) {
+    return new Promise((resolve, reject) => {
+        if (!db) { reject(new Error('DB not init')); return; }
+        const req = db.transaction(storeName, 'readonly').objectStore(storeName).getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+function dbGet(storeName, key) {
+    return new Promise((resolve, reject) => {
+        if (!db) { reject(new Error('DB not init')); return; }
+        const req = db.transaction(storeName, 'readonly').objectStore(storeName).get(key);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+function dbPut(storeName, data) {
+    return new Promise((resolve, reject) => {
+        if (!db) { reject(new Error('DB not init')); return; }
+        const req = db.transaction(storeName, 'readwrite').objectStore(storeName).put(data);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+    });
+}
+
+function dbDelete(storeName, key) {
+    return new Promise((resolve, reject) => {
+        if (!db) { reject(new Error('DB not init')); return; }
+        const req = db.transaction(storeName, 'readwrite').objectStore(storeName).delete(key);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+    });
+}
+
+function dbClear(storeName) {
+    return new Promise((resolve, reject) => {
+        if (!db) { reject(new Error('DB not init')); return; }
+        const req = db.transaction(storeName, 'readwrite').objectStore(storeName).clear();
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+    });
+}
+
+// --- JSON 备份/恢复函数 ---
+
+/**
+ * 从 JSON 文件加载查词历史（用于恢复）
+ */
+async function loadWordHistoryFromJsonBackup() {
     try {
-        // File is stored in user's files directory: data/[user]/files/
-        const response = await fetch(`/user/files/${WORD_HISTORY_FILE_NAME}`, {
+        const response = await fetch(`/user/files/${BACKUP_WORD_HISTORY_FILE}`, {
             method: 'GET',
             headers: getRequestHeaders(),
         });
-
         if (response.ok) {
             const data = await response.json();
-            wordHistoryData = data || {};
-            console.log(`[${EXTENSION_NAME}] Loaded ${Object.keys(wordHistoryData).length} words from history file`);
-            return wordHistoryData;
-        } else {
-            // File doesn't exist yet, initialize empty
-            wordHistoryData = {};
-            return wordHistoryData;
+            return data || {};
         }
-    } catch (error) {
-        console.warn(`[${EXTENSION_NAME}] Could not load word history file:`, error.message);
+    } catch (e) {
+        console.warn(`[${EXTENSION_NAME}] No backup file found:`, e.message);
+    }
+    return null;
+}
+
+/**
+ * 备份查词历史到 JSON 文件
+ */
+async function backupWordHistoryToJson() {
+    try {
+        const jsonData = JSON.stringify(wordHistoryData, null, 2);
+        const base64Data = btoa(unescape(encodeURIComponent(jsonData)));
+        const response = await fetch('/api/files/upload', {
+            method: 'POST',
+            headers: getRequestHeaders(),
+            body: JSON.stringify({ name: BACKUP_WORD_HISTORY_FILE, data: base64Data }),
+        });
+        if (response.ok) {
+            console.log(`[${EXTENSION_NAME}] Word history backed up to JSON (${Object.keys(wordHistoryData).length} words)`);
+        }
+    } catch (e) {
+        console.error(`[${EXTENSION_NAME}] Backup word history error:`, e.message);
+    }
+}
+
+/**
+ * 从 JSON 备份恢复查词历史到 IndexedDB
+ */
+async function restoreWordHistoryFromBackup(backupData) {
+    for (const [word, data] of Object.entries(backupData)) {
+        await dbPut(STORE_WORD_HISTORY, {
+            word: word,
+            count: data.count || 0,
+            lookups: data.lookups || [],
+            contexts: data.contexts || []
+        });
+    }
+    console.log(`[${EXTENSION_NAME}] Restored ${Object.keys(backupData).length} words from backup`);
+}
+
+/**
+ * 从 JSON 文件加载复习数据（用于恢复）
+ */
+async function loadReviewDataFromJsonBackup() {
+    try {
+        const response = await fetch(`/user/files/${BACKUP_REVIEW_DATA_FILE}`, {
+            method: 'GET',
+            headers: getRequestHeaders(),
+        });
+        if (response.ok) {
+            return await response.json();
+        }
+    } catch (e) {
+        console.warn(`[${EXTENSION_NAME}] No review backup file found:`, e.message);
+    }
+    return null;
+}
+
+/**
+ * 备份复习数据到 JSON 文件
+ */
+async function backupReviewDataToJson() {
+    try {
+        const data = {
+            pendingWords: reviewData.pendingWords,
+            reviewingWords: reviewData.reviewingWords,
+            masteredWords: reviewData.masteredWords,
+            currentSession: reviewData.currentSession
+        };
+        const jsonData = JSON.stringify(data, null, 2);
+        const base64Data = btoa(unescape(encodeURIComponent(jsonData)));
+        const response = await fetch('/api/files/upload', {
+            method: 'POST',
+            headers: getRequestHeaders(),
+            body: JSON.stringify({ name: BACKUP_REVIEW_DATA_FILE, data: base64Data }),
+        });
+        if (response.ok) {
+            console.log(`[${EXTENSION_NAME}] Review data backed up to JSON`);
+        }
+    } catch (e) {
+        console.error(`[${EXTENSION_NAME}] Backup review data error:`, e.message);
+    }
+}
+
+/**
+ * 从 JSON 备份恢复复习数据到 IndexedDB
+ */
+async function restoreReviewDataFromBackup(backupData) {
+    // 恢复 pending
+    for (const item of (backupData.pendingWords || [])) {
+        const word = cleanWord(item.word);
+        if (word) await dbPut(STORE_REVIEW_PENDING, { word, addedDate: item.addedDate });
+    }
+    // 恢复 progress
+    for (const [word, data] of Object.entries(backupData.reviewingWords || {})) {
+        const w = cleanWord(word);
+        if (w) await dbPut(STORE_REVIEW_PROGRESS, { word: w, stage: data.stage, nextReviewDate: data.nextReviewDate, lastUsedDate: data.lastUsedDate });
+    }
+    // 恢复 mastered
+    for (const item of (backupData.masteredWords || [])) {
+        const word = cleanWord(item.word);
+        if (word) await dbPut(STORE_REVIEW_MASTERED, { word, masteredDate: item.masteredDate });
+    }
+    // 恢复 session
+    if (backupData.currentSession) {
+        await dbPut(STORE_SESSION, { id: 'current', words: backupData.currentSession.words || [], lastUpdated: backupData.currentSession.lastUpdated });
+    }
+    console.log(`[${EXTENSION_NAME}] Review data restored from backup`);
+}
+
+// --- 主加载函数（带备份/恢复逻辑）---
+
+async function loadWordHistoryFromFile() {
+    try {
+        await initDatabase();
+        const records = await dbGetAll(STORE_WORD_HISTORY);
+
+        if (records.length === 0) {
+            // IndexedDB 为空，尝试从 JSON 恢复
+            console.log(`[${EXTENSION_NAME}] IndexedDB empty, trying to restore from backup...`);
+            const backup = await loadWordHistoryFromJsonBackup();
+            if (backup && Object.keys(backup).length > 0) {
+                await restoreWordHistoryFromBackup(backup);
+                // 重新加载
+                const restored = await dbGetAll(STORE_WORD_HISTORY);
+                for (const r of restored) {
+                    wordHistoryData[r.word] = { count: r.count, lookups: r.lookups || [], contexts: r.contexts || [] };
+                }
+                console.log(`[${EXTENSION_NAME}] Restored ${Object.keys(wordHistoryData).length} words from backup`);
+            }
+        } else {
+            // IndexedDB 有数据，加载并备份
+            for (const r of records) {
+                wordHistoryData[r.word] = { count: r.count, lookups: r.lookups || [], contexts: r.contexts || [] };
+            }
+            console.log(`[${EXTENSION_NAME}] Loaded ${Object.keys(wordHistoryData).length} words from IndexedDB`);
+            // 启动时备份到 JSON
+            backupWordHistoryToJson();
+        }
+        return wordHistoryData;
+    } catch (e) {
+        console.warn(`[${EXTENSION_NAME}] IndexedDB load error:`, e.message);
         wordHistoryData = {};
         return wordHistoryData;
     }
 }
 
-/**
- * Save word history to file
- */
-async function saveWordHistoryToFile() {
+async function saveWordToDb(word) {
     try {
-        const jsonData = JSON.stringify(wordHistoryData, null, 2);
-        const base64Data = btoa(unescape(encodeURIComponent(jsonData)));
-
-        const response = await fetch('/api/files/upload', {
-            method: 'POST',
-            headers: getRequestHeaders(),
-            body: JSON.stringify({
-                name: WORD_HISTORY_FILE_NAME,
-                data: base64Data,
-            }),
-        });
-
-        if (!response.ok) {
-            throw new Error(await response.text());
+        const key = word.toLowerCase();
+        const data = wordHistoryData[key];
+        if (data) {
+            await dbPut(STORE_WORD_HISTORY, {
+                word: key, count: data.count,
+                lookups: data.lookups || [], contexts: data.contexts || []
+            });
         }
+    } catch (e) { console.error(`[${EXTENSION_NAME}] Save word error:`, e.message); }
+}
 
-        console.log(`[${EXTENSION_NAME}] Word history saved to file`);
-    } catch (error) {
-        console.error(`[${EXTENSION_NAME}] Could not save word history file:`, error.message);
+async function deleteWordFromDb(word) {
+    try { await dbDelete(STORE_WORD_HISTORY, word.toLowerCase()); }
+    catch (e) { console.error(`[${EXTENSION_NAME}] Delete word error:`, e.message); }
+}
+
+let pendingWordSaves = new Set();
+const saveWordHistoryDebounced = debounce(async () => {
+    const words = [...pendingWordSaves];
+    pendingWordSaves.clear();
+    for (const w of words) await saveWordToDb(w);
+}, 1000);
+
+function markWordForSave(word) {
+    pendingWordSaves.add(word.toLowerCase());
+    saveWordHistoryDebounced();
+}
+
+// --- Immersive Review Functions ---
+
+function cleanWord(word) {
+    if (typeof word !== 'string') return '';
+    return word.trim().replace(/[\r\n]+/g, '');
+}
+
+function ensureWordsArray(words) {
+    if (!words) return [];
+    let result = [];
+    if (typeof words === 'string') {
+        result = words.split(/[\s,]+/).map(w => cleanWord(w)).filter(w => w.length > 0);
+    } else if (Array.isArray(words)) {
+        for (const item of words) {
+            if (typeof item === 'string') {
+                result.push(...item.split(/[\s,]+/).map(w => cleanWord(w)).filter(w => w.length > 0));
+            }
+        }
+    }
+    return result;
+}
+
+async function loadReviewDataFromFile() {
+    try {
+        await initDatabase();
+        const pending = await dbGetAll(STORE_REVIEW_PENDING);
+        const progress = await dbGetAll(STORE_REVIEW_PROGRESS);
+        const mastered = await dbGetAll(STORE_REVIEW_MASTERED);
+
+        const hasData = pending.length > 0 || progress.length > 0 || mastered.length > 0;
+
+        if (!hasData) {
+            // IndexedDB 为空，尝试从 JSON 恢复
+            console.log(`[${EXTENSION_NAME}] Review IndexedDB empty, trying to restore from backup...`);
+            const backup = await loadReviewDataFromJsonBackup();
+            if (backup) {
+                await restoreReviewDataFromBackup(backup);
+                // 重新加载
+                const restoredPending = await dbGetAll(STORE_REVIEW_PENDING);
+                reviewData.pendingWords = restoredPending.map(r => ({ word: cleanWord(r.word), addedDate: r.addedDate })).filter(i => i.word);
+
+                const restoredProgress = await dbGetAll(STORE_REVIEW_PROGRESS);
+                reviewData.reviewingWords = {};
+                for (const r of restoredProgress) {
+                    const w = cleanWord(r.word);
+                    if (w) reviewData.reviewingWords[w] = { stage: r.stage, nextReviewDate: r.nextReviewDate, lastUsedDate: r.lastUsedDate };
+                }
+
+                const restoredMastered = await dbGetAll(STORE_REVIEW_MASTERED);
+                reviewData.masteredWords = restoredMastered.map(r => ({ word: cleanWord(r.word), masteredDate: r.masteredDate })).filter(i => i.word);
+
+                const session = await dbGet(STORE_SESSION, 'current');
+                if (session) reviewData.currentSession = { words: ensureWordsArray(session.words), lastUpdated: session.lastUpdated };
+
+                console.log(`[${EXTENSION_NAME}] Restored review data from backup`);
+            }
+        } else {
+            // IndexedDB 有数据，加载并备份
+            reviewData.pendingWords = pending.map(r => ({ word: cleanWord(r.word), addedDate: r.addedDate })).filter(i => i.word);
+
+            reviewData.reviewingWords = {};
+            for (const r of progress) {
+                const w = cleanWord(r.word);
+                if (w) reviewData.reviewingWords[w] = { stage: r.stage, nextReviewDate: r.nextReviewDate, lastUsedDate: r.lastUsedDate };
+            }
+
+            reviewData.masteredWords = mastered.map(r => ({ word: cleanWord(r.word), masteredDate: r.masteredDate })).filter(i => i.word);
+
+            const session = await dbGet(STORE_SESSION, 'current');
+            if (session) reviewData.currentSession = { words: ensureWordsArray(session.words), lastUpdated: session.lastUpdated };
+
+            console.log(`[${EXTENSION_NAME}] Loaded review: ${reviewData.pendingWords.length} pending, ${Object.keys(reviewData.reviewingWords).length} reviewing`);
+            // 启动时备份到 JSON
+            backupReviewDataToJson();
+        }
+        return reviewData;
+    } catch (e) {
+        console.warn(`[${EXTENSION_NAME}] Review load error:`, e.message);
+        return reviewData;
     }
 }
 
-// Debounced save to avoid too frequent writes
-const saveWordHistoryDebounced = debounce(saveWordHistoryToFile, 2000);
+async function savePendingWordToDb(word, addedDate) {
+    try { await dbPut(STORE_REVIEW_PENDING, { word: word.toLowerCase(), addedDate }); }
+    catch (e) { console.error(`[${EXTENSION_NAME}] Save pending error:`, e.message); }
+}
+
+async function deletePendingWordFromDb(word) {
+    try { await dbDelete(STORE_REVIEW_PENDING, word.toLowerCase()); }
+    catch (e) { console.error(`[${EXTENSION_NAME}] Delete pending error:`, e.message); }
+}
+
+async function saveProgressWordToDb(word, data) {
+    try { await dbPut(STORE_REVIEW_PROGRESS, { word: word.toLowerCase(), stage: data.stage, nextReviewDate: data.nextReviewDate, lastUsedDate: data.lastUsedDate }); }
+    catch (e) { console.error(`[${EXTENSION_NAME}] Save progress error:`, e.message); }
+}
+
+async function deleteProgressWordFromDb(word) {
+    try { await dbDelete(STORE_REVIEW_PROGRESS, word.toLowerCase()); }
+    catch (e) { console.error(`[${EXTENSION_NAME}] Delete progress error:`, e.message); }
+}
+
+async function saveMasteredWordToDb(word, masteredDate) {
+    try { await dbPut(STORE_REVIEW_MASTERED, { word: word.toLowerCase(), masteredDate }); }
+    catch (e) { console.error(`[${EXTENSION_NAME}] Save mastered error:`, e.message); }
+}
+
+async function deleteMasteredWordFromDb(word) {
+    try { await dbDelete(STORE_REVIEW_MASTERED, word.toLowerCase()); }
+    catch (e) { console.error(`[${EXTENSION_NAME}] Delete mastered error:`, e.message); }
+}
+
+async function saveSessionToDb() {
+    try { await dbPut(STORE_SESSION, { id: 'current', words: reviewData.currentSession.words, lastUpdated: reviewData.currentSession.lastUpdated }); }
+    catch (e) { console.error(`[${EXTENSION_NAME}] Save session error:`, e.message); }
+}
+
+async function clearAllReviewDataFromDb() {
+    try {
+        await dbClear(STORE_REVIEW_PENDING);
+        await dbClear(STORE_REVIEW_PROGRESS);
+        await dbClear(STORE_REVIEW_MASTERED);
+        await dbClear(STORE_SESSION);
+    } catch (e) { console.error(`[${EXTENSION_NAME}] Clear review error:`, e.message); }
+}
+
+const saveSessionDebounced = debounce(saveSessionToDb, 1000);
+const saveReviewDataDebounced = saveSessionDebounced;
+
+/**
+ * Add a word to the pending review list (triggered when lookup count reaches 2)
+ * @param {string} word The word to add
+ */
+function addWordToPendingReview(word) {
+    if (!settings.immersiveReview) return;
+
+    // Clean the word: lowercase, trim, remove newlines
+    const wordLower = word.toLowerCase().trim().replace(/[\r\n]+/g, '');
+    if (!wordLower) return;
+
+    // Check if already in pending, reviewing, or mastered
+    if (reviewData.pendingWords.some(w => w.word === wordLower)) return;
+    if (reviewData.reviewingWords[wordLower]) return;
+    if (reviewData.masteredWords.some(w => w.word === wordLower)) return;
+
+    const addedDate = Date.now();
+    reviewData.pendingWords.push({
+        word: wordLower,
+        addedDate: addedDate
+    });
+
+    console.log(`[${EXTENSION_NAME}] Word added to pending review: ${wordLower}`);
+    savePendingWordToDb(wordLower, addedDate);
+}
+
+/**
+ * Get today's date at midnight (for day comparison)
+ * @returns {number} Timestamp of today at 00:00:00
+ */
+function getTodayMidnight() {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+}
+
+/**
+ * Get words that need to be reviewed today
+ * Includes: pending words (added before today) + reviewing words (nextReviewDate <= today)
+ * @returns {string[]} Array of words to review (max 20)
+ */
+function getWordsToReviewToday() {
+    const todayMidnight = getTodayMidnight();
+    const wordsToReview = [];
+
+    // 1. Get pending words that were added before today (at least 1 day old)
+    for (const item of reviewData.pendingWords) {
+        if (item.addedDate < todayMidnight) {
+            wordsToReview.push(item.word);
+        }
+    }
+
+    // 2. Get reviewing words whose next review date is today or earlier
+    for (const [word, data] of Object.entries(reviewData.reviewingWords)) {
+        if (data.nextReviewDate <= todayMidnight + 24 * 60 * 60 * 1000) { // Include today
+            wordsToReview.push(word);
+        }
+    }
+
+    // Sort by oldest first (pending words by addedDate, reviewing words by nextReviewDate)
+    // For simplicity, just return as-is (pending first, then reviewing)
+
+    // Limit to max 20 words
+    return wordsToReview.slice(0, MAX_DAILY_REVIEW_WORDS);
+}
+
+/**
+ * Build the current session's word list for review
+ * This should be called before each user message is sent
+ * @returns {string[]} Words for this session
+ */
+function buildCurrentSessionWords() {
+    // If there are remaining words from last session, continue with those
+    if (reviewData.currentSession.words.length > 0) {
+        // Clean the words in case they have newlines
+        reviewData.currentSession.words = reviewData.currentSession.words
+            .map(w => w.trim().replace(/[\r\n]+/g, ''))
+            .filter(w => w.length > 0);
+        return reviewData.currentSession.words;
+    }
+
+    // Otherwise, get fresh words for today
+    const todayWords = getWordsToReviewToday();
+    // Clean the words
+    reviewData.currentSession.words = todayWords
+        .map(w => w.trim().replace(/[\r\n]+/g, ''))
+        .filter(w => w.length > 0);
+    reviewData.currentSession.lastUpdated = Date.now();
+    saveReviewDataDebounced();
+
+    return reviewData.currentSession.words;
+}
+
+/**
+ * Check AI response and mark words as used
+ * @param {string} aiResponse The AI's response text
+ */
+function checkAIResponseForReviewWords(aiResponse) {
+    if (!settings.immersiveReview) return;
+    if (!aiResponse || reviewData.currentSession.words.length === 0) return;
+
+    const responseLower = aiResponse.toLowerCase();
+    const usedWords = [];
+    const remainingWords = [];
+
+    // Ensure words is a proper array of individual words
+    const wordsArray = ensureWordsArray(reviewData.currentSession.words);
+
+    console.log(`[${EXTENSION_NAME}] Words to check (${wordsArray.length}): ${wordsArray.join(', ')}`);
+
+    for (const word of wordsArray) {
+        if (!word) continue;
+
+        // Check if the word appears in the response (as a whole word)
+        const wordRegex = new RegExp(`\\b${word}\\b`, 'i');
+        const found = wordRegex.test(responseLower);
+        console.log(`[${EXTENSION_NAME}] Checking word "${word}": ${found ? 'FOUND' : 'not found'}`);
+
+        if (found) {
+            usedWords.push(word);
+        } else {
+            remainingWords.push(word);
+        }
+    }
+
+    // Process used words
+    for (const word of usedWords) {
+        processWordUsed(word);
+    }
+
+    // Update current session with remaining words (as proper array)
+    reviewData.currentSession.words = remainingWords;
+    reviewData.currentSession.lastUpdated = Date.now();
+
+    console.log(`[${EXTENSION_NAME}] Used words: ${usedWords.length > 0 ? usedWords.join(', ') : 'none'}`);
+    console.log(`[${EXTENSION_NAME}] Remaining words: ${remainingWords.length > 0 ? remainingWords.join(', ') : 'none'}`);
+
+    if (usedWords.length > 0) {
+        saveReviewDataDebounced();
+    }
+}
+
+/**
+ * Process a word that was successfully used by AI
+ * Move from pending to reviewing, or advance stage in reviewing
+ * @param {string} word The word that was used
+ */
+function processWordUsed(word) {
+    const wordLower = word.toLowerCase();
+    const now = Date.now();
+
+    // Check if it's in pending
+    const pendingIndex = reviewData.pendingWords.findIndex(w => w.word === wordLower);
+    if (pendingIndex !== -1) {
+        // Remove from pending
+        reviewData.pendingWords.splice(pendingIndex, 1);
+        deletePendingWordFromDb(wordLower);
+
+        // Add to reviewing with stage 0
+        const reviewingData = {
+            stage: 0,
+            nextReviewDate: now + EBBINGHAUS_INTERVALS[0] * 24 * 60 * 60 * 1000,
+            lastUsedDate: now
+        };
+        reviewData.reviewingWords[wordLower] = reviewingData;
+        saveProgressWordToDb(wordLower, reviewingData);
+        console.log(`[${EXTENSION_NAME}] Word moved to reviewing: ${wordLower}, next review in ${EBBINGHAUS_INTERVALS[0]} day(s)`);
+        return;
+    }
+
+    // Check if it's in reviewing
+    if (reviewData.reviewingWords[wordLower]) {
+        const wordData = reviewData.reviewingWords[wordLower];
+        wordData.lastUsedDate = now;
+        wordData.stage += 1;
+
+        // Check if mastered (completed all stages)
+        if (wordData.stage >= EBBINGHAUS_INTERVALS.length) {
+            // Move to mastered
+            delete reviewData.reviewingWords[wordLower];
+            deleteProgressWordFromDb(wordLower);
+            reviewData.masteredWords.push({
+                word: wordLower,
+                masteredDate: now
+            });
+            saveMasteredWordToDb(wordLower, now);
+            console.log(`[${EXTENSION_NAME}] Word mastered: ${wordLower}`);
+        } else {
+            // Schedule next review
+            const nextInterval = EBBINGHAUS_INTERVALS[wordData.stage];
+            wordData.nextReviewDate = now + nextInterval * 24 * 60 * 60 * 1000;
+            saveProgressWordToDb(wordLower, wordData);
+            console.log(`[${EXTENSION_NAME}] Word advanced to stage ${wordData.stage}: ${wordLower}, next review in ${nextInterval} day(s)`);
+        }
+    }
+}
+
+/**
+ * Generate the review prompt to inject into user message
+ * @returns {string} The prompt to append, or empty string if no words to review
+ */
+function generateReviewPrompt() {
+    if (!settings.immersiveReview) return '';
+
+    const sessionWords = buildCurrentSessionWords();
+    if (sessionWords.length === 0) return '';
+
+    // Clean words: trim whitespace and filter empty
+    const cleanedWords = sessionWords
+        .map(w => w.trim().replace(/[\r\n]+/g, ''))
+        .filter(w => w.length > 0);
+
+    if (cleanedWords.length === 0) return '';
+
+    const wordsList = cleanedWords.join(', ');
+
+    // Use custom prompt with %words% variable substitution
+    const promptTemplate = settings.reviewPrompt || defaultSettings.reviewPrompt;
+    return promptTemplate.replace(/%words%/g, wordsList);
+}
 
 /**
  * Save word lookup record
@@ -458,6 +1102,11 @@ function saveWordHistory(word, context) {
     // Add timestamp for this lookup
     wordHistoryData[wordKey].lookups.push(now);
 
+    // Check if this is the second lookup - trigger immersive review
+    if (wordHistoryData[wordKey].count === 2) {
+        addWordToPendingReview(trimmedWord);
+    }
+
     // Add context if provided and not already saved
     if (context && context.trim()) {
         // Truncate context if too long
@@ -476,8 +1125,8 @@ function saveWordHistory(word, context) {
         }
     }
 
-    // Save to file (debounced)
-    saveWordHistoryDebounced();
+    // Save to IndexedDB (debounced)
+    markWordForSave(wordKey);
 }
 
 /**
@@ -501,7 +1150,7 @@ function removeWordHistoryContext(word, contextIndex) {
     const wordKey = word.toLowerCase().trim();
     if (wordHistoryData[wordKey] && wordHistoryData[wordKey].contexts[contextIndex] !== undefined) {
         wordHistoryData[wordKey].contexts.splice(contextIndex, 1);
-        saveWordHistoryDebounced();
+        markWordForSave(wordKey);
     }
 }
 
@@ -514,7 +1163,7 @@ function clearWordHistory(word) {
     const wordKey = word.toLowerCase().trim();
     if (wordHistoryData[wordKey]) {
         delete wordHistoryData[wordKey];
-        saveWordHistoryDebounced();
+        deleteWordFromDb(wordKey);
     }
 }
 
@@ -757,6 +1406,90 @@ function createTrendChart(data) {
 }
 
 /**
+ * Load farm game script dynamically
+ */
+async function loadFarmGameScript() {
+    if (window.FarmGame) return Promise.resolve();
+
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = `${EXTENSION_URL}/farm-game.js`;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('Failed to load farm game'));
+        document.head.appendChild(script);
+    });
+}
+
+/**
+ * Show farm game in a popup panel
+ */
+async function showFarmGamePanel() {
+    // Remove existing panel if any
+    const existingPanel = document.getElementById('ai-dict-farm-panel');
+    if (existingPanel) {
+        existingPanel.remove();
+        return; // Toggle off
+    }
+
+    // Load game script if needed
+    try {
+        await loadFarmGameScript();
+    } catch (e) {
+        console.error(`[${EXTENSION_NAME}] Failed to load farm game:`, e);
+        return;
+    }
+
+    const panel = document.createElement('div');
+    panel.id = 'ai-dict-farm-panel';
+    panel.className = 'ai-dict-farm-panel';
+    panel.innerHTML = `
+        <div class="ai-dict-farm-panel-content">
+            <div class="ai-dict-farm-panel-header">
+                <span>🌾 开心农场</span>
+                <div class="ai-dict-farm-panel-btns">
+                    <button class="ai-dict-farm-reset-btn menu_button" title="重置游戏">
+                        <i class="fa-solid fa-rotate-left"></i>
+                    </button>
+                    <button class="ai-dict-farm-close-btn menu_button" title="关闭">
+                        <i class="fa-solid fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="farm-game-container"></div>
+        </div>
+    `;
+
+    document.body.appendChild(panel);
+
+    // Initialize game
+    if (window.FarmGame) {
+        window.FarmGame.init();
+    }
+
+    // Bind events
+    const closeBtn = panel.querySelector('.ai-dict-farm-close-btn');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => panel.remove());
+    }
+
+    const resetBtn = panel.querySelector('.ai-dict-farm-reset-btn');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+            if (window.FarmGame) {
+                window.FarmGame.reset();
+            }
+        });
+    }
+
+    // Click outside to close
+    panel.addEventListener('click', (e) => {
+        if (e.target === panel) {
+            panel.remove();
+        }
+    });
+}
+
+/**
  * Create and show the statistics panel
  */
 function showStatisticsPanel() {
@@ -779,10 +1512,15 @@ function showStatisticsPanel() {
 
 /**
  * Create statistics panel HTML content
- * @param {'today' | 'week' | 'month' | 'all'} range
+ * @param {'today' | 'week' | 'month' | 'all' | 'review'} range
  * @returns {string}
  */
 function createStatisticsPanelContent(range) {
+    // If review tab, show review status instead
+    if (range === 'review') {
+        return createReviewStatusContent();
+    }
+
     const stats = getWordStatistics(range);
     const groups = groupWordsByCount(stats);
     const totalWords = stats.length;
@@ -832,6 +1570,7 @@ function createStatisticsPanelContent(range) {
                 <button class="ai-dict-stats-tab ${range === 'week' ? 'active' : ''}" data-range="week">本周</button>
                 <button class="ai-dict-stats-tab ${range === 'month' ? 'active' : ''}" data-range="month">本月</button>
                 <button class="ai-dict-stats-tab ${range === 'all' ? 'active' : ''}" data-range="all">全部</button>
+                <button class="ai-dict-stats-tab ${range === 'review' ? 'active' : ''}" data-range="review">复习</button>
             </div>
             <div class="ai-dict-stats-summary">
                 <div class="ai-dict-stats-summary-item">
@@ -857,6 +1596,235 @@ function createStatisticsPanelContent(range) {
             </div>
         </div>
     `;
+}
+
+/**
+ * Create review status content for statistics panel
+ * @returns {string}
+ */
+function createReviewStatusContent() {
+    const pendingCount = reviewData.pendingWords.length;
+    const reviewingCount = Object.keys(reviewData.reviewingWords).length;
+    const masteredCount = reviewData.masteredWords.length;
+    const sessionCount = reviewData.currentSession.words.length;
+
+    // Get today's words
+    const todayWords = getWordsToReviewToday();
+
+    // Format pending words
+    let pendingHtml = '';
+    if (pendingCount > 0) {
+        pendingHtml = `
+            <div class="ai-dict-stats-group">
+                <div class="ai-dict-stats-group-header">
+                    <span class="ai-dict-stats-group-label">待复习 (查2次待加入)</span>
+                    <span class="ai-dict-stats-group-count">${pendingCount} 词</span>
+                </div>
+                <div class="ai-dict-stats-group-words">
+                    ${reviewData.pendingWords.slice(0, 20).map(item => `
+                        <div class="ai-dict-stats-word-item">
+                            <span class="ai-dict-stats-word">${escapeHtml(item.word)}</span>
+                            <span class="ai-dict-stats-word-count">${formatDate(item.addedDate)}</span>
+                        </div>
+                    `).join('')}
+                    ${pendingCount > 20 ? `<div class="ai-dict-stats-more">... 还有 ${pendingCount - 20} 个</div>` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    // Format reviewing words
+    let reviewingHtml = '';
+    if (reviewingCount > 0) {
+        const reviewingEntries = Object.entries(reviewData.reviewingWords);
+        reviewingHtml = `
+            <div class="ai-dict-stats-group">
+                <div class="ai-dict-stats-group-header">
+                    <span class="ai-dict-stats-group-label">复习中 (艾宾浩斯周期)</span>
+                    <span class="ai-dict-stats-group-count">${reviewingCount} 词</span>
+                </div>
+                <div class="ai-dict-stats-group-words">
+                    ${reviewingEntries.slice(0, 20).map(([word, data]) => `
+                        <div class="ai-dict-stats-word-item">
+                            <span class="ai-dict-stats-word">${escapeHtml(word)}</span>
+                            <span class="ai-dict-stats-word-count">阶段${data.stage + 1}/6 | ${formatDate(data.nextReviewDate)}</span>
+                        </div>
+                    `).join('')}
+                    ${reviewingCount > 20 ? `<div class="ai-dict-stats-more">... 还有 ${reviewingCount - 20} 个</div>` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    // Format mastered words
+    let masteredHtml = '';
+    if (masteredCount > 0) {
+        masteredHtml = `
+            <div class="ai-dict-stats-group">
+                <div class="ai-dict-stats-group-header">
+                    <span class="ai-dict-stats-group-label">已掌握</span>
+                    <span class="ai-dict-stats-group-count">${masteredCount} 词</span>
+                </div>
+                <div class="ai-dict-stats-group-words">
+                    ${reviewData.masteredWords.slice(0, 20).map(item => `
+                        <div class="ai-dict-stats-word-item">
+                            <span class="ai-dict-stats-word">${escapeHtml(item.word)}</span>
+                            <span class="ai-dict-stats-word-count">${formatDate(item.masteredDate)}</span>
+                        </div>
+                    `).join('')}
+                    ${masteredCount > 20 ? `<div class="ai-dict-stats-more">... 还有 ${masteredCount - 20} 个</div>` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    // Current session
+    let sessionHtml = '';
+    if (sessionCount > 0) {
+        sessionHtml = `
+            <div class="ai-dict-stats-group" style="background: var(--SmartThemeBlurTintColor, rgba(100,100,255,0.1)); border-radius: 8px; padding: 10px;">
+                <div class="ai-dict-stats-group-header">
+                    <span class="ai-dict-stats-group-label">当前会话待用词</span>
+                    <span class="ai-dict-stats-group-count">${sessionCount} 词</span>
+                </div>
+                <div class="ai-dict-stats-group-words">
+                    ${reviewData.currentSession.words.map(word => `
+                        <div class="ai-dict-stats-word-item">
+                            <span class="ai-dict-stats-word">${escapeHtml(word)}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    const noDataHtml = (!pendingCount && !reviewingCount && !masteredCount)
+        ? '<div class="ai-dict-stats-empty">暂无复习数据。查询单词2次后会自动加入复习。</div>'
+        : '';
+
+    return `
+        <div class="ai-dict-stats-inner">
+            <div class="ai-dict-stats-header">
+                <h3><i class="fa-solid fa-brain"></i> 沉浸式复习</h3>
+                <button class="ai-dict-stats-close-btn" title="关闭">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+            </div>
+            <div class="ai-dict-stats-tabs">
+                <button class="ai-dict-stats-tab" data-range="today">今日</button>
+                <button class="ai-dict-stats-tab" data-range="week">本周</button>
+                <button class="ai-dict-stats-tab" data-range="month">本月</button>
+                <button class="ai-dict-stats-tab" data-range="all">全部</button>
+                <button class="ai-dict-stats-tab active" data-range="review">复习</button>
+            </div>
+            <div class="ai-dict-stats-summary">
+                <div class="ai-dict-stats-summary-item">
+                    <span class="ai-dict-stats-summary-value">${pendingCount}</span>
+                    <span class="ai-dict-stats-summary-label">待复习</span>
+                </div>
+                <div class="ai-dict-stats-summary-item">
+                    <span class="ai-dict-stats-summary-value">${reviewingCount}</span>
+                    <span class="ai-dict-stats-summary-label">复习中</span>
+                </div>
+                <div class="ai-dict-stats-summary-item">
+                    <span class="ai-dict-stats-summary-value">${masteredCount}</span>
+                    <span class="ai-dict-stats-summary-label">已掌握</span>
+                </div>
+                <div class="ai-dict-stats-summary-item">
+                    <span class="ai-dict-stats-summary-value">${todayWords.length}</span>
+                    <span class="ai-dict-stats-summary-label">今日待复习</span>
+                </div>
+            </div>
+            <div class="ai-dict-review-actions" style="padding: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="menu_button" id="ai-dict-clear-session" title="清空当前会话，重新获取今日词汇">
+                    <i class="fa-solid fa-rotate"></i> 刷新会话
+                </button>
+                <button class="menu_button" id="ai-dict-force-today" title="强制将所有待复习词设为今日可复习（测试用）">
+                    <i class="fa-solid fa-forward"></i> 立即可复习
+                </button>
+                <button class="menu_button" id="ai-dict-clear-all-review" title="清空所有复习数据" style="color: #ff6b6b;">
+                    <i class="fa-solid fa-trash"></i> 清空全部
+                </button>
+            </div>
+            <div class="ai-dict-stats-content">
+                ${sessionHtml}
+                ${noDataHtml}
+                ${pendingHtml}
+                ${reviewingHtml}
+                ${masteredHtml}
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Format timestamp to readable date (absolute date)
+ * @param {number} timestamp
+ * @returns {string}
+ */
+function formatDate(timestamp) {
+    const date = new Date(timestamp);
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    return `${month}/${day}`;
+}
+
+/**
+ * Check if a word is in the immersive review system
+ * @param {string} word The word to check
+ * @returns {boolean}
+ */
+function isWordInReview(word) {
+    const wordLower = word.toLowerCase().trim();
+    // Check pending, reviewing, or mastered
+    if (reviewData.pendingWords.some(w => w.word === wordLower)) return true;
+    if (reviewData.reviewingWords[wordLower]) return true;
+    if (reviewData.masteredWords.some(w => w.word === wordLower)) return true;
+    return false;
+}
+
+/**
+ * Toggle a word in/out of the immersive review system
+ * @param {string} word The word to toggle
+ */
+function toggleWordInReview(word) {
+    const wordLower = word.toLowerCase().trim();
+
+    // Check if already in any list
+    const pendingIndex = reviewData.pendingWords.findIndex(w => w.word === wordLower);
+    if (pendingIndex !== -1) {
+        // Remove from pending
+        reviewData.pendingWords.splice(pendingIndex, 1);
+        deletePendingWordFromDb(wordLower);
+        console.log(`[${EXTENSION_NAME}] Removed "${wordLower}" from pending review`);
+        return;
+    }
+
+    if (reviewData.reviewingWords[wordLower]) {
+        // Remove from reviewing
+        delete reviewData.reviewingWords[wordLower];
+        deleteProgressWordFromDb(wordLower);
+        console.log(`[${EXTENSION_NAME}] Removed "${wordLower}" from reviewing`);
+        return;
+    }
+
+    const masteredIndex = reviewData.masteredWords.findIndex(w => w.word === wordLower);
+    if (masteredIndex !== -1) {
+        // Remove from mastered
+        reviewData.masteredWords.splice(masteredIndex, 1);
+        deleteMasteredWordFromDb(wordLower);
+        console.log(`[${EXTENSION_NAME}] Removed "${wordLower}" from mastered`);
+        return;
+    }
+
+    // Not in any list, add to pending
+    const addedDate = Date.now();
+    reviewData.pendingWords.push({
+        word: wordLower,
+        addedDate: addedDate
+    });
+    savePendingWordToDb(wordLower, addedDate);
+    console.log(`[${EXTENSION_NAME}] Added "${wordLower}" to pending review`);
 }
 
 /**
@@ -890,6 +1858,70 @@ function bindStatisticsPanelEvents() {
             panel.remove();
         }
     });
+
+    // Review tab specific buttons
+    const clearSessionBtn = panel.querySelector('#ai-dict-clear-session');
+    if (clearSessionBtn) {
+        clearSessionBtn.addEventListener('click', () => {
+            reviewData.currentSession.words = [];
+            reviewData.currentSession.lastUpdated = null;
+            saveReviewDataDebounced();
+            alert('已清空当前会话，下次发消息时会重新获取今日词汇');
+            // Refresh panel
+            panel.innerHTML = createStatisticsPanelContent('review');
+            bindStatisticsPanelEvents();
+        });
+    }
+
+    const forceTodayBtn = panel.querySelector('#ai-dict-force-today');
+    if (forceTodayBtn) {
+        forceTodayBtn.addEventListener('click', () => {
+            // Collect all words that should be reviewed
+            const allWords = [];
+
+            // Add pending words
+            for (const item of reviewData.pendingWords) {
+                allWords.push(item.word);
+            }
+
+            // Add reviewing words
+            for (const word of Object.keys(reviewData.reviewingWords)) {
+                allWords.push(word);
+            }
+
+            // Set as current session words (without modifying original dates)
+            reviewData.currentSession.words = allWords;
+            reviewData.currentSession.lastUpdated = Date.now();
+
+            saveReviewDataDebounced();
+            alert(`已将 ${allWords.length} 个单词加入当前会话，下次发消息时生效`);
+            // Refresh panel
+            panel.innerHTML = createStatisticsPanelContent('review');
+            bindStatisticsPanelEvents();
+        });
+    }
+
+    const clearAllBtn = panel.querySelector('#ai-dict-clear-all-review');
+    if (clearAllBtn) {
+        clearAllBtn.addEventListener('click', async () => {
+            if (!confirm('确定要清空所有复习数据吗？此操作不可恢复。')) {
+                return;
+            }
+
+            // Clear all review data
+            reviewData.pendingWords = [];
+            reviewData.reviewingWords = {};
+            reviewData.masteredWords = [];
+            reviewData.currentSession.words = [];
+            reviewData.currentSession.lastUpdated = null;
+
+            await clearAllReviewDataFromDb();
+            alert('已清空所有复习数据');
+            // Refresh panel
+            panel.innerHTML = createStatisticsPanelContent('review');
+            bindStatisticsPanelEvents();
+        });
+    }
 }
 
 // --- Core Functionality ---
@@ -1064,7 +2096,7 @@ function extractContext(text) {
     return markSelectionInContext(context, selectedText);
 }
 
-async function performDictionaryLookup() {
+async function performDictionaryLookup(skipSaveHistory = false) {
     // Remove icon if present
     hideIcon();
 
@@ -1103,7 +2135,10 @@ async function performDictionaryLookup() {
 
         // Save word history with the single paragraph context (selectedContext)
         // Note: selectedContext contains only the paragraph where the word was found
-        saveWordHistory(selectedText, selectedContext);
+        // Skip saving history if called from flashcard (skipSaveHistory = true)
+        if (!skipSaveHistory) {
+            saveWordHistory(selectedText, selectedContext);
+        }
 
         // Show panel immediately with loading states for both sections
         // Pass shouldAutoFetchAI to createMergedContent
@@ -3598,7 +4633,43 @@ function showPanelHtml(title, htmlContent, type = 'info') {
     }
 
     const titleEl = panel.querySelector('.ai-dict-panel-header h3');
-    if (titleEl) titleEl.textContent = title;
+    if (titleEl) {
+        // Get word history for lookup count
+        const wordLower = title.toLowerCase().trim();
+        const history = getWordHistory(wordLower);
+        const lookupCount = history ? history.count : 0;
+
+        // Check if word is in immersive review
+        const isInReview = isWordInReview(wordLower);
+
+        // Build title with count and review icon
+        let titleHtml = `<span class="ai-dict-title-word">${escapeHtml(title)}</span>`;
+        titleHtml += `<span class="ai-dict-title-count" title="查词次数">${lookupCount}次</span>`;
+
+        if (settings.immersiveReview) {
+            const reviewIcon = isInReview ? 'fa-solid fa-book-bookmark' : 'fa-regular fa-bookmark';
+            const reviewTitle = isInReview ? '已加入沉浸式复习，点击移除' : '点击加入沉浸式复习';
+            const reviewClass = isInReview ? 'ai-dict-review-icon active' : 'ai-dict-review-icon';
+            titleHtml += `<button class="${reviewClass}" title="${reviewTitle}" data-word="${escapeHtml(wordLower)}"><i class="${reviewIcon}"></i></button>`;
+        }
+
+        titleEl.innerHTML = titleHtml;
+
+        // Bind review icon click event
+        const reviewIconBtn = titleEl.querySelector('.ai-dict-review-icon');
+        if (reviewIconBtn) {
+            reviewIconBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const word = reviewIconBtn.getAttribute('data-word');
+                toggleWordInReview(word);
+                // Update the icon
+                const isNowInReview = isWordInReview(word);
+                reviewIconBtn.className = isNowInReview ? 'ai-dict-review-icon active' : 'ai-dict-review-icon';
+                reviewIconBtn.title = isNowInReview ? '已加入沉浸式复习，点击移除' : '点击加入沉浸式复习';
+                reviewIconBtn.innerHTML = isNowInReview ? '<i class="fa-solid fa-book-bookmark"></i>' : '<i class="fa-regular fa-bookmark"></i>';
+            });
+        }
+    }
 
     const contentEl = panel.querySelector('.ai-dict-panel-content');
     if (contentEl) {
@@ -3742,9 +4813,12 @@ function debounce(func, wait) {
 
 // Mobile touch selection state
 let selectionBeforeTouch = '';
+let isTouchActive = false; // Track if touch is currently active (for Android)
+let touchEndTimeout = null; // Timeout for processing selection after touch end
+let lastProcessedSelection = ''; // Prevent duplicate processing
 
 /**
- * Handle touch start - record current selection state
+ * Handle touch start - record current selection state and set touch active flag
  * @param {TouchEvent} event
  */
 function handleTouchStart(event) {
@@ -3758,12 +4832,25 @@ function handleTouchStart(event) {
         return;
     }
 
+    // Clear any pending timeout from previous touch
+    if (touchEndTimeout) {
+        clearTimeout(touchEndTimeout);
+        touchEndTimeout = null;
+    }
+
+    // Mark touch as active - important for Android to prevent premature icon display
+    isTouchActive = true;
+
     // Record selection state before this touch interaction
     selectionBeforeTouch = window.getSelection().toString().trim();
+
+    // Hide icon when new touch starts (user might be making new selection)
+    hideIcon();
 }
 
 /**
  * Handle touch end - trigger lookup only when there's a new selection on release
+ * For Android: wait longer for selection to stabilize after touch release
  * @param {TouchEvent} event
  */
 function handleTouchEnd(event) {
@@ -3777,94 +4864,137 @@ function handleTouchEnd(event) {
         return;
     }
 
-    // Delay to allow selection to be finalized after touch release
-    setTimeout(() => {
-        const selected = window.getSelection();
-        const selectionString = selected.toString().trim();
+    // Mark touch as no longer active
+    isTouchActive = false;
 
-        // Only trigger if:
-        // 1. There is selected text now
-        // 2. The selection is different from before touch (new selection made)
-        if (selectionString.length > 0 && selectionString !== selectionBeforeTouch) {
-            selectedText = selectionString;
-            let element = selected.anchorNode?.parentElement;
-            while (element && element.tagName !== 'P' && element.tagName !== 'DIV') {
-                element = element.parentElement;
+    // Clear any pending timeout
+    if (touchEndTimeout) {
+        clearTimeout(touchEndTimeout);
+    }
+
+    // Use longer delay for Android (300ms) vs iOS (50ms)
+    // Android text selection takes longer to stabilize after touch release
+    const delay = isAndroid() ? 300 : 50;
+
+    touchEndTimeout = setTimeout(() => {
+        processSelectionAfterTouch();
+    }, delay);
+}
+
+/**
+ * Handle touch cancel - reset touch state without processing selection
+ * This handles cases where the touch is interrupted (e.g., by system gesture)
+ */
+function handleTouchCancel() {
+    isTouchActive = false;
+    if (touchEndTimeout) {
+        clearTimeout(touchEndTimeout);
+        touchEndTimeout = null;
+    }
+}
+
+/**
+ * Process selection after touch has ended
+ * Separated from handleTouchEnd to allow calling from selectionchange for Android
+ */
+function processSelectionAfterTouch() {
+    const selected = window.getSelection();
+    const selectionString = selected.toString().trim();
+
+    // Only trigger if:
+    // 1. Touch is no longer active (user has released finger)
+    // 2. There is selected text now
+    // 3. The selection is different from before touch (new selection made)
+    // 4. Not already processed (prevent duplicate triggers)
+    if (isTouchActive) {
+        // Touch still active, don't show icon yet (Android long press)
+        return;
+    }
+
+    if (selectionString.length > 0 &&
+        selectionString !== selectionBeforeTouch &&
+        selectionString !== lastProcessedSelection) {
+
+        lastProcessedSelection = selectionString;
+        selectedText = selectionString;
+        let element = selected.anchorNode?.parentElement;
+        while (element && element.tagName !== 'P' && element.tagName !== 'DIV') {
+            element = element.parentElement;
+        }
+        selectedContext = element ? element.textContent : selectionString;
+        selectedParentElement = element;
+
+        // Save selection range info for marking position in context
+        selectionRangeInfo = null; // Reset first
+        try {
+            const range = selected.getRangeAt(0);
+            // Calculate offset relative to the parent element using Range API
+            if (element && range.startContainer) {
+                // Create a range from the start of the parent element to the selection start
+                const preSelectionRange = document.createRange();
+                preSelectionRange.selectNodeContents(element);
+                preSelectionRange.setEnd(range.startContainer, range.startOffset);
+
+                // The length of this range's text content is the offset
+                const startOffset = preSelectionRange.toString().length;
+
+                selectionRangeInfo = {
+                    startOffset: startOffset,
+                    endOffset: startOffset + selectionString.length
+                };
             }
-            selectedContext = element ? element.textContent : selectionString;
-            selectedParentElement = element;
-
-            // Save selection range info for marking position in context
-            selectionRangeInfo = null; // Reset first
-            try {
-                const range = selected.getRangeAt(0);
-                // Calculate offset relative to the parent element using Range API
-                if (element && range.startContainer) {
-                    // Create a range from the start of the parent element to the selection start
-                    const preSelectionRange = document.createRange();
-                    preSelectionRange.selectNodeContents(element);
-                    preSelectionRange.setEnd(range.startContainer, range.startOffset);
-
-                    // The length of this range's text content is the offset
-                    const startOffset = preSelectionRange.toString().length;
-
-                    selectionRangeInfo = {
-                        startOffset: startOffset,
-                        endOffset: startOffset + selectionString.length
-                    };
-                }
-            } catch (e) {
-                selectionRangeInfo = null;
-            }
-
-            if (settings.enableDirectLookup) {
-                performDictionaryLookup();
-            } else {
-                // Show the icon for manual trigger
-                try {
-                    const range = selected.getRangeAt(0);
-                    const rect = range.getBoundingClientRect();
-
-                    const position = settings.iconPosition || 'top-right';
-                    let x, y;
-                    const offset = 35;
-                    const gap = 5;
-
-                    switch (position) {
-                        case 'top-left':
-                            x = rect.left - offset;
-                            y = rect.top - offset;
-                            break;
-                        case 'bottom-left':
-                            x = rect.left - offset;
-                            y = rect.bottom + gap;
-                            break;
-                        case 'bottom-right':
-                            x = rect.right + gap;
-                            y = rect.bottom + gap;
-                            break;
-                        case 'top-right':
-                        default:
-                            x = rect.right + gap;
-                            y = rect.top - offset;
-                            break;
-                    }
-
-                    const iconSize = 30;
-                    x = Math.max(5, Math.min(x, window.innerWidth - iconSize - 5));
-                    y = Math.max(5, Math.min(y, window.innerHeight - iconSize - 5));
-
-                    showIcon(x, y);
-                } catch (e) {
-                    console.warn('AI Dictionary: Could not calculate selection position', e);
-                }
-            }
-        } else if (selectionString.length === 0) {
-            // No selection, hide icon
-            hideIcon();
+        } catch (e) {
             selectionRangeInfo = null;
         }
-    }, 50);
+
+        if (settings.enableDirectLookup) {
+            performDictionaryLookup();
+        } else {
+            // Show the icon for manual trigger
+            try {
+                const range = selected.getRangeAt(0);
+                const rect = range.getBoundingClientRect();
+
+                const position = settings.iconPosition || 'top-right';
+                let x, y;
+                const offset = 35;
+                const gap = 5;
+
+                switch (position) {
+                    case 'top-left':
+                        x = rect.left - offset;
+                        y = rect.top - offset;
+                        break;
+                    case 'bottom-left':
+                        x = rect.left - offset;
+                        y = rect.bottom + gap;
+                        break;
+                    case 'bottom-right':
+                        x = rect.right + gap;
+                        y = rect.bottom + gap;
+                        break;
+                    case 'top-right':
+                    default:
+                        x = rect.right + gap;
+                        y = rect.top - offset;
+                        break;
+                }
+
+                const iconSize = 30;
+                x = Math.max(5, Math.min(x, window.innerWidth - iconSize - 5));
+                y = Math.max(5, Math.min(y, window.innerHeight - iconSize - 5));
+
+                showIcon(x, y);
+            } catch (e) {
+                console.warn('AI Dictionary: Could not calculate selection position', e);
+            }
+        }
+    } else if (selectionString.length === 0) {
+        // No selection, hide icon and reset state
+        hideIcon();
+        selectionRangeInfo = null;
+        lastProcessedSelection = '';
+    }
 }
 
 function handleTextSelection(event) {
@@ -4028,6 +5158,9 @@ const init = async () => {
     // Load word history from file
     await loadWordHistoryFromFile();
 
+    // Load review data from file
+    await loadReviewDataFromFile();
+
     manager = new SettingsUi();
     const renderedUi = await manager.render();
     if (renderedUi) {
@@ -4044,14 +5177,27 @@ const init = async () => {
     document.addEventListener('touchstart', handleTouchStart, { passive: true });
     // touchend: check if new selection made and trigger lookup
     document.addEventListener('touchend', handleTouchEnd, { passive: true });
+    // touchcancel: reset state when touch is interrupted
+    document.addEventListener('touchcancel', handleTouchCancel, { passive: true });
 
-    // 3. Selection change (General / Fallback / Keyboard) - debounced (desktop only)
+    // 3. Selection change handler
+    // - Desktop: debounced fallback for keyboard selection
+    // - Android: also handles selection changes after touch ends (for selection handle dragging)
     const debouncedSelectionHandler = debounce((e) => {
-        // Only use selectionchange for desktop, mobile uses touch events
         if (!isMobile()) {
+            // Desktop: use selectionchange as fallback
             handleTextSelection(e);
+        } else if (isAndroid() && !isTouchActive) {
+            // Android: after touch ends, selection may still change (handle dragging)
+            // Wait a bit more and then process the selection
+            if (touchEndTimeout) {
+                clearTimeout(touchEndTimeout);
+            }
+            touchEndTimeout = setTimeout(() => {
+                processSelectionAfterTouch();
+            }, 200);
         }
-    }, 500);
+    }, 300);
     document.addEventListener('selectionchange', debouncedSelectionHandler);
 
     document.addEventListener('contextmenu', handleContextMenu);
@@ -4068,13 +5214,62 @@ const init = async () => {
     createSidePanel();
 
     // 5. Listen for chat messages to re-highlight confusable words
-    eventSource.on(event_types.MESSAGE_RECEIVED, () => {
+    eventSource.on(event_types.MESSAGE_RECEIVED, (messageIndex) => {
         // Delay to allow DOM to update
         setTimeout(() => highlightAllConfusableWords(), 100);
+
+        // Check AI response for review words (immersive review)
+        if (settings.immersiveReview && reviewData.currentSession.words.length > 0) {
+            setTimeout(() => {
+                try {
+                    const context = getContext();
+                    if (context && context.chat) {
+                        // Get the last non-user message
+                        let aiMessage = null;
+                        for (let i = context.chat.length - 1; i >= 0; i--) {
+                            if (!context.chat[i].is_user && context.chat[i].mes) {
+                                aiMessage = context.chat[i].mes;
+                                break;
+                            }
+                        }
+                        if (aiMessage) {
+                            console.log(`[${EXTENSION_NAME}] Checking AI response for review words...`);
+                            console.log(`[${EXTENSION_NAME}] Current session words: ${reviewData.currentSession.words.join(', ')}`);
+                            checkAIResponseForReviewWords(aiMessage);
+                        }
+                    }
+                } catch (e) {
+                    console.warn(`[${EXTENSION_NAME}] Error checking AI response for review words:`, e);
+                }
+            }, 500); // Delay to ensure message is fully received
+        }
     });
 
     eventSource.on(event_types.MESSAGE_SENT, () => {
         setTimeout(() => highlightAllConfusableWords(), 100);
+    });
+
+    // 6. Inject review prompt before generation starts
+    eventSource.on(event_types.GENERATION_STARTED, () => {
+        if (!settings.immersiveReview) {
+            // Clear the prompt if disabled
+            setExtensionPrompt('ai-dictionary-review', '', extension_prompt_types.IN_CHAT, 0, false);
+            return;
+        }
+
+        try {
+            const reviewPrompt = generateReviewPrompt();
+            if (reviewPrompt) {
+                // Inject the review prompt at depth 0 (right before generation)
+                setExtensionPrompt('ai-dictionary-review', reviewPrompt, extension_prompt_types.IN_CHAT, 0, false);
+                console.log(`[${EXTENSION_NAME}] Injected review prompt with ${reviewData.currentSession.words.length} words`);
+            } else {
+                // Clear if no words to review
+                setExtensionPrompt('ai-dictionary-review', '', extension_prompt_types.IN_CHAT, 0, false);
+            }
+        } catch (e) {
+            console.warn(`[${EXTENSION_NAME}] Error injecting review prompt:`, e);
+        }
     });
 
     eventSource.on(event_types.CHAT_CHANGED, () => {
@@ -4089,6 +5284,23 @@ const init = async () => {
 
     isReady = true;
     console.log(`[${EXTENSION_NAME}] Ready`);
+};
+
+// 导出给其他模块使用（如 flashcard.js）
+window.aiDictionary = {
+    getWordHistory: () => wordHistoryData,
+    lookupWord: (word) => {
+        selectedText = word;
+        selectedContext = '';
+        performDictionaryLookup();
+    },
+    // 只读查词（不记录查词次数），用于背单词卡片
+    // 支持传递上下文给AI
+    lookupWordReadOnly: (word, context = '') => {
+        selectedText = word;
+        selectedContext = context;
+        performDictionaryLookup(true); // skipSaveHistory = true
+    }
 };
 
 // Start initialization
