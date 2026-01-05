@@ -3,8 +3,10 @@
  * Common utilities and constants
  */
 
-// Re-export EXTENSION_NAME from constants for backward compatibility
-export { EXTENSION_NAME } from './constants.js';
+import { EXTENSION_NAME } from './constants.js';
+
+// Re-export EXTENSION_NAME for backward compatibility
+export { EXTENSION_NAME };
 
 // Dynamically determine extension path
 export const getExtensionUrl = () => {
