@@ -52,16 +52,25 @@ export function cleanWord(word) {
 
 /**
  * Ensure words is an array of clean strings
+ * Note: Does NOT split phrases - each array element is kept intact
  */
 export function ensureWordsArray(words) {
     if (!words) return [];
     let result = [];
     if (typeof words === 'string') {
-        result = words.split(/[\s,]+/).map(w => cleanWord(w)).filter(w => w.length > 0);
+        // Single string - clean it and add as one item (could be a phrase)
+        const cleaned = cleanWord(words);
+        if (cleaned.length > 0) {
+            result.push(cleaned);
+        }
     } else if (Array.isArray(words)) {
+        // Array - clean each item but keep phrases intact
         for (const item of words) {
             if (typeof item === 'string') {
-                result.push(...item.split(/[\s,]+/).map(w => cleanWord(w)).filter(w => w.length > 0));
+                const cleaned = cleanWord(item);
+                if (cleaned.length > 0) {
+                    result.push(cleaned);
+                }
             }
         }
     }

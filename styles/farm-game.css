@@ -1,0 +1,377 @@
+/**
+ * AI Dictionary - Farm Game Styles
+ * Farm game panel, grid, shop, and game mechanics styles
+ */
+
+/* Farm Game Panel (Popup) */
+.ai-dict-farm-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    backdrop-filter: blur(3px);
+}
+
+.ai-dict-farm-panel-content {
+    background: var(--SmartThemeBlurTintColor, #1a1a2e);
+    border-radius: 16px;
+    padding: 20px;
+    max-width: 400px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--SmartThemeBorderColor, #333);
+}
+
+.ai-dict-farm-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--SmartThemeBorderColor, #333);
+}
+
+.ai-dict-farm-panel-header > span {
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--SmartThemeBodyColor, #fff);
+}
+
+.ai-dict-farm-panel-btns {
+    display: flex;
+    gap: 8px;
+}
+
+.ai-dict-farm-panel-btns .menu_button {
+    padding: 6px 10px;
+    font-size: 14px;
+}
+
+/* Farm Game Main Container */
+.farm-game {
+    padding: 15px;
+    background: linear-gradient(135deg, #2d5016 0%, #1a3009 100%);
+    border-radius: 12px;
+    margin: 10px 0;
+}
+
+/* Farm Header */
+.farm-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+}
+
+.farm-coins {
+    font-size: 18px;
+    font-weight: bold;
+    color: #ffd700;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.farm-harvested {
+    font-size: 14px;
+    color: #90ee90;
+}
+
+/* Farm Grid */
+.farm-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.farm-plot {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #8b4513;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 2px solid #5d3a1a;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.farm-plot:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+.farm-plot.empty {
+    background: linear-gradient(135deg, #8b4513 0%, #654321 100%);
+}
+
+.farm-plot.growing {
+    background: linear-gradient(135deg, #654321 0%, #4a3520 100%);
+    animation: growing-pulse 2s infinite;
+}
+
+.farm-plot.ripe {
+    background: linear-gradient(135deg, #228b22 0%, #006400 100%);
+    border-color: #32cd32;
+    animation: ripe-glow 1s infinite;
+}
+
+@keyframes growing-pulse {
+    0%, 100% { box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3); }
+    50% { box-shadow: inset 0 2px 8px rgba(144, 238, 144, 0.3); }
+}
+
+@keyframes ripe-glow {
+    0%, 100% { box-shadow: 0 0 5px #32cd32; }
+    50% { box-shadow: 0 0 15px #32cd32, 0 0 25px #228b22; }
+}
+
+.plot-emoji {
+    font-size: 28px;
+    user-select: none;
+}
+
+/* Farm Shop */
+.farm-shop {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+.farm-shop-title {
+    font-size: 14px;
+    color: #fff;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.farm-seeds {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+}
+
+.farm-seed {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 2px solid transparent;
+}
+
+.farm-seed:hover:not(.disabled) {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+}
+
+.farm-seed.selected {
+    border-color: #ffd700;
+    background: rgba(255, 215, 0, 0.2);
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+}
+
+.farm-seed.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.seed-emoji {
+    font-size: 24px;
+}
+
+.seed-price {
+    font-size: 11px;
+    color: #ffd700;
+    margin-top: 4px;
+}
+
+/* Farm Tips */
+.farm-tips {
+    text-align: center;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.7);
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+}
+
+/* Farm Status Bar */
+.farm-status {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+    margin-bottom: 10px;
+    font-size: 13px;
+}
+
+.farm-selected-seed {
+    color: #90ee90;
+}
+
+.farm-no-seed {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.farm-boost-badge {
+    background: linear-gradient(135deg, #ff6b35, #f7931e);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    color: #fff;
+    font-weight: bold;
+}
+
+/* Farm Actions */
+.farm-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.farm-action-btn {
+    flex: 1;
+    padding: 10px !important;
+    font-size: 13px !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+
+/* Farm Shop Page */
+.farm-shop-page {
+    padding: 10px;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border-radius: 12px;
+    height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+}
+
+.farm-shop-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.farm-back-btn {
+    padding: 6px 12px !important;
+    font-size: 13px !important;
+}
+
+.farm-shop-coins {
+    font-size: 16px;
+    color: #ffd700;
+    font-weight: bold;
+}
+
+.farm-shop-page .farm-shop-title {
+    text-align: center;
+    font-size: 16px;
+    color: #fff;
+    margin-bottom: 12px;
+}
+
+.farm-shop-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.farm-shop-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 2px solid transparent;
+}
+
+.farm-shop-item:hover:not(.disabled) {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.farm-shop-item.selected {
+    border-color: #ffd700;
+    background: rgba(255, 215, 0, 0.15);
+}
+
+.farm-shop-item.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.shop-item-emoji {
+    font-size: 28px;
+}
+
+.shop-item-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.shop-item-name {
+    font-size: 14px;
+    color: #fff;
+    font-weight: bold;
+}
+
+.shop-item-detail {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.shop-item-price {
+    font-size: 14px;
+    color: #ffd700;
+    font-weight: bold;
+}
+
+/* Harvest Message Animation */
+.farm-harvest-msg {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 24px;
+    font-weight: bold;
+    color: #ffd700;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+    animation: harvest-float 1s ease-out forwards;
+    pointer-events: none;
+}
+
+@keyframes harvest-float {
+    0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -100%) scale(1.5); }
+}
