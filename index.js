@@ -2,7 +2,33 @@ import { extension_settings, getContext } from '../../../extensions.js';
 import { getRequestHeaders, eventSource, event_types, generateRaw, saveSettingsDebounced, setExtensionPrompt, extension_prompt_types } from '../../../../script.js';
 import { oai_settings, chat_completion_sources, sendOpenAIRequest } from '../../../openai.js';
 
-const EXTENSION_NAME = 'ai-dictionary';
+// Import modules
+import { fetchYoudaoDictionary, checkProxyAvailable } from './modules/youdao.js';
+import {
+    groupWordsByCount,
+    createTrendChart,
+    formatDate as formatDateForStats,
+    formatDateForChart,
+    escapeHtml
+} from './modules/statistics.js';
+import { isMobile, isAndroid, debounce, cleanWord, ensureWordsArray, isSingleWord } from './modules/utils.js';
+import {
+    EXTENSION_NAME,
+    WORD_HISTORY_MAX_CONTEXTS,
+    WORD_HISTORY_MAX_CONTEXT_LENGTH,
+    EBBINGHAUS_INTERVALS,
+    MAX_DAILY_REVIEW_WORDS,
+    DB_NAME,
+    DB_VERSION,
+    STORE_WORD_HISTORY,
+    STORE_REVIEW_PENDING,
+    STORE_REVIEW_PROGRESS,
+    STORE_REVIEW_MASTERED,
+    STORE_SESSION,
+    BACKUP_WORD_HISTORY_FILE,
+    BACKUP_REVIEW_DATA_FILE,
+    defaultSettings
+} from './modules/constants.js';
 
 // Dynamically determine extension path
 const getExtensionUrl = () => {
@@ -14,61 +40,6 @@ const getExtensionUrl = () => {
     }
 };
 const EXTENSION_URL = getExtensionUrl();
-
-// Helper to detect mobile device
-function isMobile() {
-    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-    return /android|ipad|iphone|ipod/i.test(userAgent.toLowerCase()) || window.innerWidth <= 800;
-}
-
-// Helper to detect Android device specifically
-function isAndroid() {
-    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-    return /android/i.test(userAgent.toLowerCase());
-}
-
-const defaultSettings = {
-    enabled: true,
-    systemPrompt: 'You are a professional English teacher.',
-    userPrompt: `输入：%word%
-上下文：%context%
-
-请根据输入内容进行处理：
-1. 如果是单词：给出基础释义（用【解释性描述】），然后分析在上下文中的具体含义。
-2. 如果是短语或句子：先给出中文翻译再分析句子结构。`,
-    contextRange: 'all', // 'all' = 全段, 'single' = 单段, 'sentence' = 一句
-    connectionProfile: '', // Connection Profile ID, empty means use current
-    enableDirectLookup: false,
-    iconPosition: 'bottom-left',
-    mobileTogglePosition: null, // Will be set to default on first load
-    deepStudyPrompt: `请帮我深度学习单词 "%word%"：
-1. 词根词缀分析（如有）
-2. 常见搭配和用法
-3. 同义词/反义词/易混淆单词
-4. 记忆技巧建议`,
-    confusableWordsPrompt: `请列出与单词 "%word%" 形近易混淆的单词（拼写相似但意思不同的词）。
-
-请严格按照以下格式输出：
-【形近词列表】word1, word2, word3
-【释义】
-- word1: 释义
-- word2: 释义
-- word3: 释义
-
-注意：
-1. 只列出拼写相似、容易混淆的单词
-2. 每个单词给出简短的中文释义
-3. 如果没有常见的形近词，请说明`,
-    confusableWords: {}, // 存储收藏的形近词 { "word": [{ word: "xxx", meaning: "xxx" }] }
-    highlightConfusables: false, // 是否高亮收藏的形近词
-    highlightColor: '#e0a800', // 高亮字体颜色
-    autoCollapseYoudao: false, // 是否自动折叠有道词典释义
-    autoFetchAI: true, // 是否自动获取AI释义
-    fetchAIOnYoudaoExpand: true, // 折叠有道释义时自动获取AI（当AI释义为空时）
-    // 沉浸式复习设置
-    immersiveReview: true, // 是否开启沉浸式复习（默认开启）
-    reviewPrompt: `Naturally incorporate the following words into the narrative at least once, without making the story feel forced or awkward: [%words%]. If the current part of the story does not naturally fit these words, you may develop the scene to make their use plausible.`, // 复习提示词
-};
 
 /** @type {Object} */
 let settings = { ...defaultSettings };
@@ -412,27 +383,6 @@ function saveSettings() {
 
 // --- Word History Functions ---
 
-// Word history limits
-const WORD_HISTORY_MAX_CONTEXTS = 10;       // 每个单词最多保存多少条上下文
-const WORD_HISTORY_MAX_CONTEXT_LENGTH = 500; // 每条上下文最大字符数
-
-// 艾宾浩斯复习间隔（天数）：1, 2, 4, 7, 15, 30
-const EBBINGHAUS_INTERVALS = [1, 2, 4, 7, 15, 30];
-const MAX_DAILY_REVIEW_WORDS = 20; // 每次最多复习20个单词
-
-// --- IndexedDB 数据库配置 ---
-const DB_NAME = 'ai-dictionary-db';
-const DB_VERSION = 1;
-const STORE_WORD_HISTORY = 'wordHistory';
-const STORE_REVIEW_PENDING = 'reviewPending';
-const STORE_REVIEW_PROGRESS = 'reviewProgress';
-const STORE_REVIEW_MASTERED = 'reviewMastered';
-const STORE_SESSION = 'sessionData';
-
-// --- JSON 备份文件名 ---
-const BACKUP_WORD_HISTORY_FILE = 'ai-dictionary-word-history.json';
-const BACKUP_REVIEW_DATA_FILE = 'ai-dictionary-review-data.json';
-
 /** @type {IDBDatabase|null} */
 let db = null;
 
@@ -717,26 +667,6 @@ function markWordForSave(word) {
 }
 
 // --- Immersive Review Functions ---
-
-function cleanWord(word) {
-    if (typeof word !== 'string') return '';
-    return word.trim().replace(/[\r\n]+/g, '');
-}
-
-function ensureWordsArray(words) {
-    if (!words) return [];
-    let result = [];
-    if (typeof words === 'string') {
-        result = words.split(/[\s,]+/).map(w => cleanWord(w)).filter(w => w.length > 0);
-    } else if (Array.isArray(words)) {
-        for (const item of words) {
-            if (typeof item === 'string') {
-                result.push(...item.split(/[\s,]+/).map(w => cleanWord(w)).filter(w => w.length > 0));
-            }
-        }
-    }
-    return result;
-}
 
 async function loadReviewDataFromFile() {
     try {
@@ -1220,34 +1150,6 @@ function getWordStatistics(range) {
 }
 
 /**
- * Group words by lookup count
- * @param {Array<{word: string, count: number, totalCount: number}>} stats
- * @returns {Object} Grouped words { '5+': [...], '3-4': [...], '2': [...], '1': [...] }
- */
-function groupWordsByCount(stats) {
-    const groups = {
-        'high': { label: '高频 (5次+)', words: [] },
-        'medium': { label: '中频 (3-4次)', words: [] },
-        'low': { label: '低频 (2次)', words: [] },
-        'once': { label: '仅一次', words: [] }
-    };
-
-    for (const item of stats) {
-        if (item.count >= 5) {
-            groups.high.words.push(item);
-        } else if (item.count >= 3) {
-            groups.medium.words.push(item);
-        } else if (item.count === 2) {
-            groups.low.words.push(item);
-        } else {
-            groups.once.words.push(item);
-        }
-    }
-
-    return groups;
-}
-
-/**
  * Get daily lookup counts for trend chart
  * @param {'week' | 'month' | 'all'} range
  * @returns {Array<{date: string, count: number}>}
@@ -1296,113 +1198,6 @@ function getDailyLookupCounts(range) {
         count,
         displayDate: formatDateForChart(date)
     }));
-}
-
-/**
- * Format date for chart display
- * @param {string} dateStr - YYYY-MM-DD format
- * @returns {string}
- */
-function formatDateForChart(dateStr) {
-    const date = new Date(dateStr);
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    return `${month}/${day}`;
-}
-
-/**
- * Create SVG trend chart
- * @param {Array<{date: string, count: number, displayDate: string}>} data
- * @returns {string} SVG HTML
- */
-function createTrendChart(data) {
-    if (!data || data.length === 0) {
-        return '<div class="ai-dict-chart-empty">暂无数据</div>';
-    }
-
-    const width = 520;
-    const height = 150;
-    const padding = { top: 20, right: 20, bottom: 35, left: 40 };
-    const chartWidth = width - padding.left - padding.right;
-    const chartHeight = height - padding.top - padding.bottom;
-
-    const maxCount = Math.max(...data.map(d => d.count), 1);
-    const minCount = 0;
-
-    // Calculate points
-    const points = data.map((d, i) => ({
-        x: padding.left + (i / (data.length - 1 || 1)) * chartWidth,
-        y: padding.top + chartHeight - ((d.count - minCount) / (maxCount - minCount || 1)) * chartHeight,
-        count: d.count,
-        date: d.displayDate
-    }));
-
-    // Create path for the line
-    const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-
-    // Create path for the area fill
-    const areaPath = `${linePath} L ${points[points.length - 1].x} ${padding.top + chartHeight} L ${points[0].x} ${padding.top + chartHeight} Z`;
-
-    // Generate Y-axis labels (5 levels)
-    const yLabels = [];
-    for (let i = 0; i <= 4; i++) {
-        const value = Math.round(minCount + (maxCount - minCount) * (i / 4));
-        const y = padding.top + chartHeight - (chartHeight * i / 4);
-        yLabels.push({ value, y });
-    }
-
-    // Generate X-axis labels (show every few days depending on data length)
-    const xLabelInterval = data.length <= 7 ? 1 : data.length <= 14 ? 2 : Math.ceil(data.length / 7);
-    const xLabels = points.filter((_, i) => i % xLabelInterval === 0 || i === points.length - 1);
-
-    return `
-        <svg class="ai-dict-trend-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet">
-            <defs>
-                <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" style="stop-color:#667eea;stop-opacity:0.3" />
-                    <stop offset="100%" style="stop-color:#667eea;stop-opacity:0.05" />
-                </linearGradient>
-            </defs>
-
-            <!-- Grid lines -->
-            ${yLabels.map(l => `
-                <line x1="${padding.left}" y1="${l.y}" x2="${width - padding.right}" y2="${l.y}"
-                      stroke="var(--SmartThemeBorderColor, #444)" stroke-width="0.5" stroke-dasharray="3,3" opacity="0.5"/>
-            `).join('')}
-
-            <!-- Y-axis labels -->
-            ${yLabels.map(l => `
-                <text x="${padding.left - 8}" y="${l.y + 4}" text-anchor="end"
-                      fill="var(--SmartThemeBodyColor, #999)" font-size="10">${l.value}</text>
-            `).join('')}
-
-            <!-- X-axis labels -->
-            ${xLabels.map(p => `
-                <text x="${p.x}" y="${height - 8}" text-anchor="middle"
-                      fill="var(--SmartThemeBodyColor, #999)" font-size="10">${p.date}</text>
-            `).join('')}
-
-            <!-- Area fill -->
-            <path d="${areaPath}" fill="url(#areaGradient)" />
-
-            <!-- Line -->
-            <path d="${linePath}" fill="none" stroke="#667eea" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-
-            <!-- Data points -->
-            ${points.map(p => `
-                <circle cx="${p.x}" cy="${p.y}" r="4" fill="#667eea" stroke="#fff" stroke-width="2">
-                    <title>${p.date}: ${p.count}次</title>
-                </circle>
-            `).join('')}
-
-            <!-- Hover areas for tooltips -->
-            ${points.map(p => `
-                <circle cx="${p.x}" cy="${p.y}" r="12" fill="transparent" class="ai-dict-chart-hover-area">
-                    <title>${p.date}: ${p.count}次</title>
-                </circle>
-            `).join('')}
-        </svg>
-    `;
 }
 
 /**
@@ -1939,15 +1734,6 @@ let selectedParentElement = null;
 let currentPrompt = '';
 
 /**
- * Check if text is a single word (no spaces)
- * @param {string} text
- * @returns {boolean}
- */
-function isSingleWord(text) {
-    return text && !text.trim().includes(' ');
-}
-
-/**
  * Store the selection range info for marking position in context
  * @type {{startOffset: number, endOffset: number, startContainer: Node, endContainer: Node} | null}
  */
@@ -2256,339 +2042,6 @@ function triggerAIFetchIfEmpty() {
             aiContentElement.innerHTML = '<p class="ai-dict-error-text">无法获取 AI 定义，请稍后重试。</p>';
         });
     }
-}
-
-// Cache for proxy availability check
-let proxyAvailable = null;
-
-/**
- * Create an AbortSignal with timeout (compatible with older browsers)
- * @param {number} ms Timeout in milliseconds
- * @returns {AbortSignal}
- */
-function createTimeoutSignal(ms) {
-    const controller = new AbortController();
-    setTimeout(() => controller.abort(), ms);
-    return controller.signal;
-}
-
-/**
- * Check if local SillyTavern proxy is available
- * @returns {Promise<boolean>}
- */
-async function checkProxyAvailable() {
-    if (proxyAvailable !== null) {
-        return proxyAvailable;
-    }
-
-    let errorMsg = '';
-    try {
-        // Try a simple request to the proxy endpoint
-        // Use Youdao itself to test - avoids issues with blocked sites like Google
-        const response = await fetch('/proxy/https://dict.youdao.com/', {
-            method: 'HEAD',
-            signal: createTimeoutSignal(3000)
-        });
-        proxyAvailable = response.ok || response.status !== 404;
-        errorMsg = `status: ${response.status}`;
-    } catch (error) {
-        proxyAvailable = false;
-        errorMsg = error.message || String(error);
-    }
-
-    console.log(`[${EXTENSION_NAME}] Local proxy available:`, proxyAvailable, errorMsg);
-    return proxyAvailable;
-}
-
-/**
- * Public CORS proxies as fallback
- */
-const PUBLIC_CORS_PROXIES = [
-    (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-    (url) => `https://test.cors.workers.dev/?${encodeURIComponent(url)}`,
-];
-
-async function fetchYoudaoDictionary(word) {
-    try {
-        console.log(`[${EXTENSION_NAME}] Fetching Youdao dictionary for: ${word}`);
-
-        const youdaoUrl = `https://dict.youdao.com/w/${encodeURIComponent(word)}`;
-        let response = null;
-        let proxyUsed = '';
-
-        // Check if local proxy is available
-        const useLocalProxy = await checkProxyAvailable();
-
-        if (useLocalProxy) {
-            // Use SillyTavern's built-in CORS proxy
-            const proxyUrl = `/proxy/${youdaoUrl}`;
-            proxyUsed = 'local';
-            console.log(`[${EXTENSION_NAME}] Using local proxy:`, proxyUrl);
-
-            response = await fetch(proxyUrl, { method: 'GET' });
-        } else {
-            // Try public CORS proxies
-            for (const getProxyUrl of PUBLIC_CORS_PROXIES) {
-                try {
-                    const proxyUrl = getProxyUrl(youdaoUrl);
-                    proxyUsed = proxyUrl.split('?')[0];
-                    console.log(`[${EXTENSION_NAME}] Trying public proxy:`, proxyUsed);
-
-                    response = await fetch(proxyUrl, {
-                        method: 'GET',
-                        signal: createTimeoutSignal(10000)
-                    });
-
-                    if (response.ok) {
-                        console.log(`[${EXTENSION_NAME}] Public proxy succeeded:`, proxyUsed);
-                        break;
-                    }
-                } catch (proxyError) {
-                    console.warn(`[${EXTENSION_NAME}] Public proxy failed:`, proxyUsed, proxyError.message);
-                    response = null;
-                }
-            }
-        }
-
-        if (!response || !response.ok) {
-            console.warn(`[${EXTENSION_NAME}] All proxies failed for Youdao`);
-            // Return special error object to indicate proxy failure
-            return { proxyError: true };
-        }
-
-        console.log(`[${EXTENSION_NAME}] Proxy response status:`, response.status);
-
-        const html = await response.text();
-        console.log(`[${EXTENSION_NAME}] Received HTML, length:`, html.length);
-
-        // Parse the HTML content
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        const results = parseYoudaoHtml(doc, word);
-
-        if (results && results.length > 0) {
-            console.log(`[${EXTENSION_NAME}] Found ${results.length} Youdao result(s)`);
-            return results;
-        }
-
-        console.log(`[${EXTENSION_NAME}] No Youdao results found`);
-        return null;
-    } catch (error) {
-        console.warn(`[${EXTENSION_NAME}] Youdao dictionary lookup error:`, error.message);
-        console.log(`[${EXTENSION_NAME}] Will show AI definition instead`);
-        return null;
-    }
-}
-
-function parseYoudaoHtml(doc, word) {
-    const results = [];
-
-    // Try Collins dictionary first
-    const collinsResult = parseCollinsHtml(doc);
-    if (collinsResult) {
-        results.push(collinsResult);
-    }
-
-    // If no Collins, try EC dictionary
-    if (results.length === 0) {
-        const ecResult = parseYoudaoEcHtml(doc);
-        if (ecResult) {
-            results.push(ecResult);
-        }
-    }
-
-    // If still nothing, try web definitions
-    if (results.length === 0) {
-        const webResult = parseWebDefinitionsHtml(doc);
-        if (webResult) {
-            results.push(webResult);
-        }
-    }
-
-    return results;
-}
-
-function parseCollinsHtml(doc) {
-    try {
-        const defNodes = doc.querySelectorAll('#collinsResult .ol li');
-        if (!defNodes || !defNodes.length) return null;
-
-        const expression = getText(doc.querySelector('#collinsResult h4 .title'));
-        const reading = getText(doc.querySelector('#collinsResult h4 .phonetic'));
-
-        if (!expression) return null;
-
-        // Get extra info (star rating, exam cert)
-        let extrainfo = '';
-        const starNode = doc.querySelector('#collinsResult h4 .star');
-        if (starNode) {
-            const starClass = starNode.className.split(' ')[1];
-            if (starClass) {
-                const starCount = starClass.substring(4, 5);
-                if (starCount) {
-                    extrainfo += `<span class="star">${'★'.repeat(Number(starCount))}</span>`;
-                }
-            }
-        }
-
-        const cets = getText(doc.querySelector('#collinsResult h4 .rank'));
-        if (cets) {
-            const cetTags = cets.split(' ').map(c => `<span class="cet">${c}</span>`).join('');
-            extrainfo += cetTags;
-        }
-
-        // Build definitions with proper example sentences
-        const definitions = [];
-        for (const defNode of defNodes) {
-            let def = '<div class="odh-definition">';
-
-            // Get POS (Part of Speech)
-            const posNode = defNode.querySelector('.collinsMajorTrans p .additional');
-            if (posNode) {
-                const pos = getText(posNode);
-                def += `<span class="pos">${escapeHtml(pos)}</span>`;
-            }
-
-            // Get English and Chinese translation
-            const tranNode = defNode.querySelector('.collinsMajorTrans p');
-            if (tranNode) {
-                // Clone to avoid modifying original
-                const clonedNode = tranNode.cloneNode(true);
-
-                // Remove POS nodes
-                clonedNode.querySelectorAll('.additional').forEach(n => n.remove());
-
-                const fullText = clonedNode.innerText;
-
-                // Try to extract Chinese translation
-                const chnMatch = fullText.match(/[\u4e00-\u9fa5\uff0c\u3002]+/g);
-                const chnTran = chnMatch ? chnMatch.join('').trim() : '';
-
-                // Extract English translation (remove Chinese parts)
-                const engTran = fullText.replace(/[\u4e00-\u9fa5\uff0c\u3002]+/g, '').trim();
-
-                def += '<span class="tran">';
-                if (engTran) {
-                    def += `<span class="eng_tran">${escapeHtml(engTran)}</span>`;
-                }
-                if (chnTran) {
-                    def += `<span class="chn_tran">${escapeHtml(chnTran)}</span>`;
-                }
-                def += '</span>';
-            }
-
-            // Get example sentences
-            const exampleNodes = defNode.querySelectorAll('.exampleLists');
-            if (exampleNodes && exampleNodes.length > 0) {
-                def += '<ul class="sents">';
-                for (let i = 0; i < Math.min(exampleNodes.length, 2); i++) {
-                    const example = exampleNodes[i];
-                    const engSent = getText(example.querySelector('p'));
-                    const chnSent = getText(example.querySelector('p+p'));
-
-                    def += '<li class="sent">';
-                    if (engSent) {
-                        def += `<span class="eng_sent">${escapeHtml(engSent)}</span>`;
-                    }
-                    def += ' - ';
-                    if (chnSent) {
-                        def += `<span class="chn_sent">${escapeHtml(chnSent)}</span>`;
-                    }
-                    def += '</li>';
-                }
-                def += '</ul>';
-            }
-
-            def += '</div>';
-            definitions.push(def);
-        }
-
-        if (definitions.length === 0) return null;
-
-        return {
-            expression,
-            reading: reading || '',
-            extrainfo: extrainfo || '',
-            definitions: definitions,
-            audios: [
-                `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(expression)}&type=1`,
-                `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(expression)}&type=2`
-            ]
-        };
-    } catch (error) {
-        console.warn(`[${EXTENSION_NAME}] Error parsing Collins:`, error.message);
-        return null;
-    }
-}
-
-function parseYoudaoEcHtml(doc) {
-    try {
-        const defNodes = doc.querySelectorAll('#phrsListTab .trans-container ul li');
-        if (!defNodes || !defNodes.length) return null;
-
-        const expression = getText(doc.querySelector('#phrsListTab .wordbook-js .keyword'));
-        if (!expression) return null;
-
-        let definition = '<ul class="ec">';
-        for (const defNode of defNodes) {
-            const text = getText(defNode);
-            if (text) {
-                definition += `<li>${escapeHtml(text)}</li>`;
-            }
-        }
-        definition += '</ul>';
-
-        return {
-            expression,
-            reading: '',
-            definitions: [definition],
-            audios: [
-                `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(expression)}&type=1`,
-                `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(expression)}&type=2`
-            ]
-        };
-    } catch (error) {
-        console.warn(`[${EXTENSION_NAME}] Error parsing EC:`, error.message);
-        return null;
-    }
-}
-
-function parseWebDefinitionsHtml(doc) {
-    try {
-        const webNode = doc.querySelector('#webResult');
-        if (!webNode) return null;
-
-        const expression = getText(doc.querySelector('h1'));
-        if (!expression) return null;
-
-        let definition = '<div>';
-        const items = doc.querySelectorAll('#webResult .web-item, #webResult .web-section');
-        if (items && items.length > 0) {
-            definition += '<ul class="web">';
-            for (let i = 0; i < Math.min(items.length, 5); i++) {
-                const text = getText(items[i]);
-                if (text) {
-                    definition += `<li>${escapeHtml(text)}</li>`;
-                }
-            }
-            definition += '</ul>';
-        }
-        definition += '</div>';
-
-        return {
-            expression,
-            reading: '',
-            definitions: [definition]
-        };
-    } catch (error) {
-        console.warn(`[${EXTENSION_NAME}] Error parsing web definitions:`, error.message);
-        return null;
-    }
-}
-
-function getText(node) {
-    if (!node) return '';
-    return node.innerText.trim();
 }
 
 /**
@@ -4366,12 +3819,6 @@ function playAudio(audioUrl) {
     }
 }
 
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
 function createSidePanel() {
     const isMobileMode = isMobile();
 
@@ -4800,15 +4247,6 @@ function hideIcon() {
         iconElement.remove();
         iconElement = null;
     }
-}
-
-// Simple debounce function
-function debounce(func, wait) {
-    let timeout;
-    return function(...args) {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(this, args), wait);
-    };
 }
 
 // Mobile touch selection state
