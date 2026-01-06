@@ -383,3 +383,319 @@
     r: 6;
     filter: drop-shadow(0 0 4px rgba(102, 126, 234, 0.6));
 }
+
+/* ==================== Review Actions ==================== */
+.ai-dict-review-actions {
+    padding: 8px 15px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: nowrap;
+    border-bottom: 1px solid var(--SmartThemeBorderColor, #444);
+    justify-content: center;
+}
+
+.ai-dict-review-actions .menu_button {
+    white-space: nowrap;
+    padding: 4px 10px;
+    font-size: 0.8em;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+/* ==================== Calendar Styles ==================== */
+.ai-dict-calendar-section {
+    margin-top: 8px;
+}
+
+.ai-dict-calendar-section-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85em;
+    font-weight: 500;
+    color: var(--SmartThemeBodyColor, #e5e5e5);
+    margin-bottom: 8px;
+}
+
+.ai-dict-calendar-section-title i {
+    color: #667eea;
+    font-size: 0.9em;
+}
+
+.ai-dict-calendar {
+    background-color: var(--SmartThemeBlurTintColor, rgba(255, 255, 255, 0.02));
+    border: 1px solid var(--SmartThemeBorderColor, #444);
+    border-radius: 8px;
+    padding: 8px 10px;
+}
+
+.ai-dict-calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.ai-dict-calendar-title {
+    font-size: 0.85em;
+    font-weight: 600;
+    color: var(--SmartThemeBodyColor, #e5e5e5);
+}
+
+.ai-dict-calendar-nav {
+    background: rgba(102, 126, 234, 0.15);
+    border: none;
+    color: #667eea;
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    font-size: 0.7em;
+}
+
+.ai-dict-calendar-nav:hover {
+    background: rgba(102, 126, 234, 0.3);
+}
+
+.ai-dict-calendar-weekdays {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+    padding: 0 2px;
+}
+
+.ai-dict-calendar-weekday {
+    width: 28px;
+    text-align: center;
+    font-size: 0.65em;
+    font-weight: 500;
+    color: var(--SmartThemeBodyColor, #999);
+    opacity: 0.7;
+}
+
+.ai-dict-calendar-days {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 0;
+}
+
+.ai-dict-calendar-day {
+    width: calc(100% / 7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 0;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+}
+
+.ai-dict-calendar-day.empty {
+    cursor: default;
+}
+
+.ai-dict-calendar-day:not(.empty):hover {
+    background-color: rgba(102, 126, 234, 0.15);
+}
+
+.ai-dict-calendar-day-num {
+    font-size: 0.8em;
+    font-weight: 500;
+    color: var(--SmartThemeBodyColor, #aaa);
+}
+
+/* Today - subtle highlight */
+.ai-dict-calendar-day.today {
+    background-color: rgba(102, 126, 234, 0.15);
+}
+
+.ai-dict-calendar-day.today .ai-dict-calendar-day-num {
+    color: #667eea;
+    font-weight: 600;
+}
+
+/* Has words - show book icon only */
+.ai-dict-calendar-day.has-words .ai-dict-calendar-day-num::after {
+    content: '\f02d';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    font-size: 0.5em;
+    color: #4caf50;
+    margin-left: 2px;
+    vertical-align: super;
+}
+
+.ai-dict-calendar-day.has-words:hover {
+    background-color: rgba(102, 126, 234, 0.15);
+}
+
+/* Overdue - red icon */
+.ai-dict-calendar-day.overdue .ai-dict-calendar-day-num::after {
+    color: #ff6347;
+}
+
+/* ==================== Calendar Words Popup ==================== */
+.ai-dict-calendar-popup {
+    position: fixed;
+    z-index: 200010;
+    background-color: var(--SmartThemeBodyBackground, #1f2329);
+    border: 1px solid var(--SmartThemeBorderColor, #444);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    min-width: 160px;
+    max-width: 240px;
+    animation: ai-dict-popup-in 0.12s ease-out;
+}
+
+@keyframes ai-dict-popup-in {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.ai-dict-calendar-popup-content {
+    padding: 8px 10px;
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.ai-dict-calendar-popup-empty {
+    text-align: center;
+    color: var(--SmartThemeBodyColor, #999);
+    font-size: 0.8em;
+    padding: 10px;
+}
+
+.ai-dict-calendar-popup-group {
+    margin-bottom: 10px;
+}
+
+.ai-dict-calendar-popup-group:last-child {
+    margin-bottom: 0;
+}
+
+.ai-dict-calendar-popup-group-title {
+    font-size: 0.75em;
+    font-weight: 500;
+    color: var(--SmartThemeBodyColor, #888);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.ai-dict-calendar-popup-words {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.ai-dict-calendar-popup-word {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    background-color: var(--SmartThemeBlurTintColor, rgba(255, 255, 255, 0.05));
+    border: 1px solid var(--SmartThemeBorderColor, #444);
+    border-radius: 10px;
+    font-size: 0.8em;
+}
+
+/* ==================== Session Group Style ==================== */
+.ai-dict-session-group {
+    background: var(--SmartThemeBlurTintColor, rgba(100, 100, 255, 0.1));
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 15px;
+}
+
+.ai-dict-session-group .ai-dict-stats-group-header {
+    background-color: transparent;
+    padding: 0 0 10px 0;
+}
+
+/* ==================== Summary Item Click Styles ==================== */
+.ai-dict-stats-summary-item {
+    transition: all 0.15s;
+}
+
+.ai-dict-stats-summary-item:hover {
+    transform: scale(1.05);
+}
+
+.ai-dict-stats-summary-item.active {
+    background-color: rgba(102, 126, 234, 0.15);
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin: -8px -12px;
+}
+
+/* ==================== Summary Words Panel ==================== */
+.ai-dict-summary-words-panel {
+    padding: 8px 15px;
+    border-bottom: 1px solid var(--SmartThemeBorderColor, #444);
+    background-color: rgba(102, 126, 234, 0.03);
+}
+
+.ai-dict-summary-words-empty {
+    text-align: center;
+    color: var(--SmartThemeBodyColor, #999);
+    font-size: 0.85em;
+    padding: 10px;
+    opacity: 0.7;
+}
+
+.ai-dict-summary-words-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ai-dict-summary-words-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ai-dict-summary-words-group-label {
+    font-size: 0.75em;
+    font-weight: 500;
+    color: var(--SmartThemeBodyColor, #999);
+    opacity: 0.8;
+}
+
+.ai-dict-summary-words-group-label.done {
+    color: #4caf50;
+}
+
+.ai-dict-summary-words-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.ai-dict-summary-word {
+    display: inline-block;
+    padding: 2px 8px;
+    background-color: var(--SmartThemeBlurTintColor, rgba(255, 255, 255, 0.05));
+    border: 1px solid var(--SmartThemeBorderColor, #444);
+    border-radius: 10px;
+    font-size: 0.8em;
+}
+
+.ai-dict-summary-word.done {
+    opacity: 0.6;
+    text-decoration: line-through;
+    color: #4caf50;
+}

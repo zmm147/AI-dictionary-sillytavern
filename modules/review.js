@@ -507,12 +507,79 @@ export function toggleWordInReview(word) {
 }
 
 /**
- * Clear current session words
+ * Clear current session words and reset today's reviewed words
  */
 export function clearCurrentSession() {
-    reviewData.currentSession.words = [];
-    reviewData.currentSession.lastUpdated = null;
+    // Get today's midnight timestamp
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+
+    // Save current session words (not yet used by AI)
+    const currentSessionWords = [...reviewData.currentSession.words];
+
+    // Find words that were used today and undo their progress
+    const wordsToReset = [];
+
+    // Check reviewing words
+    for (const [word, data] of Object.entries(reviewData.reviewingWords)) {
+        if (data.lastUsedDate && data.lastUsedDate >= todayStart) {
+            // Undo: stage -= 1
+            data.stage -= 1;
+
+            if (data.stage < 0) {
+                // Move back to pending
+                delete reviewData.reviewingWords[word];
+                deleteProgressWordFromDb(word);
+                const addedDate = todayStart - 1; // Yesterday
+                reviewData.pendingWords.push({ word, addedDate });
+                savePendingWordToDb(word, addedDate);
+            } else {
+                // Stay in reviewing but reset
+                data.nextReviewDate = todayStart; // Today
+                data.lastUsedDate = todayStart - 1; // Yesterday
+                saveProgressWordToDb(word, data);
+            }
+            wordsToReset.push(word);
+        }
+    }
+
+    // Check mastered words that were mastered today
+    const masteredToUndo = [];
+    for (let i = reviewData.masteredWords.length - 1; i >= 0; i--) {
+        const item = reviewData.masteredWords[i];
+        if (item.masteredDate && item.masteredDate >= todayStart) {
+            masteredToUndo.push(item.word);
+            reviewData.masteredWords.splice(i, 1);
+            deleteMasteredWordFromDb(item.word);
+
+            // Move back to reviewing at last stage
+            const lastStage = EBBINGHAUS_INTERVALS.length - 1;
+            const data = {
+                stage: lastStage,
+                nextReviewDate: todayStart,
+                lastUsedDate: todayStart - 1
+            };
+            reviewData.reviewingWords[item.word] = data;
+            saveProgressWordToDb(item.word, data);
+            wordsToReset.push(item.word);
+        }
+    }
+
+    // Combine: current session words + reset words (avoid duplicates)
+    const allWords = [...currentSessionWords];
+    for (const word of wordsToReset) {
+        if (!allWords.includes(word)) {
+            allWords.push(word);
+        }
+    }
+
+    // Rebuild session with combined words
+    reviewData.currentSession.words = allWords;
+    reviewData.currentSession.lastUpdated = Date.now();
+
     saveReviewDataDebounced();
+
+    console.log(`[${EXTENSION_NAME}] Reset today's session, ${wordsToReset.length} words reset, ${allWords.length} words in session`);
 }
 
 /**
