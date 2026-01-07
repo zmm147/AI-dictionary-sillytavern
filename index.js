@@ -419,31 +419,8 @@ const init = async () => {
 
     // Event listeners for chat messages
     eventSource.on(event_types.MESSAGE_RECEIVED, (messageIndex) => {
+        // Only highlight confusable words, word checking is now done in GENERATION_STARTED
         setTimeout(() => highlightAllConfusableWords(settings.confusableWords, settings.highlightConfusables), 100);
-
-        const reviewData = getReviewData();
-        if (settings.immersiveReview && reviewData.currentSession.words.length > 0) {
-            setTimeout(() => {
-                try {
-                    const context = getContext();
-                    if (context && context.chat) {
-                        let aiMessage = null;
-                        for (let i = context.chat.length - 1; i >= 0; i--) {
-                            if (!context.chat[i].is_user && context.chat[i].mes) {
-                                aiMessage = context.chat[i].mes;
-                                break;
-                            }
-                        }
-                        if (aiMessage) {
-                            console.log(`[${EXTENSION_NAME}] Checking AI response for review words...`);
-                            checkAIResponseForReviewWords(aiMessage, settings.immersiveReview);
-                        }
-                    }
-                } catch (e) {
-                    console.warn(`[${EXTENSION_NAME}] Error checking AI response for review words:`, e);
-                }
-            }, 500);
-        }
     });
 
     eventSource.on(event_types.MESSAGE_SENT, () => {
@@ -451,23 +428,62 @@ const init = async () => {
     });
 
     // Inject review prompt before generation
-    eventSource.on(event_types.GENERATION_STARTED, () => {
-        if (!settings.immersiveReview) {
-            setExtensionPrompt('ai-dictionary-review', '', extension_prompt_types.IN_CHAT, 0, false);
-            return;
-        }
-
+    eventSource.on(event_types.GENERATION_STARTED, (type, _options, dryRun) => {
         try {
+            const context = getContext();
+
+            if (!context || !context.chat) {
+                return;
+            }
+
+            const isDryRun = !!dryRun;
+
+            // Replicate SillyTavern's coreChat logic to get the actual messages sent to AI
+            // Filter out system messages (same as SillyTavern does)
+            let effectiveChat = context.chat.filter(x => !x.is_system);
+
+            // If swipe/regenerate, remove the last message (same as SillyTavern's coreChat.pop())
+            if (type === 'swipe' || type === 'regenerate') {
+                effectiveChat = effectiveChat.slice(0, -1);
+            } else {
+            }
+
+            // Check last AI message in effectiveChat for review words
+            const reviewData = getReviewData();
+            if (!isDryRun && settings.immersiveReview && reviewData.currentSession.words.length > 0) {
+                if (effectiveChat.length > 0) {
+                    let lastAIMessage = null;
+                    let lastAIMessageIndex = -1;
+
+                    // Find the last AI message in effectiveChat
+                    for (let i = effectiveChat.length - 1; i >= 0; i--) {
+                        if (!effectiveChat[i].is_user && effectiveChat[i].mes) {
+                            lastAIMessage = effectiveChat[i].mes;
+                            lastAIMessageIndex = i;
+                            break;
+                        }
+                    }
+
+                    if (lastAIMessage) {
+                        checkAIResponseForReviewWords(lastAIMessage, settings.immersiveReview);
+                    }
+                }
+            }
+
+            // Inject review prompt to user message
+            if (!settings.immersiveReview) {
+                setExtensionPrompt('ai-dictionary-review', '', extension_prompt_types.IN_CHAT, 0, false);
+                return;
+            }
+
             const reviewPrompt = generateReviewPrompt(settings.immersiveReview, settings.reviewPrompt);
             if (reviewPrompt) {
                 setExtensionPrompt('ai-dictionary-review', reviewPrompt, extension_prompt_types.IN_CHAT, 0, false);
-                const reviewData = getReviewData();
-                console.log(`[${EXTENSION_NAME}] Injected review prompt with ${reviewData.currentSession.words.length} words`);
             } else {
                 setExtensionPrompt('ai-dictionary-review', '', extension_prompt_types.IN_CHAT, 0, false);
             }
         } catch (e) {
-            console.warn(`[${EXTENSION_NAME}] Error injecting review prompt:`, e);
+            console.warn(`[${EXTENSION_NAME}] Error in GENERATION_STARTED:`, e);
         }
     });
 
