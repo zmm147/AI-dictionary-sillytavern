@@ -1,0 +1,218 @@
+/**
+ * AI Dictionary - Redemption Styles
+ * 兑换系统样式
+ */
+
+/* Redemption Panel */
+.redemption-panel {
+    padding: 15px;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border-radius: 12px;
+    height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+}
+
+.redemption-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    flex-shrink: 0;
+}
+
+.redemption-back-btn {
+    padding: 6px 12px !important;
+    font-size: 13px !important;
+}
+
+.redemption-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: #fff;
+}
+
+.redemption-inventory-btn,
+.redemption-list-btn {
+    padding: 6px 12px !important;
+    font-size: 13px !important;
+    background: linear-gradient(135deg, #667eea, #764ba2) !important;
+}
+
+/* Redemption List */
+.redemption-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.redemption-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 15px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    transition: all 0.2s ease;
+}
+
+.redemption-item:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateX(5px);
+}
+
+.redemption-item.redeemed {
+    opacity: 0.6;
+    background: rgba(100, 200, 100, 0.1);
+}
+
+.redemption-item-emoji {
+    font-size: 40px;
+    width: 50px;
+    text-align: center;
+}
+
+.redemption-item-info {
+    flex: 1;
+}
+
+.redemption-item-name {
+    font-size: 16px;
+    font-weight: bold;
+    color: #fff;
+    margin-bottom: 4px;
+}
+
+.redemption-item-desc {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.redemption-redeem-btn {
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #00c853, #00e676);
+    border: none;
+    border-radius: 20px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.redemption-redeem-btn:hover:not(.disabled) {
+    transform: scale(1.05);
+    box-shadow: 0 4px 15px rgba(0, 200, 83, 0.4);
+}
+
+.redemption-redeem-btn.disabled {
+    background: #555;
+    cursor: default;
+    opacity: 0.8;
+}
+
+/* Inventory */
+.redemption-inventory {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.redemption-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 14px;
+    text-align: center;
+    padding: 20px;
+}
+
+.redemption-inventory-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 15px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    border: 2px solid rgba(102, 126, 234, 0.3);
+}
+
+.redemption-inventory-item:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.inventory-item-emoji {
+    font-size: 40px;
+    width: 50px;
+    text-align: center;
+}
+
+.inventory-item-info {
+    flex: 1;
+}
+
+.inventory-item-name {
+    font-size: 16px;
+    font-weight: bold;
+    color: #667eea;
+    margin-bottom: 4px;
+}
+
+.inventory-item-desc {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Success Message */
+.redemption-success-msg {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(135deg, rgba(0, 200, 83, 0.95), rgba(0, 230, 118, 0.95));
+    padding: 25px 40px;
+    border-radius: 16px;
+    border: 2px solid #00e676;
+    box-shadow: 0 8px 30px rgba(0, 200, 83, 0.5);
+    text-align: center;
+    z-index: 20000;
+    animation: redemption-bounce 2s ease-out forwards;
+}
+
+.redemption-success-msg .success-icon {
+    font-size: 48px;
+    margin-bottom: 10px;
+}
+
+.redemption-success-msg .success-text {
+    color: #fff;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+@keyframes redemption-bounce {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+    20% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+    40% { transform: translate(-50%, -50%) scale(0.95); }
+    60% { transform: translate(-50%, -50%) scale(1.05); }
+    80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+}
+
+/* Farm Game Buttons */
+.farm-redemption-btn {
+    background: linear-gradient(135deg, #667eea, #764ba2) !important;
+}
+
+.farm-inventory-btn {
+    background: linear-gradient(135deg, #f093fb, #f5576c) !important;
+}

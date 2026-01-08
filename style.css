@@ -26,5 +26,8 @@
 /* Flashcard review styles */
 @import url('./styles/flashcard.css');
 
+/* Redemption system styles */
+@import url('./styles/redemption.css');
+
 /* Mobile responsive styles - must be last to override other styles */
 @import url('./styles/mobile.css');
