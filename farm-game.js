@@ -34,8 +34,6 @@ const FarmGame = (() => {
 
     let showingFlashcards = false;
     let showingShop = false;
-    let showingRedemption = false;
-    let showingInventory = false;
     let flashcardStarted = false;
 
     function initGameState() {
@@ -209,30 +207,6 @@ const FarmGame = (() => {
         return gameState.unlockedCrops.includes(cropKey) || CROPS[cropKey].unlocked;
     }
 
-    async function loadRedemptionModule() {
-        if (window.Redemption) return;
-        try {
-            const script = document.createElement('script');
-            const currentScript = document.querySelector('script[src*="farm-game.js"]');
-            const basePath = currentScript ? currentScript.src.replace('farm-game.js', '') : '';
-            script.src = basePath + 'modules/redemption.js';
-            script.onload = () => {
-                if (window.Redemption) {
-                    window.Redemption.init();
-                }
-            };
-            document.head.appendChild(script);
-        } catch (e) {
-            console.error('[FarmGame] Failed to load redemption module:', e);
-        }
-    }
-
-    function showPanel() {
-        showingRedemption = false;
-        showingInventory = false;
-        render();
-    }
-
     function render() {
         const container = document.getElementById('farm-game-container');
         if (!container) return;
@@ -244,16 +218,6 @@ const FarmGame = (() => {
 
         if (showingShop) {
             renderShopView(container);
-            return;
-        }
-
-        if (showingRedemption) {
-            renderRedemptionView(container);
-            return;
-        }
-
-        if (showingInventory) {
-            renderInventoryView(container);
             return;
         }
 
@@ -278,12 +242,6 @@ const FarmGame = (() => {
                 <div class="farm-actions">
                     <button class="farm-action-btn menu_button" id="farm-open-shop">
                         🏪 种子商店
-                    </button>
-                    <button class="farm-action-btn menu_button farm-redemption-btn" id="farm-open-redemption">
-                        🎁 免费兑换
-                    </button>
-                    <button class="farm-action-btn menu_button farm-inventory-btn" id="farm-open-inventory">
-                        🎒 我的物品
                     </button>
                     <button class="farm-action-btn menu_button" id="farm-start-flashcard">
                         📚 背单词
@@ -402,55 +360,6 @@ const FarmGame = (() => {
         });
     }
 
-    function renderRedemptionView(container) {
-        if (window.Redemption && typeof window.Redemption.showPanel === 'function') {
-            const panelContainer = document.createElement('div');
-            panelContainer.id = 'redemption-panel-container';
-            container.innerHTML = '';
-            container.appendChild(panelContainer);
-            window.Redemption.showPanel(panelContainer);
-        } else {
-            container.innerHTML = `
-                <div class="flashcard-panel-content">
-                    <button class="menu_button flashcard-back-btn" id="redemption-back">
-                        <i class="fa-solid fa-arrow-left"></i> 返回农场
-                    </button>
-                    <div class="redemption-loading">加载中...</div>
-                </div>
-            `;
-            document.getElementById('redemption-back')?.addEventListener('click', () => {
-                showingRedemption = false;
-                render();
-            });
-            loadRedemptionModule();
-        }
-    }
-
-    function renderInventoryView(container) {
-        if (window.Redemption && typeof window.Redemption.showPanel === 'function') {
-            const panelContainer = document.createElement('div');
-            panelContainer.id = 'redemption-panel-container';
-            container.innerHTML = '';
-            container.appendChild(panelContainer);
-            window.Redemption.showPanel(panelContainer);
-            window.Redemption.switchView('inventory');
-        } else {
-            container.innerHTML = `
-                <div class="flashcard-panel-content">
-                    <button class="menu_button flashcard-back-btn" id="inventory-back">
-                        <i class="fa-solid fa-arrow-left"></i> 返回农场
-                    </button>
-                    <div class="redemption-loading">加载中...</div>
-                </div>
-            `;
-            document.getElementById('inventory-back')?.addEventListener('click', () => {
-                showingInventory = false;
-                render();
-            });
-            loadRedemptionModule();
-        }
-    }
-
     function renderFlashcardView(container) {
         if (!flashcardStarted) {
             container.innerHTML = `
@@ -516,20 +425,6 @@ const FarmGame = (() => {
         // 商店按钮
         document.getElementById('farm-open-shop')?.addEventListener('click', () => {
             showingShop = true;
-            render();
-        });
-
-        // 兑换中心按钮
-        document.getElementById('farm-open-redemption')?.addEventListener('click', () => {
-            showingRedemption = true;
-            loadRedemptionModule();
-            render();
-        });
-
-        // 我的物品按钮
-        document.getElementById('farm-open-inventory')?.addEventListener('click', () => {
-            showingInventory = true;
-            loadRedemptionModule();
             render();
         });
 
@@ -622,15 +517,11 @@ const FarmGame = (() => {
         }
         showingFlashcards = false;
         showingShop = false;
-        showingRedemption = false;
-        showingInventory = false;
     }
 
     function init() {
         showingFlashcards = false;
         showingShop = false;
-        showingRedemption = false;
-        showingInventory = false;
         loadGame();
         render();
         startGameLoop();
@@ -658,7 +549,6 @@ const FarmGame = (() => {
         stopGameLoop,
         addBoost,
         cleanup,
-        showPanel,
     };
 })();
 
