@@ -252,6 +252,11 @@
         font-size: 14px;
     }
 
+    .flashcard-btn-delete {
+        max-width: 45px;
+        padding: 12px 8px;
+    }
+
     .flashcard-back-btn {
         margin-bottom: 10px;
         padding: 8px 12px !important;
@@ -409,6 +414,11 @@
     .flashcard-btn {
         padding: 10px 8px;
         font-size: 13px;
+    }
+
+    .flashcard-btn-delete {
+        max-width: 40px;
+        padding: 10px 6px;
     }
 
     /* Statistics Panel - 更小屏幕适配 */

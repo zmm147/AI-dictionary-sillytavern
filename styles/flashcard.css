@@ -6,6 +6,10 @@
 /* Flashcard Container */
 .flashcard-container {
     padding: 15px;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
 }
 
 .flashcard-progress {
@@ -144,6 +148,20 @@
 .flashcard-btn-forgot:hover {
     transform: scale(1.05);
     box-shadow: 0 4px 15px rgba(238, 90, 90, 0.4);
+}
+
+.flashcard-btn-delete {
+    flex: 0 0 auto;
+    max-width: 50px;
+    padding: 12px;
+    background: linear-gradient(135deg, #868e96 0%, #6c757d 100%);
+    color: white;
+}
+
+.flashcard-btn-delete:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 15px rgba(108, 117, 125, 0.4);
+    background: linear-gradient(135deg, #f03e3e 0%, #c92a2a 100%);
 }
 
 .flashcard-btn-remember {

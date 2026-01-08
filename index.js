@@ -19,8 +19,18 @@ import {
     getWordHistory,
     getAllWordHistory,
     removeWordHistoryContext,
-    clearWordHistory
+    clearWordHistory,
+    deleteWordPermanently
 } from './modules/wordHistory.js';
+
+import {
+    loadFlashcardProgress,
+    saveCurrentSession,
+    getCurrentSession,
+    updateWordProgress,
+    generateBalancedDeck,
+    getFlashcardStats
+} from './modules/flashcardProgress.js';
 
 import {
     loadReviewDataFromFile,
@@ -376,6 +386,9 @@ const init = async () => {
     // Load review data
     await loadReviewDataFromFile();
 
+    // Load flashcard progress
+    await loadFlashcardProgress();
+
     // Initialize Settings UI
     const manager = new SettingsUi({
         extensionUrl: EXTENSION_URL,
@@ -512,6 +525,15 @@ window.aiDictionary = {
         setSelectedText(word);
         setSelectedContext(context);
         performDictionaryLookup(true);
+    },
+    deleteWordPermanently: deleteWordPermanently,
+    // Flashcard progress functions
+    flashcard: {
+        getCurrentSession: getCurrentSession,
+        saveCurrentSession: saveCurrentSession,
+        updateWordProgress: updateWordProgress,
+        generateBalancedDeck: generateBalancedDeck,
+        getFlashcardStats: getFlashcardStats
     }
 };
 

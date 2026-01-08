@@ -80,10 +80,10 @@ const FarmGame = (() => {
     function getGrowthStage(plot) {
         if (!plot.crop || !plot.plantedAt) return 0;
         // 实际经过时间 + 加速时间
-        const elapsed = (Date.now() - plot.plantedAt) / 1000 + gameState.boostSeconds;
+        const elapsed = (Date.now() - plot.plantedAt) / 1000 + Math.max(0, gameState.boostSeconds);
         const cropInfo = CROPS[plot.crop];
-        const progress = Math.min(elapsed / cropInfo.growTime, 1);
-        return Math.floor(progress * 3);
+        const progress = Math.min(Math.max(elapsed, 0) / cropInfo.growTime, 1);
+        return Math.floor(Math.max(progress, 0) * 3);
     }
 
     function isRipe(plot) {
@@ -340,10 +340,6 @@ const FarmGame = (() => {
         const crop = CROPS[plot.crop];
         gameState.coins += crop.sellPrice;
         gameState.totalHarvested++;
-
-        // 收获后减少对应的加速时间
-        const growTime = crop.growTime;
-        gameState.boostSeconds = Math.max(0, gameState.boostSeconds - growTime);
 
         gameState.plots[index] = {
             crop: null,

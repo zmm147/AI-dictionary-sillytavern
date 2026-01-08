@@ -11,7 +11,9 @@ import {
     STORE_REVIEW_PENDING,
     STORE_REVIEW_PROGRESS,
     STORE_REVIEW_MASTERED,
-    STORE_SESSION
+    STORE_SESSION,
+    STORE_FLASHCARD_PROGRESS,
+    STORE_FLASHCARD_SESSION
 } from './constants.js';
 
 /** @type {IDBDatabase|null} */
@@ -59,6 +61,16 @@ export function initDatabase() {
 
             if (!database.objectStoreNames.contains(STORE_SESSION)) {
                 database.createObjectStore(STORE_SESSION, { keyPath: 'id' });
+            }
+
+            if (!database.objectStoreNames.contains(STORE_FLASHCARD_PROGRESS)) {
+                const fs = database.createObjectStore(STORE_FLASHCARD_PROGRESS, { keyPath: 'word' });
+                fs.createIndex('masteryLevel', 'masteryLevel', { unique: false });
+                fs.createIndex('lastReviewed', 'lastReviewed', { unique: false });
+            }
+
+            if (!database.objectStoreNames.contains(STORE_FLASHCARD_SESSION)) {
+                database.createObjectStore(STORE_FLASHCARD_SESSION, { keyPath: 'id' });
             }
         };
     });

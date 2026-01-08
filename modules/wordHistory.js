@@ -7,9 +7,10 @@ import {
     EXTENSION_NAME,
     WORD_HISTORY_MAX_CONTEXTS,
     WORD_HISTORY_MAX_CONTEXT_LENGTH,
-    STORE_WORD_HISTORY
+    STORE_WORD_HISTORY,
+    STORE_SESSION
 } from './constants.js';
-import { initDatabase, dbGetAll, dbPut, dbDelete } from './database.js';
+import { initDatabase, dbGetAll, dbPut, dbDelete, dbGet } from './database.js';
 import {
     loadWordHistoryFromJsonBackup,
     backupWordHistoryToJson,
@@ -22,6 +23,37 @@ let wordHistoryData = {};
 
 /** @type {Set<string>} */
 let pendingWordSaves = new Set();
+
+/** @type {Set<string>} */
+let blacklistedWords = new Set();
+
+/**
+ * Load blacklisted words from database
+ */
+async function loadBlacklist() {
+    try {
+        const data = await dbGet(STORE_SESSION, 'word-blacklist');
+        if (data && Array.isArray(data.words)) {
+            blacklistedWords = new Set(data.words);
+        }
+    } catch (e) {
+        console.warn(`[${EXTENSION_NAME}] Load blacklist error:`, e.message);
+    }
+}
+
+/**
+ * Save blacklisted words to database
+ */
+async function saveBlacklist() {
+    try {
+        await dbPut(STORE_SESSION, {
+            id: 'word-blacklist',
+            words: [...blacklistedWords]
+        });
+    } catch (e) {
+        console.error(`[${EXTENSION_NAME}] Save blacklist error:`, e.message);
+    }
+}
 
 /**
  * Save a single word to database
@@ -83,6 +115,10 @@ function markWordForSave(word) {
 export async function loadWordHistoryFromFile() {
     try {
         await initDatabase();
+
+        // Load blacklist
+        await loadBlacklist();
+
         const records = await dbGetAll(STORE_WORD_HISTORY);
 
         if (records.length === 0) {
@@ -142,6 +178,12 @@ export function saveWordHistory(word, context, onSecondLookup = null) {
     }
 
     const wordKey = trimmedWord.toLowerCase();
+
+    // Check if word is blacklisted
+    if (blacklistedWords.has(wordKey)) {
+        return;
+    }
+
     const now = Date.now();
 
     if (!wordHistoryData[wordKey]) {
@@ -231,4 +273,23 @@ export function clearWordHistory(word) {
         delete wordHistoryData[wordKey];
         deleteWordFromDb(wordKey);
     }
+}
+
+/**
+ * Delete a word permanently and add to blacklist
+ * @param {string} word
+ */
+export async function deleteWordPermanently(word) {
+    if (!word) return;
+    const wordKey = word.toLowerCase().trim();
+
+    // Remove from history
+    if (wordHistoryData[wordKey]) {
+        delete wordHistoryData[wordKey];
+        await deleteWordFromDb(wordKey);
+    }
+
+    // Add to blacklist
+    blacklistedWords.add(wordKey);
+    await saveBlacklist();
 }

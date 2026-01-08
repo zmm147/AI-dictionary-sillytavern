@@ -14,18 +14,27 @@ export const WORD_HISTORY_MAX_CONTEXT_LENGTH = 500;
 export const EBBINGHAUS_INTERVALS = [1, 2, 4, 7, 15, 30];
 export const MAX_DAILY_REVIEW_WORDS = 20;
 
+// Flashcard configuration
+export const FLASHCARD_DECK_SIZE = 20; // 每组单词数量
+export const FLASHCARD_REVIEW_INTERVAL = 5; // 每隔5张卡复习一次
+export const FLASHCARD_MASTERY_THRESHOLD = 2; // Session内答对2次视为掌握
+export const FLASHCARD_NEW_WORD_RATIO = 0.6; // 新词占比60%，旧词40%
+
 // IndexedDB configuration
 export const DB_NAME = 'ai-dictionary-db';
-export const DB_VERSION = 1;
+export const DB_VERSION = 2; // Upgraded for flashcard progress tracking
 export const STORE_WORD_HISTORY = 'wordHistory';
 export const STORE_REVIEW_PENDING = 'reviewPending';
 export const STORE_REVIEW_PROGRESS = 'reviewProgress';
 export const STORE_REVIEW_MASTERED = 'reviewMastered';
 export const STORE_SESSION = 'sessionData';
+export const STORE_FLASHCARD_PROGRESS = 'flashcardProgress';
+export const STORE_FLASHCARD_SESSION = 'flashcardSession';
 
 // JSON backup file names
 export const BACKUP_WORD_HISTORY_FILE = 'ai-dictionary-word-history.json';
 export const BACKUP_REVIEW_DATA_FILE = 'ai-dictionary-review-data.json';
+export const BACKUP_FLASHCARD_DATA_FILE = 'ai-dictionary-flashcard-data.json';
 
 // Default settings
 export const defaultSettings = {
