@@ -1,26 +1,26 @@
 /**
  * AI Dictionary Farm Game - 农场种菜小游戏
  * 学习累了就来种种菜放松一下吧！
- * 背单词可以加速作物生长！
+ * 背单词可以获得加速点！
  */
 
 const FarmGame = (() => {
     // 游戏配置
     const GRID_SIZE = 4;
     const SAVE_KEY = 'ai-dict-farm-game';
-    const BOOST_PER_WORD = 10; // 每背一个单词加速10秒
+    const DAY_IN_MS = 24 * 60 * 60 * 1000; // 一天的毫秒数
 
-    // 作物定义
+    // 作物定义（生长时间单位：天）
     const CROPS = {
-        carrot: { name: '胡萝卜', emoji: '🥕', growTime: 30, sellPrice: 10, seedPrice: 5 },
-        tomato: { name: '番茄', emoji: '🍅', growTime: 60, sellPrice: 25, seedPrice: 12 },
-        cabbage: { name: '白菜', emoji: '🥬', growTime: 45, sellPrice: 18, seedPrice: 8 },
-        corn: { name: '玉米', emoji: '🌽', growTime: 90, sellPrice: 40, seedPrice: 20 },
-        eggplant: { name: '茄子', emoji: '🍆', growTime: 75, sellPrice: 35, seedPrice: 15 },
-        potato: { name: '土豆', emoji: '🥔', growTime: 50, sellPrice: 20, seedPrice: 10 },
+        carrot: { name: '胡萝卜', emoji: '🥕', growDays: 1, sellPrice: 10, seedPrice: 5, unlocked: true },
+        potato: { name: '土豆', emoji: '🥔', growDays: 1, sellPrice: 15, seedPrice: 8, unlocked: true },
+        cabbage: { name: '白菜', emoji: '🥬', growDays: 1.5, sellPrice: 20, seedPrice: 10, unlockCost: 50 },
+        tomato: { name: '番茄', emoji: '🍅', growDays: 2, sellPrice: 30, seedPrice: 15, unlockCost: 100 },
+        corn: { name: '玉米', emoji: '🌽', growDays: 2.5, sellPrice: 45, seedPrice: 20, unlockCost: 200 },
+        eggplant: { name: '茄子', emoji: '🍆', growDays: 3, sellPrice: 60, seedPrice: 25, unlockCost: 300 },
     };
 
-    const GROWTH_STAGES = ['🟫', '🌱', '🌿', '✨'];
+    const GROWTH_STAGES = ['🌱', '🌿', '🌾', '✨'];
 
     // 游戏状态
     let gameState = {
@@ -28,11 +28,13 @@ const FarmGame = (() => {
         plots: [],
         selectedSeed: null,
         totalHarvested: 0,
-        boostSeconds: 0, // 累计加速秒数
+        boostDays: 0, // 累计加速天数
+        unlockedCrops: ['carrot', 'potato'], // 已解锁的作物
     };
 
     let showingFlashcards = false;
     let showingShop = false;
+    let flashcardStarted = false;
 
     function initGameState() {
         gameState.plots = [];
@@ -40,7 +42,7 @@ const FarmGame = (() => {
             gameState.plots.push({
                 crop: null,
                 plantedAt: null,
-                stage: 0,
+                boostedDays: 0, // 该作物已使用的加速天数
             });
         }
     }
@@ -62,9 +64,22 @@ const FarmGame = (() => {
                 if (!gameState.plots || gameState.plots.length !== GRID_SIZE * GRID_SIZE) {
                     initGameState();
                 }
-                if (typeof gameState.boostSeconds !== 'number') {
-                    gameState.boostSeconds = 0;
+                // 兼容旧数据
+                if (typeof gameState.boostDays !== 'number') {
+                    gameState.boostDays = Math.floor((gameState.boostSeconds || 0) / 86400);
+                    delete gameState.boostSeconds;
                 }
+                if (!Array.isArray(gameState.unlockedCrops)) {
+                    gameState.unlockedCrops = ['carrot', 'potato'];
+                }
+                // 删除旧的全局加速字段
+                delete gameState.globalBoostDays;
+                // 确保每个地块有boostedDays字段
+                gameState.plots.forEach(plot => {
+                    if (typeof plot.boostedDays !== 'number') {
+                        plot.boostedDays = 0;
+                    }
+                });
             } else {
                 initGameState();
             }
@@ -75,28 +90,76 @@ const FarmGame = (() => {
     }
 
     /**
-     * 获取作物生长阶段（考虑加速）
+     * 获取作物生长进度（0-1）
      */
-    function getGrowthStage(plot) {
+    function getGrowthProgress(plot) {
         if (!plot.crop || !plot.plantedAt) return 0;
-        // 实际经过时间 + 加速时间
-        const elapsed = (Date.now() - plot.plantedAt) / 1000 + Math.max(0, gameState.boostSeconds);
         const cropInfo = CROPS[plot.crop];
-        const progress = Math.min(Math.max(elapsed, 0) / cropInfo.growTime, 1);
-        return Math.floor(Math.max(progress, 0) * 3);
-    }
-
-    function isRipe(plot) {
-        return getGrowthStage(plot) >= 3;
+        const elapsedMs = Date.now() - plot.plantedAt;
+        const elapsedDays = elapsedMs / DAY_IN_MS;
+        const totalDays = elapsedDays + (plot.boostedDays || 0);
+        return Math.min(totalDays / cropInfo.growDays, 1);
     }
 
     /**
-     * 添加加速时间
+     * 获取作物生长阶段（0-3）
      */
-    function addBoost(seconds) {
-        gameState.boostSeconds += seconds;
+    function getGrowthStage(plot) {
+        const progress = getGrowthProgress(plot);
+        return Math.floor(progress * 3);
+    }
+
+    /**
+     * 获取剩余生长时间（天）
+     */
+    function getRemainingDays(plot) {
+        if (!plot.crop || !plot.plantedAt) return 0;
+        const cropInfo = CROPS[plot.crop];
+        const elapsedMs = Date.now() - plot.plantedAt;
+        const elapsedDays = elapsedMs / DAY_IN_MS;
+        const totalDays = elapsedDays + (plot.boostedDays || 0);
+        return Math.max(0, cropInfo.growDays - totalDays);
+    }
+
+    function isRipe(plot) {
+        return getGrowthProgress(plot) >= 1;
+    }
+
+    /**
+     * 添加加速天数
+     */
+    function addBoost(days) {
+        gameState.boostDays += days;
         saveGame();
         render();
+    }
+
+    /**
+     * 对所有已种植的作物使用加速
+     */
+    function boostAllCrops() {
+        if (gameState.boostDays < 1) return;
+
+        gameState.boostDays -= 1;
+
+        // 为所有已种植且未成熟的作物增加1天加速
+        gameState.plots.forEach(plot => {
+            if (plot.crop && !isRipe(plot)) {
+                plot.boostedDays = (plot.boostedDays || 0) + 1;
+            }
+        });
+
+        saveGame();
+        render();
+        showBoostAppliedMessage();
+    }
+
+    function showBoostAppliedMessage() {
+        const msg = document.createElement('div');
+        msg.className = 'farm-harvest-msg';
+        msg.textContent = '⚡ +1天';
+        document.querySelector('.farm-game')?.appendChild(msg);
+        setTimeout(() => msg.remove(), 1000);
     }
 
     /**
@@ -104,12 +167,44 @@ const FarmGame = (() => {
      */
     function onFlashcardComplete(wordsCompleted) {
         if (wordsCompleted > 0) {
-            const boostTime = wordsCompleted * BOOST_PER_WORD;
-            addBoost(boostTime);
-            setTimeout(() => {
-                alert(`🎉 背完 ${wordsCompleted} 个单词！\n⚡ 作物生长加速 ${boostTime} 秒！`);
-            }, 100);
+            // 背完一组单词获得1天加速点
+            addBoost(1);
+            showBoostMessage(wordsCompleted);
         }
+    }
+
+    /**
+     * 显示加速提示消息
+     */
+    function showBoostMessage(wordsCompleted) {
+        const msg = document.createElement('div');
+        msg.className = 'farm-boost-msg';
+        msg.innerHTML = `
+            <div style="font-size: 24px; margin-bottom: 8px;">🎉</div>
+            <div>背完 ${wordsCompleted} 个单词！</div>
+            <div style="color: #ffd700; font-weight: bold;">⚡ +1 天加速点</div>
+        `;
+        document.querySelector('.farm-game')?.appendChild(msg);
+        setTimeout(() => msg.remove(), 2500);
+    }
+
+    /**
+     * 解锁作物
+     */
+    function unlockCrop(cropKey) {
+        const crop = CROPS[cropKey];
+        if (!crop || !crop.unlockCost) return;
+        if (gameState.unlockedCrops.includes(cropKey)) return;
+        if (gameState.coins < crop.unlockCost) return;
+
+        gameState.coins -= crop.unlockCost;
+        gameState.unlockedCrops.push(cropKey);
+        saveGame();
+        render();
+    }
+
+    function isCropUnlocked(cropKey) {
+        return gameState.unlockedCrops.includes(cropKey) || CROPS[cropKey].unlocked;
     }
 
     function render() {
@@ -126,17 +221,12 @@ const FarmGame = (() => {
             return;
         }
 
-        gameState.plots.forEach(plot => {
-            if (plot.crop) {
-                plot.stage = getGrowthStage(plot);
-            }
-        });
-
         const html = `
             <div class="farm-game">
                 <div class="farm-header">
                     <span class="farm-coins">💰 ${gameState.coins}</span>
                     <span class="farm-harvested">🏆 ${gameState.totalHarvested}</span>
+                    <span class="farm-boost-points ${gameState.boostDays >= 1 ? 'clickable' : ''}" id="farm-boost-points" title="${gameState.boostDays >= 1 ? '点击使用加速' : '加速天数'}">⚡ ${gameState.boostDays}天</span>
                 </div>
 
                 <div class="farm-grid">
@@ -147,7 +237,6 @@ const FarmGame = (() => {
                     ${gameState.selectedSeed
                         ? `<span class="farm-selected-seed">已选: ${CROPS[gameState.selectedSeed].emoji} ${CROPS[gameState.selectedSeed].name}</span>`
                         : '<span class="farm-no-seed">点击下方选种子</span>'}
-                    ${gameState.boostSeconds > 0 ? `<span class="farm-boost-badge">⚡+${gameState.boostSeconds}s</span>` : ''}
                 </div>
 
                 <div class="farm-actions">
@@ -165,6 +254,35 @@ const FarmGame = (() => {
         bindEvents();
     }
 
+    function renderPlot(plot, index) {
+        let emoji = '🟫';
+        let className = 'empty';
+        let timeInfo = '';
+
+        if (plot.crop) {
+            const stage = getGrowthStage(plot);
+            if (stage >= 3 || isRipe(plot)) {
+                emoji = CROPS[plot.crop].emoji;
+                className = 'ripe';
+                timeInfo = '<span class="plot-time ready">可收获</span>';
+            } else {
+                emoji = GROWTH_STAGES[stage];
+                className = 'growing';
+                const remaining = getRemainingDays(plot);
+                const hours = Math.floor((remaining % 1) * 24);
+                const days = Math.floor(remaining);
+                timeInfo = `<span class="plot-time">${days > 0 ? days + '天' : ''}${hours}时</span>`;
+            }
+        }
+
+        return `
+            <div class="farm-plot ${className}" data-index="${index}">
+                <span class="plot-emoji">${emoji}</span>
+                ${timeInfo}
+            </div>
+        `;
+    }
+
     function renderShopView(container) {
         container.innerHTML = `
             <div class="farm-shop-page">
@@ -174,19 +292,40 @@ const FarmGame = (() => {
                     </button>
                     <span class="farm-shop-coins">💰 ${gameState.coins}</span>
                 </div>
-                <div class="farm-shop-title">🏪 选择种子</div>
+                <div class="farm-shop-title">🏪 种子商店</div>
                 <div class="farm-shop-list">
-                    ${Object.entries(CROPS).map(([key, crop]) => `
-                        <div class="farm-shop-item ${gameState.selectedSeed === key ? 'selected' : ''} ${gameState.coins < crop.seedPrice ? 'disabled' : ''}"
-                             data-seed="${key}">
-                            <span class="shop-item-emoji">${crop.emoji}</span>
-                            <div class="shop-item-info">
-                                <span class="shop-item-name">${crop.name}</span>
-                                <span class="shop-item-detail">⏱${crop.growTime}s → 💰${crop.sellPrice}</span>
+                    ${Object.entries(CROPS).map(([key, crop]) => {
+                        const unlocked = isCropUnlocked(key);
+                        const canAfford = gameState.coins >= crop.seedPrice;
+                        const canUnlock = !unlocked && gameState.coins >= crop.unlockCost;
+
+                        if (!unlocked) {
+                            return `
+                                <div class="farm-shop-item locked ${canUnlock ? '' : 'disabled'}" data-crop="${key}">
+                                    <span class="shop-item-emoji">🔒</span>
+                                    <div class="shop-item-info">
+                                        <span class="shop-item-name">${crop.name}</span>
+                                        <span class="shop-item-detail">解锁后可种植</span>
+                                    </div>
+                                    <button class="shop-unlock-btn ${canUnlock ? '' : 'disabled'}" data-unlock="${key}">
+                                        💰${crop.unlockCost} 解锁
+                                    </button>
+                                </div>
+                            `;
+                        }
+
+                        return `
+                            <div class="farm-shop-item ${gameState.selectedSeed === key ? 'selected' : ''} ${canAfford ? '' : 'disabled'}"
+                                 data-seed="${key}">
+                                <span class="shop-item-emoji">${crop.emoji}</span>
+                                <div class="shop-item-info">
+                                    <span class="shop-item-name">${crop.name}</span>
+                                    <span class="shop-item-detail">⏱${crop.growDays}天 → 💰${crop.sellPrice}</span>
+                                </div>
+                                <span class="shop-item-price">$${crop.seedPrice}</span>
                             </div>
-                            <span class="shop-item-price">$${crop.seedPrice}</span>
-                        </div>
-                    `).join('')}
+                        `;
+                    }).join('')}
                 </div>
             </div>
         `;
@@ -198,51 +337,58 @@ const FarmGame = (() => {
         });
 
         // 绑定种子选择
-        document.querySelectorAll('.farm-shop-item:not(.disabled)').forEach(el => {
+        document.querySelectorAll('.farm-shop-item:not(.disabled):not(.locked)').forEach(el => {
             el.addEventListener('click', () => {
                 const seed = el.dataset.seed;
-                gameState.selectedSeed = seed;
-                showingShop = false;
-                render();
+                if (seed) {
+                    gameState.selectedSeed = seed;
+                    showingShop = false;
+                    render();
+                }
+            });
+        });
+
+        // 绑定解锁按钮
+        document.querySelectorAll('.shop-unlock-btn:not(.disabled)').forEach(el => {
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const cropKey = el.dataset.unlock;
+                if (cropKey) {
+                    unlockCrop(cropKey);
+                }
             });
         });
     }
 
     function renderFlashcardView(container) {
-        container.innerHTML = `
-            <div class="flashcard-panel-content">
-                <button class="menu_button flashcard-back-btn" id="flashcard-back">
-                    <i class="fa-solid fa-arrow-left"></i> 返回农场
-                </button>
-                <div id="flashcard-container" class="flashcard-container"></div>
-            </div>
-        `;
+        if (!flashcardStarted) {
+            container.innerHTML = `
+                <div class="flashcard-panel-content">
+                    <button class="menu_button flashcard-back-btn" id="flashcard-back">
+                        <i class="fa-solid fa-arrow-left"></i> 返回农场
+                    </button>
+                    <div id="flashcard-container" class="flashcard-container"></div>
+                </div>
+            `;
 
-        // 绑定返回按钮
-        const backBtn = document.getElementById('flashcard-back');
-        if (backBtn) {
-            backBtn.addEventListener('click', () => {
-                showingFlashcards = false;
-                if (window.Flashcard) {
-                    // 获取已完成的数量
-                    const completed = window.Flashcard.getCompletedCount();
-                    if (completed > 0) {
-                        onFlashcardComplete(completed);
-                    }
-                }
-                render();
-            });
+            const backBtn = document.getElementById('flashcard-back');
+            if (backBtn) {
+                backBtn.addEventListener('click', () => {
+                    showingFlashcards = false;
+                    flashcardStarted = false;
+                    render();
+                });
+            }
+
+            flashcardStarted = true;
+            loadFlashcardAndStart();
         }
-
-        // 加载并启动背单词
-        loadFlashcardAndStart();
     }
 
     async function loadFlashcardAndStart() {
         if (!window.Flashcard) {
             try {
                 const script = document.createElement('script');
-                // 获取当前脚本路径
                 const currentScript = document.querySelector('script[src*="farm-game.js"]');
                 const basePath = currentScript ? currentScript.src.replace('farm-game.js', '') : '';
                 script.src = basePath + 'flashcard.js';
@@ -260,28 +406,6 @@ const FarmGame = (() => {
         }
     }
 
-    function renderPlot(plot, index) {
-        let emoji = '🟫';
-        let className = 'empty';
-
-        if (plot.crop) {
-            const stage = getGrowthStage(plot);
-            if (stage >= 3) {
-                emoji = CROPS[plot.crop].emoji;
-                className = 'ripe';
-            } else {
-                emoji = GROWTH_STAGES[stage];
-                className = 'growing';
-            }
-        }
-
-        return `
-            <div class="farm-plot ${className}" data-index="${index}">
-                <span class="plot-emoji">${emoji}</span>
-            </div>
-        `;
-    }
-
     function bindEvents() {
         // 地块点击
         document.querySelectorAll('.farm-plot').forEach(el => {
@@ -289,6 +413,13 @@ const FarmGame = (() => {
                 const index = parseInt(el.dataset.index);
                 handlePlotClick(index);
             });
+        });
+
+        // 加速天数点击
+        document.getElementById('farm-boost-points')?.addEventListener('click', () => {
+            if (gameState.boostDays >= 1) {
+                boostAllCrops();
+            }
         });
 
         // 商店按钮
@@ -300,6 +431,7 @@ const FarmGame = (() => {
         // 背单词按钮
         document.getElementById('farm-start-flashcard')?.addEventListener('click', () => {
             showingFlashcards = true;
+            flashcardStarted = false;
             render();
         });
     }
@@ -312,7 +444,7 @@ const FarmGame = (() => {
                 harvest(index);
             }
         } else {
-            if (gameState.selectedSeed) {
+            if (gameState.selectedSeed && isCropUnlocked(gameState.selectedSeed)) {
                 plant(index, gameState.selectedSeed);
             }
         }
@@ -321,12 +453,13 @@ const FarmGame = (() => {
     function plant(index, cropType) {
         const crop = CROPS[cropType];
         if (gameState.coins < crop.seedPrice) return;
+        if (!isCropUnlocked(cropType)) return;
 
         gameState.coins -= crop.seedPrice;
         gameState.plots[index] = {
             crop: cropType,
             plantedAt: Date.now(),
-            stage: 0,
+            boostedDays: 0,
         };
 
         saveGame();
@@ -344,7 +477,7 @@ const FarmGame = (() => {
         gameState.plots[index] = {
             crop: null,
             plantedAt: null,
-            stage: 0,
+            boostedDays: 0,
         };
 
         saveGame();
@@ -367,7 +500,7 @@ const FarmGame = (() => {
             if (document.getElementById('farm-game-container') && !showingFlashcards) {
                 render();
             }
-        }, 5000);
+        }, 60000); // 每分钟更新一次
     }
 
     function stopGameLoop() {
@@ -377,7 +510,18 @@ const FarmGame = (() => {
         }
     }
 
+    function cleanup() {
+        stopGameLoop();
+        if (window.Flashcard && typeof window.Flashcard.stopReviewTimer === 'function') {
+            window.Flashcard.stopReviewTimer();
+        }
+        showingFlashcards = false;
+        showingShop = false;
+    }
+
     function init() {
+        showingFlashcards = false;
+        showingShop = false;
         loadGame();
         render();
         startGameLoop();
@@ -390,7 +534,8 @@ const FarmGame = (() => {
             plots: [],
             selectedSeed: null,
             totalHarvested: 0,
-            boostSeconds: 0,
+            boostDays: 0,
+            unlockedCrops: ['carrot', 'potato'],
         };
         initGameState();
         saveGame();
@@ -403,6 +548,7 @@ const FarmGame = (() => {
         render,
         stopGameLoop,
         addBoost,
+        cleanup,
     };
 })();
 

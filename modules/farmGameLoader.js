@@ -76,7 +76,12 @@ export async function showFarmGamePanel(extensionUrl) {
 
     const closeBtn = panel.querySelector('.ai-dict-farm-close-btn');
     if (closeBtn) {
-        closeBtn.addEventListener('click', () => panel.remove());
+        closeBtn.addEventListener('click', () => {
+            if (window.FarmGame && typeof window.FarmGame.cleanup === 'function') {
+                window.FarmGame.cleanup();
+            }
+            panel.remove();
+        });
     }
 
     const resetBtn = panel.querySelector('.ai-dict-farm-reset-btn');
@@ -87,6 +92,11 @@ export async function showFarmGamePanel(extensionUrl) {
     }
 
     panel.addEventListener('click', (e) => {
-        if (e.target === panel) panel.remove();
+        if (e.target === panel) {
+            if (window.FarmGame && typeof window.FarmGame.cleanup === 'function') {
+                window.FarmGame.cleanup();
+            }
+            panel.remove();
+        }
     });
 }

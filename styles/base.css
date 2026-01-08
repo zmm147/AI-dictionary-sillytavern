@@ -3,6 +3,23 @@
  * Settings panel, lookup icon, panels, headers, tabs
  */
 
+/* Global fix for menu_button text wrapping issue in all AI-dictionary components */
+.ai-dictionary-settings .menu_button,
+.ai-dict-panel .menu_button,
+.ai-dict-lookup-panel .menu_button,
+.ai-dict-youdao-panel .menu_button,
+.ai-dict-confusables-panel .menu_button,
+.ai-dict-review-panel .menu_button,
+.ai-dict-stats-panel .menu_button,
+.farm-game .menu_button,
+.farm-shop .menu_button,
+.flashcard-container .menu_button,
+.flashcard-panel-content .menu_button {
+    width: auto !important;
+    white-space: nowrap !important;
+    min-width: fit-content !important;
+}
+
 /* Disable native context menu on mobile - must use !important */
 body.ai-dict-disable-context-menu {
     -webkit-touch-callout: none !important;

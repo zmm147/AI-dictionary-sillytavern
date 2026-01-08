@@ -224,8 +224,9 @@ export function generateBalancedDeck(wordHistoryData) {
         if (!progress) {
             // Never studied before: new word
             newWords.push({ word, context, correctCount: 0 });
-        } else if (progress.nextReview <= now || progress.masteryLevel < 3) {
-            // Due for review or low mastery
+        } else if (progress.nextReview <= now) {
+            // Only add to review if it's actually due (nextReview <= now)
+            // Remove the 'masteryLevel < 3' condition to avoid immediately repeating recently studied words
             reviewWords.push({ word, context, correctCount: 0 });
         }
     }

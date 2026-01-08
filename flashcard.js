@@ -124,9 +124,11 @@ const Flashcard = (() => {
         }
 
         // 启动复习定时器
-        startReviewTimer();
+        if (deck.length > 0) {
+            startReviewTimer();
+        }
 
-        if (deck.length === 0) {
+        if (deck.length === 0 && wordsCompleted === 0) {
             alert('没有可复习的单词！请先查询一些单词。');
             return false;
         }
@@ -149,8 +151,27 @@ const Flashcard = (() => {
                     <div class="flashcard-empty-icon">🎉</div>
                     <div class="flashcard-empty-text">太棒了！所有单词都复习完了！</div>
                     <div class="flashcard-empty-stats">本轮完成: ${wordsCompleted} 个单词</div>
+                    <button class="flashcard-continue-btn menu_button" id="flashcard-continue">
+                        继续下一组
+                    </button>
                 </div>
             `;
+
+            const continueBtn = document.getElementById('flashcard-continue');
+            if (continueBtn) {
+                continueBtn.addEventListener('click', async () => {
+                    wordsCompleted = 0;
+                    deck = generateNewDeck();
+                    currentIndex = 0;
+                    isFlipped = false;
+                    progressScore = 0;
+                    lastReviewTime = Date.now();
+                    startReviewTimer();
+                    await saveSession();
+                    render();
+                });
+            }
+
             // 触发完成回调
             if (onComplete && wordsCompleted > 0) {
                 onComplete(wordsCompleted);
@@ -170,7 +191,7 @@ const Flashcard = (() => {
         container.innerHTML = `
             <div class="flashcard-progress">
                 <span>📚 ${progressInfo}</span>
-                <span>✅ 进度: ${progressScore.toFixed(1)} | 剩 ${deck.length}</span>
+                <span>✅ ${progressScore.toFixed(1)} | ${initialDeckSize}</span>
             </div>
 
             <div class="flashcard-card ${isFlipped ? 'flipped' : ''}" id="flashcard-main">
@@ -262,7 +283,8 @@ const Flashcard = (() => {
 
         if (remembered) {
             progressScore += 0.5;
-        } else {
+        } else if (card.correctCount > 0) {
+            // 如果之前已经点过认识，才扣分
             progressScore = Math.max(0, progressScore - 0.5);
         }
 
