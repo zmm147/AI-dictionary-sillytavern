@@ -86,7 +86,7 @@ import {
 
 // Import new split modules
 import { showStatisticsPanel } from './modules/statisticsPanel.js';
-import { showFarmGamePanel } from './modules/farmGameLoader.js';
+import { showFarmGamePanel, loadFarmGameScript } from './modules/farmGameLoader.js';
 import {
     formatYoudaoHeadSection,
     formatYoudaoDefinitions,
@@ -509,6 +509,20 @@ const init = async () => {
 
     // Initial highlight on page load
     setTimeout(() => highlightAllConfusableWords(settings.confusableWords, settings.highlightConfusables), 500);
+
+    // Restore floating pet on page load
+    loadFarmGameScript(EXTENSION_URL).then(() => {
+        if (window.FarmGame) {
+            if (typeof window.FarmGame.loadGame === 'function') {
+                window.FarmGame.loadGame();
+            }
+            if (typeof window.FarmGame.restoreFloatingPet === 'function') {
+                window.FarmGame.restoreFloatingPet();
+            }
+        }
+    }).catch(err => {
+        console.warn(`[${EXTENSION_NAME}] Failed to load farm game for floating pet restoration:`, err);
+    });
 
     console.log(`[${EXTENSION_NAME}] Ready`);
 };

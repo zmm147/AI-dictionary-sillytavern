@@ -7,6 +7,9 @@
 import { CROPS } from './modules/farm/farm-config.js';
 import { gameState, uiState, resetGameState, resetUIState } from './modules/farm/farm-state.js';
 import { saveGame, loadGame } from './modules/farm/farm-storage.js';
+
+export { loadGame, restoreFloatingPet };
+
 import {
     plantCrop,
     harvestCrop,
@@ -496,6 +499,8 @@ const FarmGame = (() => {
         stopGameLoop,
         addBoost,
         cleanup,
+        loadGame,
+        restoreFloatingPet,
     };
 })();
 
