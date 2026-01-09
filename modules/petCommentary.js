@@ -76,17 +76,41 @@ function isPetDisplaying() {
 }
 
 /**
- * 构建聊天上下文
+ * 构建聊天上下文 - 将聊天记录聚合为一条 user 消息
  */
 function buildChatContext(context, settings) {
     const maxMessages = settings.petCommentary.maxMessages || 10;
     const userName = context.name1 || 'User';
+    const charName = context.name2 || 'Character';
+
+    // 获取当前展示的宠物名称
+    const floatingPetData = localStorage.getItem('ai-dict-floating-pet');
+    let petName = '宠物';
+    if (floatingPetData) {
+        try {
+            const petInfo = JSON.parse(floatingPetData);
+            // 从 gameState 中查找宠物的自定义名称
+            const farmData = localStorage.getItem('ai-dict-farm-game');
+            if (farmData) {
+                const gameState = JSON.parse(farmData);
+                const pet = gameState.ownedItems?.find(
+                    item => item.type === 'pet' &&
+                            item.id === petInfo.petId &&
+                            item.timestamp === petInfo.timestamp
+                );
+                if (pet) {
+                    petName = pet.customName || pet.name || '宠物';
+                }
+            }
+        } catch (e) {
+            console.warn('[PetCommentary] Failed to get pet name:', e);
+        }
+    }
 
     // 替换系统提示词中的变量
     const systemPrompt = settings.petCommentary.systemPrompt
-        .replace(/\{\{user\}\}/g, userName);
-
-    const messages = [{ role: 'system', content: systemPrompt }];
+        .replace(/\{\{user\}\}/g, userName)
+        .replace(/\{\{petName\}\}/g, petName);
 
     // 获取最近的消息
     const chat = context.chat || [];
@@ -94,12 +118,17 @@ function buildChatContext(context, settings) {
         .filter(msg => !msg.is_system)
         .slice(-maxMessages);
 
-    for (const msg of recentMessages) {
-        messages.push({
-            role: msg.is_user ? 'user' : 'assistant',
-            content: msg.mes
-        });
-    }
+    // 将聊天记录聚合为一条文本
+    const chatText = recentMessages.map(msg => {
+        const role = msg.is_user ? userName : (msg.name || charName);
+        return `${role}: ${msg.mes}`;
+    }).join('\n\n');
+
+    // 只发送 system + 一条 user 消息
+    const messages = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `以下是最近的聊天记录，请给出你的吐槽评论：\n\n${chatText}` }
+    ];
 
     return messages;
 }
@@ -122,13 +151,31 @@ async function triggerPetCommentary() {
     // 显示加载气泡
     showPetBubble('💭 猫咪正在思考...', true);
 
+    // 保存原始 profile 用于恢复
+    const extensionSettings = window.extension_settings || {};
+    const originalProfile = extensionSettings.connectionManager?.selectedProfile;
+    let profileApplied = false;
+
     try {
-        // 注意：配置文件切换功能暂时禁用
-        // SillyTavern 的连接管理器在切换配置文件时会触发异步连接验证，
-        // 这会导致 sendOpenAIRequest 返回空的流数据。
-        // 目前使用当前活动的 API 配置。
-        // TODO: 研究如何正确等待配置文件切换完成，或使用其他方式指定 API
-        console.log('[PetCommentary] Using current active API connection');
+        // 切换 connection profile（如果配置了）
+        const configuredProfile = settings.petCommentary?.connectionProfile;
+        if (configuredProfile) {
+            const connectionManager = extensionSettings.connectionManager;
+            if (connectionManager && Array.isArray(connectionManager.profiles)) {
+                const profile = connectionManager.profiles.find(p => p.id === configuredProfile);
+                if (profile) {
+                    const profileSelect = document.getElementById('connection_profiles');
+                    if (profileSelect) {
+                        console.log('[PetCommentary] Switching to profile:', profile.name);
+                        profileSelect.value = profile.id;
+                        profileSelect.dispatchEvent(new Event('change'));
+                        profileApplied = true;
+                        // 等待连接生效
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    }
+                }
+            }
+        }
 
         // 检查是否启用流式
         const streamEnabled = oaiSettingsObj?.stream_openai;
@@ -176,6 +223,16 @@ async function triggerPetCommentary() {
     } catch (error) {
         console.error('[PetCommentary] Error:', error);
         updatePetBubble('😿 吐槽失败了...', false);
+    } finally {
+        // 恢复原始 profile
+        if (profileApplied) {
+            const profileSelect = document.getElementById('connection_profiles');
+            if (profileSelect) {
+                console.log('[PetCommentary] Restoring original profile');
+                profileSelect.value = originalProfile || '';
+                profileSelect.dispatchEvent(new Event('change'));
+            }
+        }
     }
 }
 

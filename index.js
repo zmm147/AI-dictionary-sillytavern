@@ -133,10 +133,19 @@ function loadSettings() {
         extension_settings[EXTENSION_NAME] = { ...defaultSettings };
     }
     settings = { ...defaultSettings, ...extension_settings[EXTENSION_NAME] };
+
+    // 确保 petCommentary 子对象存在且有所有默认属性
+    if (!settings.petCommentary) {
+        settings.petCommentary = { ...defaultSettings.petCommentary };
+    } else {
+        // 深度合并，确保新增的属性有默认值
+        settings.petCommentary = { ...defaultSettings.petCommentary, ...settings.petCommentary };
+    }
 }
 
 function saveSettings() {
-    extension_settings[EXTENSION_NAME] = { ...settings };
+    // 深拷贝确保嵌套对象正确保存
+    extension_settings[EXTENSION_NAME] = JSON.parse(JSON.stringify(settings));
     saveSettingsDebounced();
 }
 
