@@ -20,6 +20,7 @@ export async function loadFarmGameScript(extensionUrl) {
 
     return new Promise((resolve, reject) => {
         const script = document.createElement('script');
+        script.type = 'module'; // 添加模块类型
         script.src = `${extensionUrl}/farm-game.js`;
         script.onload = () => {
             scriptLoaded = true;

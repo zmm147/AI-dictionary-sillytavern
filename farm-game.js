@@ -4,387 +4,408 @@
  * 背单词可以获得加速点！
  */
 
+import { CROPS } from './modules/farm/farm-config.js';
+import { gameState, uiState, resetGameState, resetUIState } from './modules/farm/farm-state.js';
+import { saveGame, loadGame } from './modules/farm/farm-storage.js';
+import {
+    plantCrop,
+    harvestCrop,
+    unlockCrop,
+    boostAllCrops,
+    addBoost,
+    isCropUnlocked
+} from './modules/farm/farm-crop.js';
+import { exchangePet } from './modules/farm/farm-shop.js';
+import { setQuickSlot, getQuickSlot } from './modules/farm/farm-quickslot.js';
+import { addSeedToInventory, consumeSeed, hasSeed } from './modules/farm/farm-seed-inventory.js';
+import { renamePet, createFloatingPet, restoreFloatingPet, removeFloatingPet, loadFloatingPet, FLOATING_PET_POSITION_KEY } from './modules/farm/farm-pet.js';
+import {
+    renderMainView,
+    renderShopView,
+    renderInventoryView,
+    renderFlashcardView,
+    renderPetView,
+    showHarvestMessage,
+    showBoostMessage,
+    showBoostAppliedMessage,
+    showMessage
+} from './modules/farm/farm-render.js';
+
 const FarmGame = (() => {
-    // 游戏配置
-    const GRID_SIZE = 4;
-    const SAVE_KEY = 'ai-dict-farm-game';
-    const DAY_IN_MS = 24 * 60 * 60 * 1000; // 一天的毫秒数
-
-    // 作物定义（生长时间单位：天）
-    const CROPS = {
-        carrot: { name: '胡萝卜', emoji: '🥕', growDays: 1, sellPrice: 10, seedPrice: 5, unlocked: true },
-        potato: { name: '土豆', emoji: '🥔', growDays: 1, sellPrice: 15, seedPrice: 8, unlocked: true },
-        cabbage: { name: '白菜', emoji: '🥬', growDays: 1.5, sellPrice: 20, seedPrice: 10, unlockCost: 50 },
-        tomato: { name: '番茄', emoji: '🍅', growDays: 2, sellPrice: 30, seedPrice: 15, unlockCost: 100 },
-        corn: { name: '玉米', emoji: '🌽', growDays: 2.5, sellPrice: 45, seedPrice: 20, unlockCost: 200 },
-        eggplant: { name: '茄子', emoji: '🍆', growDays: 3, sellPrice: 60, seedPrice: 25, unlockCost: 300 },
-    };
-
-    const GROWTH_STAGES = ['🌱', '🌿', '🌾', '✨'];
-
-    // 游戏状态
-    let gameState = {
-        coins: 50,
-        plots: [],
-        selectedSeed: null,
-        totalHarvested: 0,
-        boostDays: 0, // 累计加速天数
-        unlockedCrops: ['carrot', 'potato'], // 已解锁的作物
-    };
-
-    let showingFlashcards = false;
-    let showingShop = false;
-    let flashcardStarted = false;
-
-    function initGameState() {
-        gameState.plots = [];
-        for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
-            gameState.plots.push({
-                crop: null,
-                plantedAt: null,
-                boostedDays: 0, // 该作物已使用的加速天数
-            });
-        }
-    }
-
-    function saveGame() {
-        try {
-            localStorage.setItem(SAVE_KEY, JSON.stringify(gameState));
-        } catch (e) {
-            console.warn('[FarmGame] Save failed:', e);
-        }
-    }
-
-    function loadGame() {
-        try {
-            const saved = localStorage.getItem(SAVE_KEY);
-            if (saved) {
-                const data = JSON.parse(saved);
-                gameState = { ...gameState, ...data };
-                if (!gameState.plots || gameState.plots.length !== GRID_SIZE * GRID_SIZE) {
-                    initGameState();
-                }
-                // 兼容旧数据
-                if (typeof gameState.boostDays !== 'number') {
-                    gameState.boostDays = Math.floor((gameState.boostSeconds || 0) / 86400);
-                    delete gameState.boostSeconds;
-                }
-                if (!Array.isArray(gameState.unlockedCrops)) {
-                    gameState.unlockedCrops = ['carrot', 'potato'];
-                }
-                // 删除旧的全局加速字段
-                delete gameState.globalBoostDays;
-                // 确保每个地块有boostedDays字段
-                gameState.plots.forEach(plot => {
-                    if (typeof plot.boostedDays !== 'number') {
-                        plot.boostedDays = 0;
-                    }
-                });
-            } else {
-                initGameState();
-            }
-        } catch (e) {
-            console.warn('[FarmGame] Load failed:', e);
-            initGameState();
-        }
-    }
+    let gameLoop = null;
 
     /**
-     * 获取作物生长进度（0-1）
+     * 主渲染函数
      */
-    function getGrowthProgress(plot) {
-        if (!plot.crop || !plot.plantedAt) return 0;
-        const cropInfo = CROPS[plot.crop];
-        const elapsedMs = Date.now() - plot.plantedAt;
-        const elapsedDays = elapsedMs / DAY_IN_MS;
-        const totalDays = elapsedDays + (plot.boostedDays || 0);
-        return Math.min(totalDays / cropInfo.growDays, 1);
-    }
-
-    /**
-     * 获取作物生长阶段（0-3）
-     */
-    function getGrowthStage(plot) {
-        const progress = getGrowthProgress(plot);
-        return Math.floor(progress * 3);
-    }
-
-    /**
-     * 获取剩余生长时间（天）
-     */
-    function getRemainingDays(plot) {
-        if (!plot.crop || !plot.plantedAt) return 0;
-        const cropInfo = CROPS[plot.crop];
-        const elapsedMs = Date.now() - plot.plantedAt;
-        const elapsedDays = elapsedMs / DAY_IN_MS;
-        const totalDays = elapsedDays + (plot.boostedDays || 0);
-        return Math.max(0, cropInfo.growDays - totalDays);
-    }
-
-    function isRipe(plot) {
-        return getGrowthProgress(plot) >= 1;
-    }
-
-    /**
-     * 添加加速天数
-     */
-    function addBoost(days) {
-        gameState.boostDays += days;
-        saveGame();
-        render();
-    }
-
-    /**
-     * 对所有已种植的作物使用加速
-     */
-    function boostAllCrops() {
-        if (gameState.boostDays < 1) return;
-
-        gameState.boostDays -= 1;
-
-        // 为所有已种植且未成熟的作物增加1天加速
-        gameState.plots.forEach(plot => {
-            if (plot.crop && !isRipe(plot)) {
-                plot.boostedDays = (plot.boostedDays || 0) + 1;
-            }
-        });
-
-        saveGame();
-        render();
-        showBoostAppliedMessage();
-    }
-
-    function showBoostAppliedMessage() {
-        const msg = document.createElement('div');
-        msg.className = 'farm-harvest-msg';
-        msg.textContent = '⚡ +1天';
-        document.querySelector('.farm-game')?.appendChild(msg);
-        setTimeout(() => msg.remove(), 1000);
-    }
-
-    /**
-     * 背单词完成回调
-     */
-    function onFlashcardComplete(wordsCompleted) {
-        if (wordsCompleted > 0) {
-            // 背完一组单词获得1天加速点
-            addBoost(1);
-            showBoostMessage(wordsCompleted);
-        }
-    }
-
-    /**
-     * 显示加速提示消息
-     */
-    function showBoostMessage(wordsCompleted) {
-        const msg = document.createElement('div');
-        msg.className = 'farm-boost-msg';
-        msg.innerHTML = `
-            <div style="font-size: 24px; margin-bottom: 8px;">🎉</div>
-            <div>背完 ${wordsCompleted} 个单词！</div>
-            <div style="color: #ffd700; font-weight: bold;">⚡ +1 天加速点</div>
-        `;
-        document.querySelector('.farm-game')?.appendChild(msg);
-        setTimeout(() => msg.remove(), 2500);
-    }
-
-    /**
-     * 解锁作物
-     */
-    function unlockCrop(cropKey) {
-        const crop = CROPS[cropKey];
-        if (!crop || !crop.unlockCost) return;
-        if (gameState.unlockedCrops.includes(cropKey)) return;
-        if (gameState.coins < crop.unlockCost) return;
-
-        gameState.coins -= crop.unlockCost;
-        gameState.unlockedCrops.push(cropKey);
-        saveGame();
-        render();
-    }
-
-    function isCropUnlocked(cropKey) {
-        return gameState.unlockedCrops.includes(cropKey) || CROPS[cropKey].unlocked;
-    }
-
     function render() {
         const container = document.getElementById('farm-game-container');
         if (!container) return;
 
-        if (showingFlashcards) {
-            renderFlashcardView(container);
+        if (uiState.showingFlashcards) {
+            // 只在首次显示时渲染flashcard视图，之后由Flashcard模块自行管理
+            if (!uiState.flashcardStarted) {
+                renderFlashcardView(container);
+                uiState.flashcardStarted = true;
+                loadFlashcardAndStart();
+                bindFlashcardEvents();
+            }
             return;
         }
 
-        if (showingShop) {
+        if (uiState.showingPet) {
+            renderPetView(container);
+            bindPetEvents();
+            return;
+        }
+
+        if (uiState.showingShop) {
             renderShopView(container);
+            bindShopEvents();
             return;
         }
 
-        const html = `
-            <div class="farm-game">
-                <div class="farm-header">
-                    <span class="farm-coins">💰 ${gameState.coins}</span>
-                    <span class="farm-harvested">🏆 ${gameState.totalHarvested}</span>
-                    <span class="farm-boost-points ${gameState.boostDays >= 1 ? 'clickable' : ''}" id="farm-boost-points" title="${gameState.boostDays >= 1 ? '点击使用加速' : '加速天数'}">⚡ ${gameState.boostDays}天</span>
-                </div>
+        if (uiState.showingInventory) {
+            renderInventoryView(container);
+            bindInventoryEvents();
+            return;
+        }
 
-                <div class="farm-grid">
-                    ${gameState.plots.map((plot, i) => renderPlot(plot, i)).join('')}
-                </div>
-
-                <div class="farm-status">
-                    ${gameState.selectedSeed
-                        ? `<span class="farm-selected-seed">已选: ${CROPS[gameState.selectedSeed].emoji} ${CROPS[gameState.selectedSeed].name}</span>`
-                        : '<span class="farm-no-seed">点击下方选种子</span>'}
-                </div>
-
-                <div class="farm-actions">
-                    <button class="farm-action-btn menu_button" id="farm-open-shop">
-                        🏪 种子商店
-                    </button>
-                    <button class="farm-action-btn menu_button" id="farm-start-flashcard">
-                        📚 背单词
-                    </button>
-                </div>
-            </div>
-        `;
-
-        container.innerHTML = html;
+        renderMainView(container);
         bindEvents();
     }
 
-    function renderPlot(plot, index) {
-        let emoji = '🟫';
-        let className = 'empty';
-        let timeInfo = '';
+    /**
+     * 绑定主界面事件
+     */
+    function bindEvents() {
+        // 地块点击
+        document.querySelectorAll('.farm-plot').forEach(el => {
+            el.addEventListener('click', () => {
+                const index = parseInt(el.dataset.index);
+                handlePlotClick(index);
+            });
+        });
 
-        if (plot.crop) {
-            const stage = getGrowthStage(plot);
-            if (stage >= 3 || isRipe(plot)) {
-                emoji = CROPS[plot.crop].emoji;
-                className = 'ripe';
-                timeInfo = '<span class="plot-time ready">可收获</span>';
-            } else {
-                emoji = GROWTH_STAGES[stage];
-                className = 'growing';
-                const remaining = getRemainingDays(plot);
-                const hours = Math.floor((remaining % 1) * 24);
-                const days = Math.floor(remaining);
-                timeInfo = `<span class="plot-time">${days > 0 ? days + '天' : ''}${hours}时</span>`;
+        // 快捷栏点击
+        document.querySelectorAll('.farm-quick-slot').forEach(el => {
+            el.addEventListener('click', () => {
+                const slotIndex = parseInt(el.dataset.slotIndex);
+                const cropType = el.dataset.cropType;
+                if (cropType && isCropUnlocked(cropType)) {
+                    gameState.selectedSeed = cropType;
+                    render();
+                }
+            });
+        });
+
+        // 加速天数点击
+        document.getElementById('farm-boost-points')?.addEventListener('click', () => {
+            if (gameState.boostDays >= 1) {
+                if (boostAllCrops()) {
+                    showBoostAppliedMessage();
+                    render();
+                }
             }
-        }
+        });
 
-        return `
-            <div class="farm-plot ${className}" data-index="${index}">
-                <span class="plot-emoji">${emoji}</span>
-                ${timeInfo}
-            </div>
-        `;
-    }
-
-    function renderShopView(container) {
-        container.innerHTML = `
-            <div class="farm-shop-page">
-                <div class="farm-shop-header">
-                    <button class="menu_button farm-back-btn" id="shop-back">
-                        <i class="fa-solid fa-arrow-left"></i> 返回
-                    </button>
-                    <span class="farm-shop-coins">💰 ${gameState.coins}</span>
-                </div>
-                <div class="farm-shop-title">🏪 种子商店</div>
-                <div class="farm-shop-list">
-                    ${Object.entries(CROPS).map(([key, crop]) => {
-                        const unlocked = isCropUnlocked(key);
-                        const canAfford = gameState.coins >= crop.seedPrice;
-                        const canUnlock = !unlocked && gameState.coins >= crop.unlockCost;
-
-                        if (!unlocked) {
-                            return `
-                                <div class="farm-shop-item locked ${canUnlock ? '' : 'disabled'}" data-crop="${key}">
-                                    <span class="shop-item-emoji">🔒</span>
-                                    <div class="shop-item-info">
-                                        <span class="shop-item-name">${crop.name}</span>
-                                        <span class="shop-item-detail">解锁后可种植</span>
-                                    </div>
-                                    <button class="shop-unlock-btn ${canUnlock ? '' : 'disabled'}" data-unlock="${key}">
-                                        💰${crop.unlockCost} 解锁
-                                    </button>
-                                </div>
-                            `;
-                        }
-
-                        return `
-                            <div class="farm-shop-item ${gameState.selectedSeed === key ? 'selected' : ''} ${canAfford ? '' : 'disabled'}"
-                                 data-seed="${key}">
-                                <span class="shop-item-emoji">${crop.emoji}</span>
-                                <div class="shop-item-info">
-                                    <span class="shop-item-name">${crop.name}</span>
-                                    <span class="shop-item-detail">⏱${crop.growDays}天 → 💰${crop.sellPrice}</span>
-                                </div>
-                                <span class="shop-item-price">$${crop.seedPrice}</span>
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
-            </div>
-        `;
-
-        // 绑定返回按钮
-        document.getElementById('shop-back')?.addEventListener('click', () => {
-            showingShop = false;
+        // 商店按钮
+        document.getElementById('farm-open-shop')?.addEventListener('click', () => {
+            uiState.showingShop = true;
             render();
         });
 
-        // 绑定种子选择
-        document.querySelectorAll('.farm-shop-item:not(.disabled):not(.locked)').forEach(el => {
-            el.addEventListener('click', () => {
-                const seed = el.dataset.seed;
-                if (seed) {
-                    gameState.selectedSeed = seed;
-                    showingShop = false;
-                    render();
-                }
-            });
+        // 背单词按钮
+        document.getElementById('farm-start-flashcard')?.addEventListener('click', () => {
+            uiState.showingFlashcards = true;
+            uiState.flashcardStarted = false;
+            render();
         });
 
-        // 绑定解锁按钮
-        document.querySelectorAll('.shop-unlock-btn:not(.disabled)').forEach(el => {
-            el.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const cropKey = el.dataset.unlock;
-                if (cropKey) {
-                    unlockCrop(cropKey);
-                }
-            });
+        // 物品按钮
+        document.getElementById('farm-open-inventory')?.addEventListener('click', () => {
+            uiState.showingInventory = true;
+            uiState.inventoryTab = 'items'; // 默认显示物品页
+            render();
         });
     }
 
-    function renderFlashcardView(container) {
-        if (!flashcardStarted) {
-            container.innerHTML = `
-                <div class="flashcard-panel-content">
-                    <button class="menu_button flashcard-back-btn" id="flashcard-back">
-                        <i class="fa-solid fa-arrow-left"></i> 返回农场
-                    </button>
-                    <div id="flashcard-container" class="flashcard-container"></div>
-                </div>
-            `;
+    /**
+     * 绑定商店事件
+     */
+    function bindShopEvents() {
+        // 返回按钮
+        document.getElementById('shop-back')?.addEventListener('click', () => {
+            uiState.showingShop = false;
+            render();
+        });
 
-            const backBtn = document.getElementById('flashcard-back');
-            if (backBtn) {
-                backBtn.addEventListener('click', () => {
-                    showingFlashcards = false;
-                    flashcardStarted = false;
-                    render();
+        // Tab切换
+        document.querySelectorAll('.farm-shop-tab').forEach(el => {
+            el.addEventListener('click', () => {
+                uiState.currentShopTab = el.dataset.tab;
+                render();
+            });
+        });
+
+        // 种子tab相关（仅在种子tab）
+        if (uiState.currentShopTab === 'seeds') {
+            // 更新价格显示的辅助函数
+            const updatePrice = (cropType) => {
+                const input = document.querySelector(`.qty-input[data-crop="${cropType}"]`);
+                const priceEl = document.querySelector(`.shop-item-price[data-crop="${cropType}"]`);
+                if (input && priceEl) {
+                    const quantity = parseInt(input.value) || 1;
+                    const unitPrice = parseInt(priceEl.dataset.unitPrice) || 0;
+                    const totalPrice = unitPrice * quantity;
+                    priceEl.textContent = `💰${totalPrice}`;
+
+                    // 更新购买按钮状态
+                    const buyBtn = document.querySelector(`.shop-buy-btn[data-crop="${cropType}"]`);
+                    if (buyBtn) {
+                        if (gameState.coins >= totalPrice) {
+                            buyBtn.classList.remove('disabled');
+                        } else {
+                            buyBtn.classList.add('disabled');
+                        }
+                    }
+                }
+            };
+
+            // 数量加减按钮
+            document.querySelectorAll('.qty-btn').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const cropType = el.dataset.crop;
+                    const action = el.dataset.action;
+                    const input = document.querySelector(`.qty-input[data-crop="${cropType}"]`);
+
+                    if (input) {
+                        let value = parseInt(input.value) || 1;
+                        if (action === 'plus' && value < 99) {
+                            value++;
+                        } else if (action === 'minus' && value > 1) {
+                            value--;
+                        }
+                        input.value = value;
+                        updatePrice(cropType);
+                    }
                 });
-            }
+            });
 
-            flashcardStarted = true;
-            loadFlashcardAndStart();
+            // 数量输入框
+            document.querySelectorAll('.qty-input').forEach(el => {
+                el.addEventListener('change', (e) => {
+                    let value = parseInt(e.target.value) || 1;
+                    value = Math.max(1, Math.min(99, value));
+                    e.target.value = value;
+                    updatePrice(el.dataset.crop);
+                });
+
+                el.addEventListener('input', (e) => {
+                    const cropType = e.target.dataset.crop;
+                    updatePrice(cropType);
+                });
+            });
+
+            // 购买按钮
+            document.querySelectorAll('.shop-buy-btn').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (el.classList.contains('disabled')) return;
+
+                    const cropType = el.dataset.crop;
+                    const input = document.querySelector(`.qty-input[data-crop="${cropType}"]`);
+                    const quantity = parseInt(input?.value) || 1;
+
+                    if (cropType) {
+                        handlePurchaseSeed(cropType, quantity);
+                    }
+                });
+            });
+
+            // 解锁按钮
+            document.querySelectorAll('.shop-unlock-btn:not(.disabled)').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const cropKey = el.dataset.unlock;
+                    if (cropKey && unlockCrop(cropKey)) {
+                        render();
+                    }
+                });
+            });
+        }
+
+        // 兑换按钮（仅在兑换tab）
+        if (uiState.currentShopTab === 'exchange') {
+            document.querySelectorAll('.shop-exchange-btn:not(.disabled)').forEach(el => {
+                el.addEventListener('click', () => {
+                    const petId = el.dataset.pet;
+                    if (petId) {
+                        const result = exchangePet(petId);
+                        if (result.success) {
+                            render();
+                        }
+                        showMessage(result.message);
+                    }
+                });
+            });
         }
     }
 
+    /**
+     * 处理购买种子
+     */
+    function handlePurchaseSeed(cropType, quantity) {
+        const crop = CROPS[cropType];
+        if (!crop) return;
+
+        const totalCost = crop.seedPrice * quantity;
+        if (gameState.coins < totalCost) {
+            showMessage('金币不足！');
+            return;
+        }
+
+        gameState.coins -= totalCost;
+        addSeedToInventory(cropType, quantity);
+        showMessage(`购买成功！获得 ${crop.name} × ${quantity}`);
+        render();
+    }
+
+    /**
+     * 绑定库存事件
+     */
+    function bindInventoryEvents() {
+        document.getElementById('inventory-back')?.addEventListener('click', () => {
+            uiState.showingInventory = false;
+            render();
+        });
+
+        // 物品快捷栏设置按钮
+        document.querySelectorAll('.item-slot-btn').forEach(el => {
+            el.addEventListener('click', () => {
+                const cropType = el.dataset.crop;
+                const slotIndex = parseInt(el.dataset.slot);
+
+                if (cropType && slotIndex >= 0) {
+                    setQuickSlot(slotIndex, cropType);
+                    render();
+                }
+            });
+        });
+
+        // 宠物点击事件
+        document.querySelectorAll('.pet-clickable').forEach(el => {
+            el.addEventListener('click', () => {
+                const petId = el.dataset.petId;
+                const petTimestamp = parseInt(el.dataset.petTimestamp);
+
+                if (petId && petTimestamp) {
+                    uiState.currentPet = { id: petId, timestamp: petTimestamp };
+                    uiState.showingPet = true;
+                    render();
+                }
+            });
+        });
+    }
+
+    /**
+     * 绑定宠物页面事件
+     */
+    function bindPetEvents() {
+        // 返回按钮
+        document.getElementById('pet-back')?.addEventListener('click', () => {
+            uiState.showingPet = false;
+            uiState.currentPet = null;
+            uiState.showingInventory = true;
+            render();
+        });
+
+        // 重命名按钮
+        document.getElementById('pet-rename')?.addEventListener('click', () => {
+            const newName = prompt('请输入新名字：');
+            if (newName && newName.trim()) {
+                const { currentPet } = uiState;
+                if (currentPet && renamePet(currentPet.id, currentPet.timestamp, newName)) {
+                    saveGame();
+                    render();
+                }
+            }
+        });
+
+        // 展示按钮
+        document.getElementById('pet-display')?.addEventListener('click', () => {
+            const { currentPet } = uiState;
+            if (currentPet) {
+                const existing = document.getElementById('floating-pet');
+
+                if (existing) {
+                    // 如果已有悬浮宠物，移除 DOM 元素和状态，但保留位置信息
+                    existing.remove();
+                    removeFloatingPet();
+                } else {
+                    // 如果没有悬浮宠物，创建新的
+                    createFloatingPet(currentPet.id, currentPet.timestamp);
+                }
+
+                // 返回背包界面
+                uiState.showingPet = false;
+                uiState.currentPet = null;
+                uiState.showingInventory = true;
+                render();
+            }
+        });
+    }
+
+    /**
+     * 绑定背单词事件
+     */
+    function bindFlashcardEvents() {
+        const backBtn = document.getElementById('flashcard-back');
+        if (backBtn && !backBtn.hasAttribute('data-bound')) {
+            backBtn.setAttribute('data-bound', 'true');
+            backBtn.addEventListener('click', () => {
+                uiState.showingFlashcards = false;
+                uiState.flashcardStarted = false;
+                render();
+            });
+        }
+    }
+
+    /**
+     * 处理地块点击
+     */
+    function handlePlotClick(index) {
+        const plot = gameState.plots[index];
+
+        if (plot.crop) {
+            const crop = harvestCrop(index);
+            if (crop) {
+                showHarvestMessage(crop);
+                render();
+            }
+        } else {
+            if (gameState.selectedSeed && isCropUnlocked(gameState.selectedSeed)) {
+                // 检查是否有种子
+                if (!hasSeed(gameState.selectedSeed)) {
+                    showHarvestMessage({ emoji: '❌', sellPrice: 0 });
+                    const container = document.querySelector('.farm-harvest-msg');
+                    if (container) container.textContent = '没有种子！';
+                    return;
+                }
+
+                // 尝试种植（会扣金币）
+                if (plantCrop(index, gameState.selectedSeed)) {
+                    // 种植成功，消耗种子
+                    consumeSeed(gameState.selectedSeed, 1);
+                    render();
+                }
+            }
+        }
+    }
+
+    /**
+     * 加载并启动背单词
+     */
     async function loadFlashcardAndStart() {
         if (!window.Flashcard) {
             try {
@@ -406,98 +427,24 @@ const FarmGame = (() => {
         }
     }
 
-    function bindEvents() {
-        // 地块点击
-        document.querySelectorAll('.farm-plot').forEach(el => {
-            el.addEventListener('click', () => {
-                const index = parseInt(el.dataset.index);
-                handlePlotClick(index);
-            });
-        });
-
-        // 加速天数点击
-        document.getElementById('farm-boost-points')?.addEventListener('click', () => {
-            if (gameState.boostDays >= 1) {
-                boostAllCrops();
-            }
-        });
-
-        // 商店按钮
-        document.getElementById('farm-open-shop')?.addEventListener('click', () => {
-            showingShop = true;
-            render();
-        });
-
-        // 背单词按钮
-        document.getElementById('farm-start-flashcard')?.addEventListener('click', () => {
-            showingFlashcards = true;
-            flashcardStarted = false;
-            render();
-        });
-    }
-
-    function handlePlotClick(index) {
-        const plot = gameState.plots[index];
-
-        if (plot.crop) {
-            if (isRipe(plot)) {
-                harvest(index);
-            }
-        } else {
-            if (gameState.selectedSeed && isCropUnlocked(gameState.selectedSeed)) {
-                plant(index, gameState.selectedSeed);
-            }
+    /**
+     * 背单词完成回调
+     */
+    function onFlashcardComplete(wordsCompleted) {
+        if (wordsCompleted > 0) {
+            addBoost(1);
+            // 在flashcard视图下不显示boost消息
+            // 用户在flashcard界面已经知道完成了，返回农场时会看到加速点增加
         }
     }
 
-    function plant(index, cropType) {
-        const crop = CROPS[cropType];
-        if (gameState.coins < crop.seedPrice) return;
-        if (!isCropUnlocked(cropType)) return;
-
-        gameState.coins -= crop.seedPrice;
-        gameState.plots[index] = {
-            crop: cropType,
-            plantedAt: Date.now(),
-            boostedDays: 0,
-        };
-
-        saveGame();
-        render();
-    }
-
-    function harvest(index) {
-        const plot = gameState.plots[index];
-        if (!plot.crop || !isRipe(plot)) return;
-
-        const crop = CROPS[plot.crop];
-        gameState.coins += crop.sellPrice;
-        gameState.totalHarvested++;
-
-        gameState.plots[index] = {
-            crop: null,
-            plantedAt: null,
-            boostedDays: 0,
-        };
-
-        saveGame();
-        render();
-        showHarvestMessage(crop);
-    }
-
-    function showHarvestMessage(crop) {
-        const msg = document.createElement('div');
-        msg.className = 'farm-harvest-msg';
-        msg.textContent = `${crop.emoji} +$${crop.sellPrice}`;
-        document.querySelector('.farm-game')?.appendChild(msg);
-        setTimeout(() => msg.remove(), 1000);
-    }
-
-    let gameLoop = null;
+    /**
+     * 游戏循环
+     */
     function startGameLoop() {
         if (gameLoop) return;
         gameLoop = setInterval(() => {
-            if (document.getElementById('farm-game-container') && !showingFlashcards) {
+            if (document.getElementById('farm-game-container') && !uiState.showingFlashcards) {
                 render();
             }
         }, 60000); // 每分钟更新一次
@@ -510,34 +457,34 @@ const FarmGame = (() => {
         }
     }
 
+    /**
+     * 清理
+     */
     function cleanup() {
         stopGameLoop();
         if (window.Flashcard && typeof window.Flashcard.stopReviewTimer === 'function') {
             window.Flashcard.stopReviewTimer();
         }
-        showingFlashcards = false;
-        showingShop = false;
+        resetUIState();
     }
 
+    /**
+     * 初始化
+     */
     function init() {
-        showingFlashcards = false;
-        showingShop = false;
+        resetUIState();
         loadGame();
+        restoreFloatingPet(); // 恢复悬浮宠物
         render();
         startGameLoop();
     }
 
+    /**
+     * 重置游戏
+     */
     function reset() {
         if (!confirm('确定要重置游戏吗？所有进度将丢失！')) return;
-        gameState = {
-            coins: 50,
-            plots: [],
-            selectedSeed: null,
-            totalHarvested: 0,
-            boostDays: 0,
-            unlockedCrops: ['carrot', 'potato'],
-        };
-        initGameState();
+        resetGameState();
         saveGame();
         render();
     }
@@ -554,4 +501,5 @@ const FarmGame = (() => {
 
 if (typeof window !== 'undefined') {
     window.FarmGame = FarmGame;
+    window.CROPS = CROPS;
 }

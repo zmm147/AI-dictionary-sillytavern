@@ -81,6 +81,13 @@
     padding: 8px 12px;
     background: rgba(0, 0, 0, 0.3);
     border-radius: 8px;
+    gap: 8px;
+}
+
+.farm-header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .farm-coins {
@@ -88,6 +95,7 @@
     font-weight: bold;
     color: #ffd700;
     text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    white-space: nowrap;
 }
 
 .farm-harvested {
@@ -102,6 +110,7 @@
     background: rgba(255, 149, 0, 0.2);
     padding: 2px 8px;
     border-radius: 10px;
+    white-space: nowrap;
 }
 
 .farm-boost-points.clickable {
@@ -112,6 +121,90 @@
 .farm-boost-points.clickable:hover {
     background: rgba(255, 149, 0, 0.4);
     transform: scale(1.1);
+}
+
+.farm-inventory-btn {
+    padding: 4px 10px !important;
+    font-size: 18px !important;
+    background: rgba(255, 215, 0, 0.2) !important;
+    border: 1px solid rgba(255, 215, 0, 0.3) !important;
+    border-radius: 8px !important;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.farm-inventory-btn:hover {
+    background: rgba(255, 215, 0, 0.3) !important;
+    transform: scale(1.05);
+}
+
+/* 快捷栏 */
+.farm-quick-slots {
+    display: flex;
+    gap: 6px;
+    flex: 1;
+    justify-content: center;
+    align-items: center;
+}
+
+.farm-quick-slot {
+    width: 36px;
+    height: 36px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.farm-quick-slot:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.4);
+    transform: translateY(-2px);
+}
+
+.farm-quick-slot.selected {
+    background: rgba(255, 215, 0, 0.2);
+    border-color: #ffd700;
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+.farm-quick-slot.empty {
+    background: rgba(0, 0, 0, 0.2);
+    border-style: dashed;
+}
+
+.farm-quick-slot.empty:hover {
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.quick-slot-emoji {
+    font-size: 20px;
+    user-select: none;
+}
+
+.quick-slot-count {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    background: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 1px 3px;
+    border-radius: 3px;
+    line-height: 1;
+    min-width: 12px;
+    text-align: center;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.quick-slot-empty {
+    display: none;
 }
 
 /* Farm Grid */
@@ -484,6 +577,13 @@
     font-size: 28px;
 }
 
+.pet-icon-img {
+    width: 28px;
+    height: 28px;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
 .shop-item-info {
     flex: 1;
     display: flex;
@@ -554,4 +654,467 @@
     60% { transform: translate(-50%, -50%) scale(1.05); }
     80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
     100% { opacity: 0; transform: translate(-50%, -70%) scale(1); }
+}
+
+/* Farm Shop Tabs */
+.farm-shop-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    justify-content: center;
+}
+
+.farm-shop-tab {
+    flex: 1;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid transparent;
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+}
+
+.farm-shop-tab:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+}
+
+.farm-shop-tab.active {
+    background: rgba(255, 215, 0, 0.15);
+    border-color: #ffd700;
+    color: #ffd700;
+    font-weight: bold;
+}
+
+/* Exchange Button */
+.shop-exchange-btn {
+    padding: 6px 12px;
+    background: linear-gradient(135deg, #4CAF50, #45a049);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 11px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.shop-exchange-btn:hover:not(.disabled) {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.5);
+}
+
+.shop-exchange-btn.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #666;
+}
+
+/* Item Type Badge */
+.shop-item-type {
+    font-size: 11px;
+    color: #fff;
+    background: rgba(100, 100, 255, 0.3);
+    padding: 4px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+
+/* Owned Badge */
+.shop-item-owned {
+    font-size: 10px;
+    color: #90ee90;
+    background: rgba(144, 238, 144, 0.2);
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-top: 2px;
+}
+
+/* Empty Message */
+.farm-empty-msg {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 14px;
+    padding: 40px 20px;
+    line-height: 1.6;
+}
+
+/* Shop Message */
+.farm-message {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.9);
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: bold;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    animation: message-fade 2s ease-out forwards;
+    pointer-events: none;
+    z-index: 1000;
+}
+
+@keyframes message-fade {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+    20% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -60%) scale(1); }
+}
+
+/* Inventory Item */
+.inventory-item {
+    cursor: default;
+}
+
+.inventory-item:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+/* Farm Shop Stats */
+.farm-shop-stats {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.farm-shop-harvest {
+    font-size: 14px;
+    color: #90ee90;
+    font-weight: bold;
+}
+
+/* Quick Slot Preview */
+.farm-quickslot-preview {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    padding: 15px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.farm-quick-slot-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    min-width: 50px;
+}
+
+.farm-quick-slot-preview.empty {
+    background: rgba(0, 0, 0, 0.2);
+    border-style: dashed;
+}
+
+.quick-slot-number {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: bold;
+}
+
+.quick-slot-emoji {
+    font-size: 24px;
+}
+
+.quick-slot-name {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.8);
+    text-align: center;
+}
+
+.quick-slot-empty-text {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.3);
+}
+
+/* Seed Purchase Controls */
+.seed-purchase-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.seed-purchase-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.seed-quantity-selector {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 2px;
+    border-radius: 6px;
+}
+
+.qty-btn {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    color: #fff;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.qty-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: scale(1.1);
+}
+
+.qty-btn:active {
+    transform: scale(0.95);
+}
+
+.qty-input {
+    width: 40px;
+    height: 24px;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    color: #fff;
+    font-size: 12px;
+    font-weight: bold;
+    padding: 0 4px;
+}
+
+.qty-input:focus {
+    outline: none;
+    border-color: #ffd700;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.shop-buy-btn {
+    padding: 6px 12px;
+    background: linear-gradient(135deg, #4CAF50, #45a049);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 11px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.shop-buy-btn:hover:not(.disabled) {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.5);
+}
+
+.shop-buy-btn.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #666;
+}
+
+/* Item Quick Slot Buttons */
+.item-quickslot-btns {
+    display: flex;
+    gap: 4px;
+}
+
+.item-slot-btn {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 11px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.item-slot-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.4);
+    color: #fff;
+    transform: scale(1.1);
+}
+
+.item-slot-btn.current {
+    background: rgba(76, 175, 80, 0.3);
+    border-color: #4CAF50;
+    color: #90ee90;
+}
+
+.item-slot-btn.current:hover {
+    background: rgba(76, 175, 80, 0.4);
+}
+
+.item-slot-btn.occupied {
+    background: rgba(255, 149, 0, 0.2);
+    border-color: rgba(255, 149, 0, 0.3);
+}
+
+.item-slot-btn.occupied:hover {
+    background: rgba(255, 149, 0, 0.3);
+    border-color: rgba(255, 149, 0, 0.5);
+}
+
+/* Pet Clickable */
+.pet-clickable {
+    cursor: pointer;
+}
+
+.pet-clickable:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+    transform: translateX(2px);
+}
+
+/* Pet Page */
+.farm-pet-page {
+    padding: 10px;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border-radius: 12px;
+    height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+}
+
+.farm-pet-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 20px;
+}
+
+.farm-pet-avatar {
+    width: 120px;
+    height: 120px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+}
+
+.pet-emoji-large {
+    font-size: 64px;
+    user-select: none;
+}
+
+.pet-emoji-large img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.farm-pet-info {
+    text-align: center;
+    max-width: 300px;
+}
+
+.pet-name {
+    font-size: 24px;
+    color: #fff;
+    margin: 0 0 8px 0;
+    font-weight: bold;
+}
+
+.pet-species {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0 0 12px 0;
+}
+
+.pet-description {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+    margin: 0 0 12px 0;
+    line-height: 1.5;
+}
+
+.pet-obtained {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+    margin: 0;
+}
+
+.farm-pet-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.pet-action-btn {
+    padding: 8px 16px !important;
+    font-size: 13px !important;
+}
+
+/* Floating Pet */
+.floating-pet {
+    position: fixed;
+    z-index: 99999;
+    cursor: grab;
+    user-select: none;
+    width: 100px;
+    height: 100px;
+}
+
+.floating-pet:active {
+    cursor: grabbing;
+}
+
+.floating-pet-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: auto;
+    cursor: grab;
+    user-select: none;
+}
+
+.floating-pet-img:active {
+    cursor: grabbing;
+}
+
+/* Mobile Responsive - Floating Pet */
+@media screen and (max-width: 768px) {
+    .floating-pet {
+        width: 70px;
+        height: 70px;
+    }
+}
+
+@media screen and (max-width: 450px) {
+    .floating-pet {
+        width: 50px;
+        height: 50px;
+    }
 }

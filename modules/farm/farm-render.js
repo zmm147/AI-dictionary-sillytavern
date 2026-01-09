@@ -1,0 +1,489 @@
+/**
+ * Farm Game - Render Module
+ * 渲染相关功能
+ */
+
+import { CROPS, GROWTH_STAGES, PETS } from './farm-config.js';
+import { gameState, uiState } from './farm-state.js';
+import {
+    getGrowthStage,
+    getRemainingDays,
+    isRipe,
+    isCropUnlocked
+} from './farm-crop.js';
+import { getOwnedPetCount } from './farm-shop.js';
+import { getAllItems, formatItemTimestamp, getItemTypeName } from './farm-inventory.js';
+import { getAllQuickSlots } from './farm-quickslot.js';
+import { getSeedCount } from './farm-seed-inventory.js';
+import { getPetDisplayName, loadFloatingPet, removeFloatingPet } from './farm-pet.js';
+
+/**
+ * 获取宠物图标HTML
+ */
+function getPetIconHTML(petId, petEmoji, className = 'shop-item-emoji') {
+    // 获取图片路径
+    const currentScript = document.querySelector('script[src*="farm-game.js"]');
+    const basePath = currentScript ? currentScript.src.replace('farm-game.js', '') : '';
+
+    // 如果是猫咪，使用图片
+    if (petId === 'cat') {
+        const petImageSrc = basePath + 'flycat.png';
+        return `<span class="${className}"><img src="${petImageSrc}" class="pet-icon-img" alt="猫咪" /></span>`;
+    }
+
+    // 其他宠物使用emoji
+    return `<span class="${className}">${petEmoji}</span>`;
+}
+
+/**
+ * 渲染快捷栏
+ */
+export function renderQuickSlots() {
+    const quickSlots = getAllQuickSlots();
+
+    return quickSlots.map((cropType, index) => {
+        if (cropType && CROPS[cropType]) {
+            const crop = CROPS[cropType];
+            const seedCount = getSeedCount(cropType);
+
+            // 如果数量为0，清空槽位
+            if (seedCount <= 0) {
+                return `
+                    <div class="farm-quick-slot empty"
+                         data-slot-index="${index}"
+                         title="空槽位">
+                        <span class="quick-slot-empty">+</span>
+                    </div>
+                `;
+            }
+
+            const isSelected = gameState.selectedSeed === cropType;
+            return `
+                <div class="farm-quick-slot ${isSelected ? 'selected' : ''}"
+                     data-slot-index="${index}"
+                     data-crop-type="${cropType}"
+                     title="${crop.name} (${seedCount}个)">
+                    <span class="quick-slot-emoji">${crop.emoji}</span>
+                    <span class="quick-slot-count">${seedCount}</span>
+                </div>
+            `;
+        } else {
+            return `
+                <div class="farm-quick-slot empty"
+                     data-slot-index="${index}"
+                     title="空槽位">
+                    <span class="quick-slot-empty">+</span>
+                </div>
+            `;
+        }
+    }).join('');
+}
+
+/**
+ * 渲染地块
+ */
+export function renderPlot(plot, index) {
+    let emoji = '🟫';
+    let className = 'empty';
+    let timeInfo = '';
+
+    if (plot.crop) {
+        const stage = getGrowthStage(plot);
+        if (stage >= 3 || isRipe(plot)) {
+            emoji = CROPS[plot.crop].emoji;
+            className = 'ripe';
+            timeInfo = '<span class="plot-time ready">可收获</span>';
+        } else {
+            emoji = GROWTH_STAGES[stage];
+            className = 'growing';
+            const remaining = getRemainingDays(plot);
+            const hours = Math.floor((remaining % 1) * 24);
+            const days = Math.floor(remaining);
+            timeInfo = `<span class="plot-time">${days > 0 ? days + '天' : ''}${hours}时</span>`;
+        }
+    }
+
+    return `
+        <div class="farm-plot ${className}" data-index="${index}">
+            <span class="plot-emoji">${emoji}</span>
+            ${timeInfo}
+        </div>
+    `;
+}
+
+/**
+ * 渲染种子商店标签页
+ */
+export function renderSeedsTab() {
+    return `
+        <div class="farm-shop-title">🏪 种子商店</div>
+        <div class="farm-shop-list">
+            ${Object.entries(CROPS).map(([key, crop]) => {
+                const unlocked = isCropUnlocked(key);
+                const canAfford = gameState.coins >= crop.seedPrice;
+                const canUnlock = !unlocked && gameState.coins >= crop.unlockCost;
+                const ownedCount = getSeedCount(key);
+
+                if (!unlocked) {
+                    return `
+                        <div class="farm-shop-item locked ${canUnlock ? '' : 'disabled'}" data-crop="${key}">
+                            <span class="shop-item-emoji">🔒</span>
+                            <div class="shop-item-info">
+                                <span class="shop-item-name">${crop.name}</span>
+                                <span class="shop-item-detail">解锁后可购买</span>
+                            </div>
+                            <button class="shop-unlock-btn ${canUnlock ? '' : 'disabled'}" data-unlock="${key}">
+                                💰${crop.unlockCost} 解锁
+                            </button>
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="farm-shop-item seed-purchase-item ${canAfford ? '' : 'disabled'}">
+                        <span class="shop-item-emoji">${crop.emoji}</span>
+                        <div class="shop-item-info">
+                            <span class="shop-item-name">${crop.name}</span>
+                            <span class="shop-item-detail">⏱${crop.growDays}天 → 💰${crop.sellPrice}</span>
+                            ${ownedCount > 0 ? `<span class="shop-item-owned">拥有: ${ownedCount}个</span>` : ''}
+                        </div>
+                        <div class="seed-purchase-controls">
+                            <span class="shop-item-price" data-crop="${key}" data-unit-price="${crop.seedPrice}">💰${crop.seedPrice}</span>
+                            <div class="seed-quantity-selector">
+                                <button class="qty-btn qty-minus" data-crop="${key}" data-action="minus">-</button>
+                                <input type="number" class="qty-input" data-crop="${key}" value="1" min="1" max="99">
+                                <button class="qty-btn qty-plus" data-crop="${key}" data-action="plus">+</button>
+                            </div>
+                            <button class="shop-buy-btn ${canAfford ? '' : 'disabled'}" data-crop="${key}">
+                                购买
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+}
+
+/**
+ * 渲染兑换标签页
+ */
+export function renderExchangeTab() {
+    return `
+        <div class="farm-shop-title">🎁 兑换中心</div>
+        <div class="farm-shop-list">
+            ${Object.entries(PETS).map(([key, pet]) => {
+                const ownedCount = getOwnedPetCount(key);
+                const canExchange = pet.limit === 0 || ownedCount < pet.limit;
+                const isFree = pet.cost === 0;
+
+                return `
+                    <div class="farm-shop-item exchange-item ${canExchange ? '' : 'disabled'}">
+                        ${getPetIconHTML(key, pet.emoji)}
+                        <div class="shop-item-info">
+                            <span class="shop-item-name">${pet.name}</span>
+                            <span class="shop-item-detail">${pet.description}</span>
+                            ${ownedCount > 0 ? `<span class="shop-item-owned">已拥有: ${ownedCount}</span>` : ''}
+                        </div>
+                        <button class="shop-exchange-btn ${canExchange ? '' : 'disabled'}" data-pet="${key}">
+                            ${isFree ? '🆓 免费领取' : `💰${pet.cost} 兑换`}
+                        </button>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+}
+
+/**
+ * 渲染商店视图
+ */
+export function renderShopView(container) {
+    container.innerHTML = `
+        <div class="farm-shop-page">
+            <div class="farm-shop-header">
+                <button class="menu_button farm-back-btn" id="shop-back">
+                    <i class="fa-solid fa-arrow-left"></i> 返回
+                </button>
+                <span class="farm-shop-coins">💰 ${gameState.coins}</span>
+            </div>
+            <div class="farm-shop-tabs">
+                <button class="farm-shop-tab ${uiState.currentShopTab === 'seeds' ? 'active' : ''}" data-tab="seeds">
+                    🌱 种子
+                </button>
+                <button class="farm-shop-tab ${uiState.currentShopTab === 'exchange' ? 'active' : ''}" data-tab="exchange">
+                    🎁 兑换
+                </button>
+            </div>
+            <div class="farm-shop-content">
+                ${uiState.currentShopTab === 'seeds' ? renderSeedsTab() : renderExchangeTab()}
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * 渲染库存视图
+ */
+export function renderInventoryView(container) {
+    const items = getAllItems();
+    const quickSlots = getAllQuickSlots();
+
+    container.innerHTML = `
+        <div class="farm-shop-page">
+            <div class="farm-shop-header">
+                <button class="menu_button farm-back-btn" id="inventory-back">
+                    <i class="fa-solid fa-arrow-left"></i> 返回
+                </button>
+                <div class="farm-shop-stats">
+                    <span class="farm-shop-coins">💰 ${gameState.coins}</span>
+                    <span class="farm-shop-harvest">🏆 ${gameState.totalHarvested}</span>
+                </div>
+            </div>
+
+            <div class="farm-shop-title">🎁 我的物品</div>
+            <div class="farm-shop-list">
+                ${items.length === 0
+                    ? '<div class="farm-empty-msg">还没有任何物品哦~<br>去商店看看吧！</div>'
+                    : items.map((item) => {
+                        const dateStr = formatItemTimestamp(item.timestamp);
+                        const typeName = getItemTypeName(item.type);
+                        const isSeed = item.type === 'seed';
+                        const isPet = item.type === 'pet';
+
+                        let actionButtons = '';
+                        let clickableClass = '';
+                        let dataAttrs = '';
+
+                        if (isSeed) {
+                            // 种子显示快捷栏槽位按钮
+                            const slotIndex = quickSlots.indexOf(item.id);
+                            actionButtons = `
+                                <div class="item-quickslot-btns">
+                                    ${quickSlots.map((slot, idx) => {
+                                        const isCurrent = slot === item.id;
+                                        const isEmpty = slot === null;
+                                        return `
+                                            <button class="item-slot-btn ${isCurrent ? 'current' : ''} ${!isEmpty && !isCurrent ? 'occupied' : ''}"
+                                                    data-crop="${item.id}"
+                                                    data-slot="${idx}"
+                                                    title="${isCurrent ? '当前槽位' : isEmpty ? `设置到槽位 ${idx + 1}` : `替换槽位 ${idx + 1}`}">
+                                                ${idx + 1}
+                                            </button>
+                                        `;
+                                    }).join('')}
+                                </div>
+                            `;
+                        } else if (isPet) {
+                            // 宠物可点击查看详情
+                            clickableClass = 'pet-clickable';
+                            dataAttrs = `data-pet-id="${item.id}" data-pet-timestamp="${item.timestamp}"`;
+                            actionButtons = `<span class="shop-item-type">${typeName}</span>`;
+                        } else {
+                            actionButtons = `<span class="shop-item-type">${typeName}</span>`;
+                        }
+
+                        // 获取图标HTML
+                        let itemIcon;
+                        if (isPet) {
+                            itemIcon = getPetIconHTML(item.id, item.emoji);
+                        } else {
+                            itemIcon = `<span class="shop-item-emoji">${item.emoji}</span>`;
+                        }
+
+                        return `
+                            <div class="farm-shop-item inventory-item ${clickableClass}" ${dataAttrs}>
+                                ${itemIcon}
+                                <div class="shop-item-info">
+                                    <span class="shop-item-name">${item.customName || item.name}</span>
+                                    <span class="shop-item-detail">
+                                        ${isSeed ? `数量: ${item.quantity}个` : `获得时间: ${dateStr}`}
+                                    </span>
+                                </div>
+                                ${actionButtons}
+                            </div>
+                        `;
+                    }).join('')
+                }
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * 渲染背单词视图
+ */
+export function renderFlashcardView(container) {
+    container.innerHTML = `
+        <div class="flashcard-panel-content">
+            <button class="menu_button flashcard-back-btn" id="flashcard-back">
+                <i class="fa-solid fa-arrow-left"></i> 返回农场
+            </button>
+            <div id="flashcard-container" class="flashcard-container"></div>
+        </div>
+    `;
+}
+
+/**
+ * 渲染宠物页面
+ */
+export function renderPetView(container) {
+    const { currentPet } = uiState;
+    if (!currentPet) return;
+
+    // 找到宠物数据
+    const pet = gameState.ownedItems.find(
+        item => item.type === 'pet' &&
+                item.id === currentPet.id &&
+                item.timestamp === currentPet.timestamp
+    );
+
+    if (!pet) {
+        uiState.showingPet = false;
+        return;
+    }
+
+    const petConfig = PETS[pet.id];
+    const dateStr = formatItemTimestamp(pet.timestamp);
+    const displayName = getPetDisplayName(pet);
+
+    // 获取图片路径
+    const currentScript = document.querySelector('script[src*="farm-game.js"]');
+    const basePath = currentScript ? currentScript.src.replace('farm-game.js', '') : '';
+    const petImageSrc = basePath + 'flycat.png';
+
+    // 检查当前是否有悬浮宠物显示
+    // 同时检查 localStorage 状态和 DOM 元素是否存在
+    const floatingPetState = loadFloatingPet();
+    const floatingPetElement = document.getElementById('floating-pet');
+    const isDisplaying = floatingPetElement && floatingPetState && floatingPetState.petId === pet.id && floatingPetState.timestamp === pet.timestamp;
+    const displayBtnText = isDisplaying ? '🌟 关闭' : '🌟 展示';
+
+    container.innerHTML = `
+        <div class="farm-pet-page">
+            <div class="farm-shop-header">
+                <button class="menu_button farm-back-btn" id="pet-back">
+                    <i class="fa-solid fa-arrow-left"></i> 返回
+                </button>
+                <span class="farm-shop-coins">💰 ${gameState.coins}</span>
+            </div>
+
+            <div class="farm-pet-container">
+                <div class="farm-pet-avatar">
+                    <img src="${petImageSrc}" class="pet-emoji-large" alt="${displayName}" />
+                </div>
+
+                <div class="farm-pet-info">
+                    <h2 class="pet-name">${displayName}</h2>
+                    <p class="pet-species">${petConfig.name}</p>
+                    <p class="pet-description">${petConfig.description}</p>
+                    <p class="pet-obtained">获得时间: ${dateStr}</p>
+                </div>
+
+                <div class="farm-pet-actions">
+                    <button class="menu_button pet-action-btn" id="pet-rename">
+                        ✏️ 重命名
+                    </button>
+                    <button class="menu_button pet-action-btn" id="pet-display">
+                        ${displayBtnText}
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * 渲染主游戏视图
+ */
+export function renderMainView(container) {
+    const html = `
+        <div class="farm-game">
+            <div class="farm-header">
+                <span class="farm-coins">💰 ${gameState.coins}</span>
+                <div class="farm-quick-slots">
+                    ${renderQuickSlots()}
+                </div>
+                <div class="farm-header-right">
+                    <button class="farm-inventory-btn menu_button" id="farm-open-inventory" title="物品">
+                        🎁
+                    </button>
+                    <span class="farm-boost-points ${gameState.boostDays >= 1 ? 'clickable' : ''}"
+                          id="farm-boost-points"
+                          title="${gameState.boostDays >= 1 ? '点击使用加速' : '加速天数'}">
+                        ⚡ ${gameState.boostDays}天
+                    </span>
+                </div>
+            </div>
+
+            <div class="farm-grid">
+                ${gameState.plots.map((plot, i) => renderPlot(plot, i)).join('')}
+            </div>
+
+            <div class="farm-status">
+                ${gameState.selectedSeed
+                    ? `<span class="farm-selected-seed">已选: ${CROPS[gameState.selectedSeed].emoji} ${CROPS[gameState.selectedSeed].name}</span>`
+                    : '<span class="farm-no-seed">点击下方选种子</span>'}
+            </div>
+
+            <div class="farm-actions">
+                <button class="farm-action-btn menu_button" id="farm-open-shop">
+                    🏪 商店
+                </button>
+                <button class="farm-action-btn menu_button" id="farm-start-flashcard">
+                    📚 背单词
+                </button>
+            </div>
+        </div>
+    `;
+
+    container.innerHTML = html;
+}
+
+/**
+ * 显示收获消息
+ */
+export function showHarvestMessage(crop) {
+    const msg = document.createElement('div');
+    msg.className = 'farm-harvest-msg';
+    msg.textContent = `${crop.emoji} +$${crop.sellPrice}`;
+    document.querySelector('.farm-game')?.appendChild(msg);
+    setTimeout(() => msg.remove(), 1000);
+}
+
+/**
+ * 显示加速消息
+ */
+export function showBoostMessage(wordsCompleted) {
+    const msg = document.createElement('div');
+    msg.className = 'farm-boost-msg';
+    msg.innerHTML = `
+        <div style="font-size: 24px; margin-bottom: 8px;">🎉</div>
+        <div>背完 ${wordsCompleted} 个单词！</div>
+        <div style="color: #ffd700; font-weight: bold;">⚡ +1 天加速点</div>
+    `;
+    document.querySelector('.farm-game')?.appendChild(msg);
+    setTimeout(() => msg.remove(), 2500);
+}
+
+/**
+ * 显示加速应用消息
+ */
+export function showBoostAppliedMessage() {
+    const msg = document.createElement('div');
+    msg.className = 'farm-harvest-msg';
+    msg.textContent = '⚡ +1天';
+    document.querySelector('.farm-game')?.appendChild(msg);
+    setTimeout(() => msg.remove(), 1000);
+}
+
+/**
+ * 显示提示消息
+ */
+export function showMessage(text) {
+    const msg = document.createElement('div');
+    msg.className = 'farm-message';
+    msg.textContent = text;
+    document.querySelector('.farm-shop-page')?.appendChild(msg);
+    setTimeout(() => msg.remove(), 2000);
+}
