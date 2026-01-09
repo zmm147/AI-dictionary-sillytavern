@@ -357,6 +357,99 @@ const FarmGame = (() => {
                 render();
             }
         });
+
+        // ===== 吐槽配置事件 =====
+
+        // 启用吐槽功能复选框
+        const enabledCheckbox = document.getElementById('pet-commentary-enabled');
+        const configContainer = document.getElementById('pet-commentary-config');
+
+        enabledCheckbox?.addEventListener('change', () => {
+            const settings = window.aiDictionary?.settings;
+            if (settings && settings.petCommentary) {
+                settings.petCommentary.enabled = enabledCheckbox.checked;
+                window.aiDictionary.saveSettings?.();
+
+                // 显示/隐藏配置区域
+                if (configContainer) {
+                    configContainer.style.display = enabledCheckbox.checked ? 'block' : 'none';
+                }
+            }
+        });
+
+        // 自动吐槽复选框
+        document.getElementById('pet-commentary-auto')?.addEventListener('change', (e) => {
+            const settings = window.aiDictionary?.settings;
+            if (settings && settings.petCommentary) {
+                settings.petCommentary.autoTrigger = e.target.checked;
+                window.aiDictionary.saveSettings?.();
+            }
+        });
+
+        // API预设选择
+        document.getElementById('pet-commentary-profile')?.addEventListener('change', (e) => {
+            const settings = window.aiDictionary?.settings;
+            if (settings && settings.petCommentary) {
+                settings.petCommentary.connectionProfile = e.target.value;
+                window.aiDictionary.saveSettings?.();
+            }
+        });
+
+        // 上下文消息数
+        document.getElementById('pet-commentary-max-messages')?.addEventListener('change', (e) => {
+            const settings = window.aiDictionary?.settings;
+            if (settings && settings.petCommentary) {
+                settings.petCommentary.maxMessages = parseInt(e.target.value) || 10;
+                window.aiDictionary.saveSettings?.();
+            }
+        });
+
+        // 系统提示词
+        document.getElementById('pet-commentary-prompt')?.addEventListener('change', (e) => {
+            const settings = window.aiDictionary?.settings;
+            if (settings && settings.petCommentary) {
+                settings.petCommentary.systemPrompt = e.target.value;
+                window.aiDictionary.saveSettings?.();
+            }
+        });
+
+        // 重置提示词按钮
+        document.getElementById('pet-commentary-reset-prompt')?.addEventListener('click', () => {
+            const settings = window.aiDictionary?.settings;
+            const defaultPrompt = window.aiDictionary?.defaultSettings?.petCommentary?.systemPrompt || '';
+
+            if (settings && settings.petCommentary) {
+                settings.petCommentary.systemPrompt = defaultPrompt;
+                window.aiDictionary.saveSettings?.();
+
+                const textarea = document.getElementById('pet-commentary-prompt');
+                if (textarea) {
+                    textarea.value = defaultPrompt;
+                }
+            }
+        });
+
+        // 测试吐槽按钮
+        document.getElementById('pet-commentary-test')?.addEventListener('click', () => {
+            if (typeof window.triggerPetCommentary === 'function') {
+                window.triggerPetCommentary();
+            } else {
+                console.warn('[FarmGame] triggerPetCommentary not available');
+                alert('吐槽功能未初始化，请先展示宠物后再试。');
+            }
+        });
+    }
+
+    /**
+     * 导航到宠物详情页
+     */
+    function navigateToPet(petId, timestamp) {
+        uiState.currentPet = { id: petId, timestamp: timestamp };
+        uiState.showingPet = true;
+        uiState.showingInventory = false;
+        uiState.showingShop = false;
+        uiState.showingFlashcards = false;
+        render();
     }
 
     /**
@@ -501,6 +594,7 @@ const FarmGame = (() => {
         cleanup,
         loadGame,
         restoreFloatingPet,
+        navigateToPet,
     };
 })();
 

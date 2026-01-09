@@ -9,6 +9,9 @@ import { gameState } from './farm-state.js';
 export const FLOATING_PET_KEY = 'ai-dict-floating-pet';
 export const FLOATING_PET_POSITION_KEY = 'ai-dict-floating-pet-position';
 
+// 用于区分点击和拖拽
+let dragMoved = false;
+
 /**
  * 获取宠物详情
  * @param {string} petId - 宠物ID
@@ -185,6 +188,14 @@ function bindFloatingPetDrag(element, petId, timestamp) {
     document.addEventListener('touchmove', drag, { passive: false });
     document.addEventListener('touchend', dragEnd);
 
+    // 点击事件 - 显示操作菜单
+    img.addEventListener('click', (e) => {
+        if (!dragMoved) {
+            e.stopPropagation();
+            showPetActionMenu(element, petId, timestamp);
+        }
+    });
+
     function getPointerPosition(e) {
         if (e.touches && e.touches.length > 0) {
             return {
@@ -203,6 +214,7 @@ function bindFloatingPetDrag(element, petId, timestamp) {
         initialX = pos.clientX - element.offsetLeft;
         initialY = pos.clientY - element.offsetTop;
         isDragging = true;
+        dragMoved = false;
         element.style.cursor = 'grabbing';
 
         if (e.cancelable) {
@@ -218,8 +230,17 @@ function bindFloatingPetDrag(element, petId, timestamp) {
         }
 
         const pos = getPointerPosition(e);
-        currentX = pos.clientX - initialX;
-        currentY = pos.clientY - initialY;
+        const newX = pos.clientX - initialX;
+        const newY = pos.clientY - initialY;
+
+        // 检测是否有移动
+        if (Math.abs(newX - (currentX || element.offsetLeft)) > 3 ||
+            Math.abs(newY - (currentY || element.offsetTop)) > 3) {
+            dragMoved = true;
+        }
+
+        currentX = newX;
+        currentY = newY;
 
         // 限制在窗口范围内
         const maxX = window.innerWidth - element.offsetWidth;
@@ -229,6 +250,11 @@ function bindFloatingPetDrag(element, petId, timestamp) {
 
         element.style.left = currentX + 'px';
         element.style.top = currentY + 'px';
+
+        // 更新气泡位置
+        if (typeof window.updatePetBubblePosition === 'function') {
+            window.updatePetBubblePosition();
+        }
     }
 
     function dragEnd() {
@@ -243,6 +269,101 @@ function bindFloatingPetDrag(element, petId, timestamp) {
             y: parseInt(element.style.top)
         };
         saveFloatingPet(petId, timestamp, position);
+    }
+}
+
+/**
+ * 显示宠物操作菜单
+ */
+function showPetActionMenu(petElement, petId, timestamp) {
+    // 移除已有的菜单
+    hidePetActionMenu();
+
+    const menu = document.createElement('div');
+    menu.className = 'pet-action-menu';
+    menu.id = 'pet-action-menu';
+
+    menu.innerHTML = `
+        <button class="pet-action-btn pet-action-comment" id="pet-btn-comment" title="让宠物吐槽当前对话">
+            <i class="fa-solid fa-comment-dots"></i>
+            <span>吐槽</span>
+        </button>
+        <button class="pet-action-btn pet-action-panel" id="pet-btn-panel" title="打开宠物面板">
+            <i class="fa-solid fa-paw"></i>
+            <span>宠物</span>
+        </button>
+    `;
+
+    document.body.appendChild(menu);
+
+    // 定位菜单
+    const petRect = petElement.getBoundingClientRect();
+    let top = petRect.bottom + 8;
+    let left = petRect.left + petRect.width / 2 - menu.offsetWidth / 2;
+
+    // 检查是否超出屏幕
+    if (top + menu.offsetHeight > window.innerHeight - 10) {
+        top = petRect.top - menu.offsetHeight - 8;
+    }
+    if (left < 10) {
+        left = 10;
+    }
+    if (left + menu.offsetWidth > window.innerWidth - 10) {
+        left = window.innerWidth - menu.offsetWidth - 10;
+    }
+
+    menu.style.top = `${top}px`;
+    menu.style.left = `${left}px`;
+
+    // 绑定按钮事件
+    menu.querySelector('#pet-btn-comment').addEventListener('click', (e) => {
+        e.stopPropagation();
+        hidePetActionMenu();
+        // 调用吐槽功能
+        if (typeof window.triggerPetCommentary === 'function') {
+            window.triggerPetCommentary();
+        } else {
+            console.warn('[FarmPet] triggerPetCommentary not available');
+        }
+    });
+
+    menu.querySelector('#pet-btn-panel').addEventListener('click', (e) => {
+        e.stopPropagation();
+        hidePetActionMenu();
+        // 打开农场面板并导航到宠物详情
+        openPetPanel(petId, timestamp);
+    });
+
+    // 点击其他地方关闭菜单
+    setTimeout(() => {
+        document.addEventListener('click', hidePetActionMenu, { once: true });
+    }, 10);
+}
+
+/**
+ * 隐藏操作菜单
+ */
+function hidePetActionMenu() {
+    const menu = document.getElementById('pet-action-menu');
+    if (menu) {
+        menu.remove();
+    }
+}
+
+/**
+ * 打开宠物面板
+ */
+function openPetPanel(petId, timestamp) {
+    // 先打开农场面板
+    const farmBtn = document.getElementById('ai-dict-farm-btn');
+    if (farmBtn) {
+        farmBtn.click();
+        // 等待面板打开后导航到宠物详情
+        setTimeout(() => {
+            if (window.FarmGame && typeof window.FarmGame.navigateToPet === 'function') {
+                window.FarmGame.navigateToPet(petId, timestamp);
+            }
+        }, 200);
     }
 }
 

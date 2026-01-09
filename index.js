@@ -109,6 +109,9 @@ import {
 } from './modules/selection.js';
 import { getContextForLookup } from './modules/context.js';
 
+// Import pet commentary module
+import { initPetCommentary, hidePetBubble } from './modules/petCommentary.js';
+
 // Dynamically determine extension path
 const getExtensionUrl = () => {
     try {
@@ -524,6 +527,16 @@ const init = async () => {
         console.warn(`[${EXTENSION_NAME}] Failed to load farm game for floating pet restoration:`, err);
     });
 
+    // Initialize pet commentary module
+    initPetCommentary({
+        eventSource,
+        event_types,
+        getContext,
+        sendOpenAIRequest,
+        generateRaw,
+        oaiSettings: oai_settings
+    });
+
     console.log(`[${EXTENSION_NAME}] Ready`);
 };
 
@@ -541,6 +554,10 @@ window.aiDictionary = {
         performDictionaryLookup(true);
     },
     deleteWordPermanently: deleteWordPermanently,
+    // Settings access for farm game / pet commentary
+    get settings() { return settings; },
+    saveSettings: saveSettings,
+    defaultSettings: defaultSettings,
     // Flashcard progress functions
     flashcard: {
         getCurrentSession: getCurrentSession,
@@ -550,6 +567,9 @@ window.aiDictionary = {
         getFlashcardStats: getFlashcardStats
     }
 };
+
+// Also expose extension_settings for farm-render.js
+window.extension_settings = extension_settings;
 
 // Start initialization
 await init();

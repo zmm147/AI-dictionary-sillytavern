@@ -359,6 +359,14 @@ export function renderPetView(container) {
     const isDisplaying = floatingPetElement && floatingPetState && floatingPetState.petId === pet.id && floatingPetState.timestamp === pet.timestamp;
     const displayBtnText = isDisplaying ? '🌟 关闭' : '🌟 展示';
 
+    // 获取吐槽配置
+    const commentarySettings = window.aiDictionary?.settings?.petCommentary || {};
+    const commentaryEnabled = commentarySettings.enabled || false;
+    const autoTrigger = commentarySettings.autoTrigger || false;
+    const connectionProfile = commentarySettings.connectionProfile || '';
+    const systemPrompt = commentarySettings.systemPrompt || '';
+    const maxMessages = commentarySettings.maxMessages || 10;
+
     container.innerHTML = `
         <div class="farm-pet-page">
             <div class="farm-shop-header">
@@ -388,9 +396,85 @@ export function renderPetView(container) {
                         ${displayBtnText}
                     </button>
                 </div>
+
+                <!-- 吐槽配置区域 -->
+                <div class="farm-pet-commentary-section">
+                    <h3 class="pet-commentary-title">💬 吐槽设置</h3>
+
+                    <label class="pet-commentary-toggle checkbox_label">
+                        <input type="checkbox" id="pet-commentary-enabled" ${commentaryEnabled ? 'checked' : ''}>
+                        <span>启用吐槽功能</span>
+                    </label>
+
+                    <div class="pet-commentary-config" id="pet-commentary-config" style="display: ${commentaryEnabled ? 'block' : 'none'}">
+                        <label class="pet-commentary-toggle checkbox_label">
+                            <input type="checkbox" id="pet-commentary-auto" ${autoTrigger ? 'checked' : ''}>
+                            <span>AI回复后自动吐槽</span>
+                        </label>
+
+                        <div class="pet-commentary-field">
+                            <label for="pet-commentary-profile">API预设:</label>
+                            <select id="pet-commentary-profile" class="text_pole">
+                                <option value="">使用当前连接</option>
+                            </select>
+                            <span class="pet-commentary-hint">选择用于吐槽的API配置</span>
+                        </div>
+
+                        <div class="pet-commentary-field">
+                            <label for="pet-commentary-max-messages">上下文消息数:</label>
+                            <input type="number" id="pet-commentary-max-messages" class="text_pole"
+                                   value="${maxMessages}" min="1" max="50" style="width: 80px;">
+                            <span class="pet-commentary-hint">发送给AI的最近消息条数</span>
+                        </div>
+
+                        <div class="pet-commentary-field">
+                            <label for="pet-commentary-prompt">
+                                系统提示词:
+                                <button class="menu_button menu_button_icon" id="pet-commentary-reset-prompt"
+                                        title="重置为默认" style="margin-left: 8px; padding: 2px 6px;">
+                                    <i class="fa-solid fa-rotate-left"></i>
+                                </button>
+                            </label>
+                            <textarea id="pet-commentary-prompt" class="text_pole textarea_compact"
+                                      rows="4" placeholder="吐槽系统提示词...">${systemPrompt}</textarea>
+                            <span class="pet-commentary-hint">变量: {{petName}} 宠物名, {{user}} 用户名</span>
+                        </div>
+
+                        <div class="pet-commentary-actions">
+                            <button class="menu_button" id="pet-commentary-test">
+                                <i class="fa-solid fa-comment-dots"></i> 测试吐槽
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     `;
+
+    // 填充API预设选项
+    populateConnectionProfiles();
+    const profileSelect = container.querySelector('#pet-commentary-profile');
+    if (profileSelect && connectionProfile) {
+        profileSelect.value = connectionProfile;
+    }
+}
+
+/**
+ * 填充连接配置选项
+ */
+function populateConnectionProfiles() {
+    const select = document.getElementById('pet-commentary-profile');
+    if (!select) return;
+
+    const connectionManager = window.extension_settings?.connectionManager;
+    if (connectionManager && Array.isArray(connectionManager.profiles)) {
+        for (const profile of connectionManager.profiles) {
+            const option = document.createElement('option');
+            option.value = profile.id;
+            option.textContent = profile.name;
+            select.appendChild(option);
+        }
+    }
 }
 
 /**

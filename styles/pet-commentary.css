@@ -1,0 +1,260 @@
+/**
+ * Pet Commentary Styles
+ * 宠物吐槽功能样式
+ */
+
+/* ===== 宠物详情页配置区域 ===== */
+
+.farm-pet-commentary-section {
+    width: 100%;
+    margin-top: 20px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.pet-commentary-title {
+    font-size: 16px;
+    color: #fff;
+    margin: 0 0 12px 0;
+    font-weight: bold;
+}
+
+.pet-commentary-toggle {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+    cursor: pointer;
+}
+
+.pet-commentary-config {
+    margin-top: 12px;
+}
+
+.pet-commentary-field {
+    margin-bottom: 12px;
+}
+
+.pet-commentary-field label {
+    display: block;
+    margin-bottom: 4px;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 13px;
+}
+
+.pet-commentary-field select,
+.pet-commentary-field textarea,
+.pet-commentary-field input[type="number"] {
+    width: 100%;
+    margin-bottom: 4px;
+}
+
+.pet-commentary-hint {
+    display: block;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 11px;
+    margin-top: 2px;
+}
+
+.pet-commentary-actions {
+    margin-top: 15px;
+    display: flex;
+    justify-content: center;
+}
+
+/* ===== 悬浮气泡样式 ===== */
+
+.pet-commentary-bubble {
+    position: fixed;
+    z-index: 99998;
+    background: var(--SmartThemeBlurTintColor, rgba(255, 255, 255, 0.95));
+    border: 2px solid var(--SmartThemeBorderColor, #666);
+    border-radius: 12px;
+    padding: 12px 16px;
+    max-width: 250px;
+    min-width: 150px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--SmartThemeBodyColor, #333);
+    animation: bubble-appear 0.3s ease-out;
+    pointer-events: auto;
+}
+
+/* 气泡三角箭头 */
+.pet-commentary-bubble::after {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 8px solid transparent;
+    border-bottom-color: var(--SmartThemeBorderColor, #666);
+}
+
+.pet-commentary-text {
+    word-wrap: break-word;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+/* 关闭按钮 */
+.pet-commentary-close {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+    padding: 2px 4px;
+    color: var(--SmartThemeBodyColor, #333);
+}
+
+.pet-commentary-close:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+}
+
+/* 加载状态 */
+.pet-commentary-loading .pet-commentary-text {
+    opacity: 0.7;
+}
+
+.pet-commentary-loading .pet-commentary-text::before {
+    content: '';
+    animation: pulse 1s infinite;
+}
+
+/* 出现动画 */
+@keyframes bubble-appear {
+    from {
+        opacity: 0;
+        transform: translateY(10px) scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+}
+
+/* 移动端适配 */
+@media screen and (max-width: 768px) {
+    .pet-commentary-bubble {
+        max-width: 180px;
+        font-size: 12px;
+        padding: 10px 12px;
+    }
+
+    .pet-commentary-close {
+        font-size: 14px;
+    }
+}
+
+@media screen and (max-width: 450px) {
+    .pet-commentary-bubble {
+        max-width: 150px;
+        font-size: 11px;
+        padding: 8px 10px;
+    }
+}
+
+/* ===== 宠物操作菜单 ===== */
+
+.pet-action-menu {
+    position: fixed;
+    z-index: 99999;
+    display: flex;
+    gap: 8px;
+    padding: 8px;
+    background: var(--SmartThemeBlurTintColor, rgba(30, 30, 30, 0.95));
+    border: 1px solid var(--SmartThemeBorderColor, #555);
+    border-radius: 10px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    animation: menu-appear 0.2s ease-out;
+}
+
+.pet-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: var(--SmartThemeQuoteColor, rgba(255, 255, 255, 0.1));
+    border: 1px solid var(--SmartThemeBorderColor, #555);
+    border-radius: 8px;
+    color: var(--SmartThemeBodyColor, #eee);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.pet-action-btn:hover {
+    background: var(--SmartThemeQuoteColor, rgba(255, 255, 255, 0.2));
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.pet-action-btn:active {
+    transform: translateY(0);
+}
+
+.pet-action-btn i {
+    font-size: 14px;
+}
+
+.pet-action-comment {
+    background: linear-gradient(135deg, rgba(255, 183, 77, 0.3), rgba(255, 152, 0, 0.3));
+    border-color: rgba(255, 183, 77, 0.5);
+}
+
+.pet-action-comment:hover {
+    background: linear-gradient(135deg, rgba(255, 183, 77, 0.5), rgba(255, 152, 0, 0.5));
+}
+
+.pet-action-panel {
+    background: linear-gradient(135deg, rgba(129, 199, 132, 0.3), rgba(76, 175, 80, 0.3));
+    border-color: rgba(129, 199, 132, 0.5);
+}
+
+.pet-action-panel:hover {
+    background: linear-gradient(135deg, rgba(129, 199, 132, 0.5), rgba(76, 175, 80, 0.5));
+}
+
+@keyframes menu-appear {
+    from {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* 移动端菜单适配 */
+@media screen and (max-width: 768px) {
+    .pet-action-menu {
+        padding: 6px;
+        gap: 6px;
+    }
+
+    .pet-action-btn {
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+
+    .pet-action-btn i {
+        font-size: 12px;
+    }
+}

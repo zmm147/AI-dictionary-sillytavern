@@ -26,5 +26,8 @@
 /* Flashcard review styles */
 @import url('./styles/flashcard.css');
 
+/* Pet commentary styles */
+@import url('./styles/pet-commentary.css');
+
 /* Mobile responsive styles - must be last to override other styles */
 @import url('./styles/mobile.css');
