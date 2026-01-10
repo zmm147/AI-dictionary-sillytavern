@@ -80,10 +80,17 @@ export const defaultSettings = {
     // Pet commentary settings
     petCommentary: {
         enabled: false,
+        collapsed: true,         // 是否折叠设置面板
         autoTrigger: false,
+        randomTrigger: false,    // 是否启用随机触发
+        randomChance: 30,        // 随机触发概率 (%)
         connectionProfile: '',
-        useProfilePrompt: false,  // 使用API预设绑定的提示词
-        systemPrompt: `你是一只可爱又毒舌的宠物，名叫{{petName}}，正在旁观主人{{user}}和AI角色的聊天。请用简短（1-2句话）、俏皮、略带吐槽的语气评论这段对话。可以评论剧情发展、角色行为、或者主人的选择。保持轻松幽默的风格。`,
+        usePresetFile: false,     // 使用预设文件
+        presetFileName: '',       // 选择的预设文件名
+        mergeChatHistory: true,   // 是否合并聊天记录为一条消息
+        systemPrompt: `你是飞天猫咪，总是跟随在你的主人 - {{user}}身边，你会对{{user}}当前的故事发展发表吐槽和感想等。语言风格：第一人称口语化表达，简短，只输出用" "包裹的中文台词。`,
+        userPrompt: `以上是最近的聊天记录，请给出你的吐槽评论。`,
         maxMessages: 10,
+        bubbleDuration: 20,      // 吐槽气泡持续时间（秒）
     },
 };

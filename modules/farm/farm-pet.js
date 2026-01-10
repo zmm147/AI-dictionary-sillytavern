@@ -188,7 +188,7 @@ function bindFloatingPetDrag(element, petId, timestamp) {
     document.addEventListener('touchmove', drag, { passive: false });
     document.addEventListener('touchend', dragEnd);
 
-    // 点击事件 - 显示操作菜单
+    // 点击事件 - 显示操作菜单（桌面端）
     img.addEventListener('click', (e) => {
         if (!dragMoved) {
             e.stopPropagation();
@@ -257,7 +257,7 @@ function bindFloatingPetDrag(element, petId, timestamp) {
         }
     }
 
-    function dragEnd() {
+    function dragEnd(e) {
         if (!isDragging) return;
 
         isDragging = false;
@@ -269,6 +269,12 @@ function bindFloatingPetDrag(element, petId, timestamp) {
             y: parseInt(element.style.top)
         };
         saveFloatingPet(petId, timestamp, position);
+
+        // 移动端点击处理：如果没有拖拽移动，则视为点击
+        if (!dragMoved && e.type === 'touchend') {
+            e.preventDefault();
+            showPetActionMenu(element, petId, timestamp);
+        }
     }
 }
 

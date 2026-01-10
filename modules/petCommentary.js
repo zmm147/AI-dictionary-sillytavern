@@ -13,6 +13,7 @@ let oaiSettingsObj = null;
 let systemPromptsArr = null;
 let openaiSettingsArr = null;
 let openaiSettingNamesObj = null;
+let autoCloseTimer = null; // 自动关闭定时器
 
 /**
  * 获取当前设置（从全局对象动态读取）
@@ -66,6 +67,18 @@ export function initPetCommentary(options) {
             return;
         }
 
+        // 随机触发检查
+        if (settings.petCommentary.randomTrigger) {
+            const chance = settings.petCommentary.randomChance || 30;
+            const roll = Math.random() * 100;
+            console.log(`[PetCommentary] Random check: rolled ${roll.toFixed(1)}%, need <= ${chance}%`);
+            if (roll > chance) {
+                console.log('[PetCommentary] Random check failed, skipping commentary');
+                return;
+            }
+            console.log('[PetCommentary] Random check passed, triggering commentary');
+        }
+
         // 触发评论
         try {
             await triggerPetCommentary();
@@ -91,19 +104,19 @@ function buildChatContext(context, settings) {
     const userName = context.name1 || 'User';
     const charName = context.name2 || 'Character';
 
-    // 如果启用了使用绑定的提示词，直接使用预设的完整结构
-    if (settings.petCommentary.useProfilePrompt && settings.petCommentary.connectionProfile) {
-        console.log('[PetCommentary] Building messages from bound preset prompts');
+    // 如果启用了使用预设文件，直接使用预设的完整结构
+    if (settings.petCommentary.usePresetFile && settings.petCommentary.presetFileName) {
+        console.log('[PetCommentary] Building messages from preset file:', settings.petCommentary.presetFileName);
 
-        const messages = getMessagesFromPreset(settings.petCommentary.connectionProfile, userName, charName);
+        const messages = getMessagesFromPresetFile(settings.petCommentary.presetFileName, userName, charName);
         if (messages && messages.length > 0) {
-            console.log('[PetCommentary] Built', messages.length, 'messages from preset');
+            console.log('[PetCommentary] Built', messages.length, 'messages from preset file');
             return messages;
         }
     }
 
     // 原有的自定义提示词逻辑（禁用时使用）
-    const maxMessages = settings.petCommentary.maxMessages || 10;
+    const maxMessages = settings.petCommentary.maxMessages ?? 10;
 
     // 获取当前展示的宠物名称
     const floatingPetData = localStorage.getItem('ai-dict-floating-pet');
@@ -133,11 +146,16 @@ function buildChatContext(context, settings) {
         .replace(/\{\{user\}\}/g, userName)
         .replace(/\{\{petName\}\}/g, petName);
 
+    // 获取用户提示词
+    const userPrompt = (settings.petCommentary.userPrompt || '以上是最近的聊天记录，请给出你的吐槽评论。')
+        .replace(/\{\{user\}\}/g, userName)
+        .replace(/\{\{petName\}\}/g, petName);
+
     // 获取最近的消息
     const chat = context.chat || [];
-    const recentMessages = chat
-        .filter(msg => !msg.is_system)
-        .slice(-maxMessages);
+    const filteredChat = chat.filter(msg => !msg.is_system);
+    // -1 表示全部消息
+    const recentMessages = maxMessages === -1 ? filteredChat : filteredChat.slice(-maxMessages);
 
     // 将聊天记录聚合为一条文本
     const chatText = recentMessages.map(msg => {
@@ -145,61 +163,47 @@ function buildChatContext(context, settings) {
         return `${role}: ${msg.mes}`;
     }).join('\n\n');
 
-    // 只发送 system + 一条 user 消息
+    // 发送 system + assistant(聊天记录) + user(提示词)
     const messages = [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: `以下是最近的聊天记录，请给出你的吐槽评论：\n\n${chatText}` }
+        { role: 'assistant', content: chatText },
+        { role: 'user', content: userPrompt }
     ];
 
     return messages;
 }
 
 /**
- * 从预设中构建消息数组，按照每个提示词的 role 字段，并包含聊天记录
+ * 从预设文件构建消息数组，按照每个提示词的 role 字段，并包含聊天记录
  */
-function getMessagesFromPreset(profileId, userName, charName) {
+function getMessagesFromPresetFile(presetFileName, userName, charName) {
     try {
-        const extensionSettings = window.extension_settings || {};
-        const connectionManager = extensionSettings.connectionManager;
-
-        if (!connectionManager || !Array.isArray(connectionManager.profiles)) {
-            console.warn('[PetCommentary] connectionManager.profiles not available');
-            return null;
-        }
-
-        const profile = connectionManager.profiles.find(p => p.id === profileId);
-        if (!profile) {
-            console.warn('[PetCommentary] Profile not found');
-            return null;
-        }
-
-        const presetName = profile.preset;
-        if (!presetName) {
-            console.warn('[PetCommentary] Profile has no preset');
+        if (!presetFileName) {
+            console.warn('[PetCommentary] No preset file name provided');
             return null;
         }
 
         // 检查是否是当前活动的预设
         const currentPresetName = oaiSettingsObj?.preset_settings_openai;
-        const isCurrentPreset = presetName === currentPresetName;
+        const isCurrentPreset = presetFileName === currentPresetName;
 
         let prompts, promptOrder;
 
         if (isCurrentPreset) {
-            console.log('[PetCommentary] Using current active preset');
+            console.log('[PetCommentary] Using current active preset:', presetFileName);
             prompts = oaiSettingsObj.prompts;
             promptOrder = oaiSettingsObj.prompt_order;
         } else {
-            console.log('[PetCommentary] Using stored preset');
+            console.log('[PetCommentary] Using stored preset:', presetFileName);
 
             if (!openaiSettingNamesObj || typeof openaiSettingNamesObj !== 'object') {
                 console.warn('[PetCommentary] openaiSettingNamesObj not available');
                 return null;
             }
 
-            const presetIndex = openaiSettingNamesObj[presetName];
+            const presetIndex = openaiSettingNamesObj[presetFileName];
             if (presetIndex === undefined) {
-                console.warn('[PetCommentary] Preset index not found for:', presetName);
+                console.warn('[PetCommentary] Preset index not found for:', presetFileName);
                 return null;
             }
 
@@ -246,26 +250,32 @@ function getMessagesFromPreset(profileId, userName, charName) {
                 // 从当前聊天上下文获取消息
                 const context = getContextFn?.();
                 if (context && Array.isArray(context.chat)) {
-                    const chat = context.chat;
-                    // 将所有聊天记录合并为一条消息
-                    const chatText = chat
-                        .filter(msg => !msg.is_system)
-                        .map(msg => {
-                            const role = msg.is_user ? userName : charName;
-                            return `${role}: ${msg.mes}`;
-                        })
-                        .join('\n\n');
+                    const chat = context.chat.filter(msg => !msg.is_system);
+                    const settings = getSettings();
+                    const mergeChatHistory = settings?.petCommentary?.mergeChatHistory !== false;
 
-                    if (chatText.trim()) {
-                        // 使用 chatHistory 本身的 role 设置
-                        const chatHistoryPrompt = prompts.find(p => p && p.identifier === 'chatHistory');
-                        const role = chatHistoryPrompt?.role || 'user';
+                    if (mergeChatHistory) {
+                        // 合并为一条消息
+                        const chatText = chat
+                            .map(msg => {
+                                const role = msg.is_user ? userName : charName;
+                                return `${role}: ${msg.mes}`;
+                            })
+                            .join('\n\n');
 
-                        messages.push({
-                            role: role,
-                            content: chatText
-                        });
-                        console.log('[PetCommentary] Added chat history as single message with role:', role);
+                        if (chatText.trim()) {
+                            const chatHistoryPrompt = prompts.find(p => p && p.identifier === 'chatHistory');
+                            const role = chatHistoryPrompt?.role || 'user';
+                            messages.push({ role, content: chatText });
+                            console.log('[PetCommentary] Added chat history as single message with role:', role);
+                        }
+                    } else {
+                        // 分开为多条消息
+                        for (const msg of chat) {
+                            const role = msg.is_user ? 'user' : 'assistant';
+                            messages.push({ role, content: msg.mes });
+                        }
+                        console.log('[PetCommentary] Added chat history as', chat.length, 'separate messages');
                     }
                 }
                 continue;
@@ -291,7 +301,7 @@ function getMessagesFromPreset(profileId, userName, charName) {
 
         return messages.length > 0 ? messages : null;
     } catch (e) {
-        console.error('[PetCommentary] Failed to get messages from preset:', e);
+        console.error('[PetCommentary] Failed to get messages from preset file:', e);
         return null;
     }
 }
@@ -609,8 +619,23 @@ function updatePetBubble(text, isLoading) {
 
     if (isLoading) {
         bubble.classList.add('pet-commentary-loading');
+        // 清除之前的自动关闭定时器
+        if (autoCloseTimer) {
+            clearTimeout(autoCloseTimer);
+            autoCloseTimer = null;
+        }
     } else {
         bubble.classList.remove('pet-commentary-loading');
+        // 流式输出结束后自动关闭
+        if (autoCloseTimer) {
+            clearTimeout(autoCloseTimer);
+        }
+        const settings = getSettings();
+        const duration = (settings?.petCommentary?.bubbleDuration ?? 20) * 1000;
+        autoCloseTimer = setTimeout(() => {
+            hidePetBubble();
+            autoCloseTimer = null;
+        }, duration);
     }
 }
 
@@ -618,6 +643,11 @@ function updatePetBubble(text, isLoading) {
  * 隐藏宠物气泡
  */
 export function hidePetBubble() {
+    // 清除自动关闭定时器
+    if (autoCloseTimer) {
+        clearTimeout(autoCloseTimer);
+        autoCloseTimer = null;
+    }
     const bubble = document.querySelector('.pet-commentary-bubble');
     if (bubble) {
         bubble.remove();
@@ -625,29 +655,41 @@ export function hidePetBubble() {
 }
 
 /**
- * 定位气泡到宠物旁边
+ * 定位气泡到宠物左侧
  */
 function positionBubble(petElement, bubbleElement) {
     const petRect = petElement.getBoundingClientRect();
+    const bubbleWidth = 250;
+    const bubbleHeight = 150;
 
-    // 默认显示在宠物下方
-    let top = petRect.bottom + 10;
-    let left = petRect.left + petRect.width / 2 - 125; // 气泡宽度250px，居中
+    // 默认显示在宠物左侧
+    let top = petRect.top + petRect.height / 2 - bubbleHeight / 2;
+    let left = petRect.left - bubbleWidth - 15;
+
+    // 检查是否超出屏幕左侧，如果是则显示在右侧
+    if (left < 10) {
+        left = petRect.right + 15;
+    }
+
+    // 检查是否超出屏幕右侧，如果是则显示在下方
+    if (left + bubbleWidth > window.innerWidth - 10) {
+        left = petRect.left + petRect.width / 2 - bubbleWidth / 2;
+        top = petRect.bottom + 10;
+    }
+
+    // 检查是否超出屏幕顶部
+    if (top < 10) {
+        top = 10;
+    }
 
     // 检查是否超出屏幕底部
-    if (top + 150 > window.innerHeight) {
-        // 显示在上方
-        top = petRect.top - 150 - 10;
+    if (top + bubbleHeight > window.innerHeight - 10) {
+        top = window.innerHeight - bubbleHeight - 10;
     }
 
-    // 检查是否超出屏幕左侧
+    // 最终检查左侧边界
     if (left < 10) {
         left = 10;
-    }
-
-    // 检查是否超出屏幕右侧
-    if (left + 250 > window.innerWidth - 10) {
-        left = window.innerWidth - 260;
     }
 
     bubbleElement.style.top = `${top}px`;

@@ -323,17 +323,59 @@ const FarmGame = (() => {
             render();
         });
 
-        // 重命名按钮
-        document.getElementById('pet-rename')?.addEventListener('click', () => {
-            const newName = prompt('请输入新名字：');
-            if (newName && newName.trim()) {
+        // 宠物名字编辑
+        const nameDisplay = document.getElementById('pet-name-display');
+        const nameInput = document.getElementById('pet-name-input');
+        const nameEditBtn = document.getElementById('pet-name-edit');
+
+        nameEditBtn?.addEventListener('click', () => {
+            if (nameDisplay && nameInput) {
+                nameDisplay.style.display = 'none';
+                nameEditBtn.style.display = 'none';
+                nameInput.style.display = 'block';
+                nameInput.focus();
+                nameInput.select();
+            }
+        });
+
+        nameInput?.addEventListener('blur', () => {
+            finishNameEdit();
+        });
+
+        nameInput?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                nameInput.blur();
+            } else if (e.key === 'Escape') {
+                // 取消编辑，恢复原名
+                const { currentPet } = uiState;
+                if (currentPet) {
+                    const pet = gameState.ownedItems.find(
+                        item => item.type === 'pet' &&
+                                item.id === currentPet.id &&
+                                item.timestamp === currentPet.timestamp
+                    );
+                    if (pet) {
+                        nameInput.value = getPetDisplayName(pet);
+                    }
+                }
+                nameInput.blur();
+            }
+        });
+
+        function finishNameEdit() {
+            const newName = nameInput?.value?.trim();
+            if (newName && nameDisplay && nameInput && nameEditBtn) {
                 const { currentPet } = uiState;
                 if (currentPet && renamePet(currentPet.id, currentPet.timestamp, newName)) {
                     saveGame();
-                    render();
+                    nameDisplay.textContent = newName;
                 }
+                nameDisplay.style.display = 'block';
+                nameEditBtn.style.display = 'flex';
+                nameInput.style.display = 'none';
             }
-        });
+        }
 
         // 展示按钮
         document.getElementById('pet-display')?.addEventListener('click', () => {
@@ -363,6 +405,7 @@ const FarmGame = (() => {
         // 启用吐槽功能复选框
         const enabledCheckbox = document.getElementById('pet-commentary-enabled');
         const configContainer = document.getElementById('pet-commentary-config');
+        const collapseBtn = document.getElementById('pet-commentary-collapse');
 
         enabledCheckbox?.addEventListener('change', () => {
             const settings = window.aiDictionary?.settings;
@@ -370,10 +413,36 @@ const FarmGame = (() => {
                 settings.petCommentary.enabled = enabledCheckbox.checked;
                 window.aiDictionary.saveSettings?.();
 
-                // 显示/隐藏配置区域
-                if (configContainer) {
-                    configContainer.style.display = enabledCheckbox.checked ? 'block' : 'none';
+                // 显示/隐藏折叠按钮
+                if (collapseBtn) {
+                    collapseBtn.style.display = enabledCheckbox.checked ? 'flex' : 'none';
                 }
+
+                // 显示/隐藏配置区域（根据折叠状态）
+                if (configContainer) {
+                    const isCollapsed = settings.petCommentary.collapsed !== false;
+                    configContainer.style.display = enabledCheckbox.checked && !isCollapsed ? 'block' : 'none';
+                }
+            }
+        });
+
+        // 折叠/展开按钮
+        collapseBtn?.addEventListener('click', () => {
+            const settings = window.aiDictionary?.settings;
+            if (settings && settings.petCommentary) {
+                const isCollapsed = settings.petCommentary.collapsed !== false;
+                settings.petCommentary.collapsed = !isCollapsed;
+                window.aiDictionary.saveSettings?.();
+
+                // 更新UI
+                if (configContainer) {
+                    configContainer.style.display = isCollapsed ? 'block' : 'none';
+                }
+                const icon = collapseBtn.querySelector('i');
+                if (icon) {
+                    icon.className = isCollapsed ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down';
+                }
+                collapseBtn.title = isCollapsed ? '折叠设置' : '展开设置';
             }
         });
 
@@ -382,6 +451,37 @@ const FarmGame = (() => {
             const settings = window.aiDictionary?.settings;
             if (settings && settings.petCommentary) {
                 settings.petCommentary.autoTrigger = e.target.checked;
+                window.aiDictionary.saveSettings?.();
+            }
+            // 显示/隐藏随机选项
+            const randomWrapper = document.getElementById('pet-commentary-random-wrapper');
+            if (randomWrapper) {
+                randomWrapper.style.display = e.target.checked ? 'flex' : 'none';
+            }
+        });
+
+        // 随机触发复选框
+        document.getElementById('pet-commentary-random')?.addEventListener('change', (e) => {
+            const settings = window.aiDictionary?.settings;
+            if (settings && settings.petCommentary) {
+                settings.petCommentary.randomTrigger = e.target.checked;
+                window.aiDictionary.saveSettings?.();
+            }
+            // 启用/禁用概率输入框
+            const chanceInput = document.getElementById('pet-commentary-random-chance');
+            if (chanceInput) {
+                chanceInput.disabled = !e.target.checked;
+            }
+        });
+
+        // 随机概率输入
+        document.getElementById('pet-commentary-random-chance')?.addEventListener('change', (e) => {
+            const settings = window.aiDictionary?.settings;
+            if (settings && settings.petCommentary) {
+                let value = parseInt(e.target.value) || 30;
+                value = Math.max(1, Math.min(100, value));
+                e.target.value = value;
+                settings.petCommentary.randomChance = value;
                 window.aiDictionary.saveSettings?.();
             }
         });
@@ -393,18 +493,40 @@ const FarmGame = (() => {
                 settings.petCommentary.connectionProfile = e.target.value;
                 window.aiDictionary.saveSettings?.();
             }
-            // 显示/隐藏 "使用绑定的提示词" 选项
-            const wrapper = document.getElementById('pet-commentary-use-profile-prompt-wrapper');
+        });
+
+        // 使用预设文件复选框
+        document.getElementById('pet-commentary-use-preset-file')?.addEventListener('change', (e) => {
+            const settings = window.aiDictionary?.settings;
+            if (settings && settings.petCommentary) {
+                settings.petCommentary.usePresetFile = e.target.checked;
+                window.aiDictionary.saveSettings?.();
+            }
+            // 显示/隐藏预设文件选择和合并选项
+            const wrapper = document.getElementById('pet-commentary-preset-file-wrapper');
+            const mergeWrapper = document.getElementById('pet-commentary-merge-wrapper');
             if (wrapper) {
-                wrapper.style.display = e.target.value ? 'flex' : 'none';
+                wrapper.style.display = e.target.checked ? 'block' : 'none';
+            }
+            if (mergeWrapper) {
+                mergeWrapper.style.display = e.target.checked ? 'flex' : 'none';
             }
         });
 
-        // 使用绑定的提示词复选框
-        document.getElementById('pet-commentary-use-profile-prompt')?.addEventListener('change', (e) => {
+        // 预设文件选择
+        document.getElementById('pet-commentary-preset-file')?.addEventListener('change', (e) => {
             const settings = window.aiDictionary?.settings;
             if (settings && settings.petCommentary) {
-                settings.petCommentary.useProfilePrompt = e.target.checked;
+                settings.petCommentary.presetFileName = e.target.value;
+                window.aiDictionary.saveSettings?.();
+            }
+        });
+
+        // 合并聊天记录复选框
+        document.getElementById('pet-commentary-merge-chat')?.addEventListener('change', (e) => {
+            const settings = window.aiDictionary?.settings;
+            if (settings && settings.petCommentary) {
+                settings.petCommentary.mergeChatHistory = e.target.checked;
                 window.aiDictionary.saveSettings?.();
             }
         });
@@ -413,7 +535,20 @@ const FarmGame = (() => {
         document.getElementById('pet-commentary-max-messages')?.addEventListener('change', (e) => {
             const settings = window.aiDictionary?.settings;
             if (settings && settings.petCommentary) {
-                settings.petCommentary.maxMessages = parseInt(e.target.value) || 10;
+                const value = parseInt(e.target.value);
+                settings.petCommentary.maxMessages = isNaN(value) ? 10 : value;
+                window.aiDictionary.saveSettings?.();
+            }
+        });
+
+        // 气泡持续时间
+        document.getElementById('pet-commentary-bubble-duration')?.addEventListener('change', (e) => {
+            const settings = window.aiDictionary?.settings;
+            if (settings && settings.petCommentary) {
+                let value = parseInt(e.target.value) || 20;
+                value = Math.max(1, Math.min(999, value));
+                e.target.value = value;
+                settings.petCommentary.bubbleDuration = value;
                 window.aiDictionary.saveSettings?.();
             }
         });
@@ -437,6 +572,31 @@ const FarmGame = (() => {
                 window.aiDictionary.saveSettings?.();
 
                 const textarea = document.getElementById('pet-commentary-prompt');
+                if (textarea) {
+                    textarea.value = defaultPrompt;
+                }
+            }
+        });
+
+        // 用户提示词
+        document.getElementById('pet-commentary-user-prompt')?.addEventListener('change', (e) => {
+            const settings = window.aiDictionary?.settings;
+            if (settings && settings.petCommentary) {
+                settings.petCommentary.userPrompt = e.target.value;
+                window.aiDictionary.saveSettings?.();
+            }
+        });
+
+        // 重置用户提示词按钮
+        document.getElementById('pet-commentary-reset-user-prompt')?.addEventListener('click', () => {
+            const settings = window.aiDictionary?.settings;
+            const defaultPrompt = window.aiDictionary?.defaultSettings?.petCommentary?.userPrompt || '';
+
+            if (settings && settings.petCommentary) {
+                settings.petCommentary.userPrompt = defaultPrompt;
+                window.aiDictionary.saveSettings?.();
+
+                const textarea = document.getElementById('pet-commentary-user-prompt');
                 if (textarea) {
                     textarea.value = defaultPrompt;
                 }

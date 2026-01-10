@@ -344,7 +344,6 @@ export function renderPetView(container) {
     }
 
     const petConfig = PETS[pet.id];
-    const dateStr = formatItemTimestamp(pet.timestamp);
     const displayName = getPetDisplayName(pet);
 
     // 获取图片路径
@@ -353,26 +352,32 @@ export function renderPetView(container) {
     const petImageSrc = basePath + 'flycat.png';
 
     // 检查当前是否有悬浮宠物显示
-    // 同时检查 localStorage 状态和 DOM 元素是否存在
     const floatingPetState = loadFloatingPet();
     const floatingPetElement = document.getElementById('floating-pet');
     const isDisplaying = floatingPetElement && floatingPetState && floatingPetState.petId === pet.id && floatingPetState.timestamp === pet.timestamp;
-    const displayBtnText = isDisplaying ? '🌟 关闭' : '🌟 展示';
+    const displayBtnText = isDisplaying ? '关闭展示' : '展示宠物';
 
     // 获取吐槽配置
     const commentarySettings = window.aiDictionary?.settings?.petCommentary || {};
     const commentaryEnabled = commentarySettings.enabled || false;
+    const commentaryCollapsed = commentarySettings.collapsed !== false; // 默认折叠
     const autoTrigger = commentarySettings.autoTrigger || false;
+    const randomTrigger = commentarySettings.randomTrigger || false;
+    const randomChance = commentarySettings.randomChance ?? 30;
     const connectionProfile = commentarySettings.connectionProfile || '';
-    const useProfilePrompt = commentarySettings.useProfilePrompt || false;
+    const usePresetFile = commentarySettings.usePresetFile || false;
+    const presetFileName = commentarySettings.presetFileName || '';
+    const mergeChatHistory = commentarySettings.mergeChatHistory !== false;
     const systemPrompt = commentarySettings.systemPrompt || '';
-    const maxMessages = commentarySettings.maxMessages || 10;
+    const userPrompt = commentarySettings.userPrompt || '';
+    const maxMessages = commentarySettings.maxMessages ?? 10;
+    const bubbleDuration = commentarySettings.bubbleDuration ?? 20;
 
     container.innerHTML = `
         <div class="farm-pet-page">
             <div class="farm-shop-header">
                 <button class="menu_button farm-back-btn" id="pet-back">
-                    <i class="fa-solid fa-arrow-left"></i> 返回
+                    <i class="fa-solid fa-arrow-left"></i> <span>返回</span>
                 </button>
                 <span class="farm-shop-coins">💰 ${gameState.coins}</span>
             </div>
@@ -382,36 +387,50 @@ export function renderPetView(container) {
                     <img src="${petImageSrc}" class="pet-emoji-large" alt="${displayName}" />
                 </div>
 
-                <div class="farm-pet-info">
-                    <h2 class="pet-name">${displayName}</h2>
-                    <p class="pet-species">${petConfig.name}</p>
-                    <p class="pet-description">${petConfig.description}</p>
-                    <p class="pet-obtained">获得时间: ${dateStr}</p>
+                <div class="farm-pet-name-row">
+                    <h2 class="pet-name" id="pet-name-display">${displayName}</h2>
+                    <button class="pet-name-edit-btn" id="pet-name-edit" title="编辑名字">
+                        <i class="fa-solid fa-pencil"></i>
+                    </button>
+                    <input type="text" class="pet-name-input" id="pet-name-input" value="${displayName}" style="display: none;">
                 </div>
 
                 <div class="farm-pet-actions">
-                    <button class="menu_button pet-action-btn" id="pet-rename">
-                        ✏️ 重命名
-                    </button>
                     <button class="menu_button pet-action-btn" id="pet-display">
-                        ${displayBtnText}
+                        ${isDisplaying ? '<i class="fa-solid fa-eye-slash"></i>' : '<i class="fa-solid fa-eye"></i>'} <span>${displayBtnText}</span>
                     </button>
                 </div>
 
                 <!-- 吐槽配置区域 -->
                 <div class="farm-pet-commentary-section">
-                    <h3 class="pet-commentary-title">💬 吐槽设置</h3>
+                    <div class="pet-commentary-header">
+                        <label class="pet-commentary-toggle checkbox_label">
+                            <input type="checkbox" id="pet-commentary-enabled" ${commentaryEnabled ? 'checked' : ''}>
+                            <span>启用吐槽功能</span>
+                        </label>
+                        <button class="pet-commentary-collapse-btn" id="pet-commentary-collapse"
+                                style="display: ${commentaryEnabled ? 'flex' : 'none'};"
+                                title="${commentaryCollapsed ? '展开设置' : '折叠设置'}">
+                            <i class="fa-solid ${commentaryCollapsed ? 'fa-chevron-down' : 'fa-chevron-up'}"></i>
+                        </button>
+                    </div>
 
-                    <label class="pet-commentary-toggle checkbox_label">
-                        <input type="checkbox" id="pet-commentary-enabled" ${commentaryEnabled ? 'checked' : ''}>
-                        <span>启用吐槽功能</span>
-                    </label>
-
-                    <div class="pet-commentary-config" id="pet-commentary-config" style="display: ${commentaryEnabled ? 'block' : 'none'}">
+                    <div class="pet-commentary-config" id="pet-commentary-config" style="display: ${commentaryEnabled && !commentaryCollapsed ? 'block' : 'none'}">
                         <label class="pet-commentary-toggle checkbox_label">
                             <input type="checkbox" id="pet-commentary-auto" ${autoTrigger ? 'checked' : ''}>
                             <span>AI回复后自动吐槽</span>
                         </label>
+
+                        <div class="pet-commentary-random-wrapper" id="pet-commentary-random-wrapper" style="display: ${autoTrigger ? 'flex' : 'none'}; margin-left: 24px; margin-bottom: 12px; align-items: center; gap: 6px;">
+                            <label class="pet-commentary-toggle checkbox_label" style="margin-bottom: 0;">
+                                <input type="checkbox" id="pet-commentary-random" ${randomTrigger ? 'checked' : ''}>
+                                <span>随机</span>
+                            </label>
+                            <input type="number" id="pet-commentary-random-chance" class="text_pole"
+                                   value="${randomChance}" min="1" max="100" style="width: 50px; padding: 4px;"
+                                   ${!randomTrigger ? 'disabled' : ''}>
+                            <span style="color: rgba(255,255,255,0.7);">%</span>
+                        </div>
 
                         <div class="pet-commentary-field">
                             <label for="pet-commentary-profile">API预设:</label>
@@ -421,34 +440,65 @@ export function renderPetView(container) {
                             <span class="pet-commentary-hint">选择用于吐槽的API配置</span>
                         </div>
 
-                        <label class="pet-commentary-toggle checkbox_label" id="pet-commentary-use-profile-prompt-wrapper" style="display: ${connectionProfile ? 'flex' : 'none'}; margin-top: 8px;">
-                            <input type="checkbox" id="pet-commentary-use-profile-prompt" ${useProfilePrompt ? 'checked' : ''}>
-                            <span>使用绑定的提示词</span>
+                        <label class="pet-commentary-toggle checkbox_label" style="margin-top: 8px;">
+                            <input type="checkbox" id="pet-commentary-use-preset-file" ${usePresetFile ? 'checked' : ''}>
+                            <span>使用预设文件</span>
+                        </label>
+
+                        <div class="pet-commentary-field" id="pet-commentary-preset-file-wrapper" style="display: ${usePresetFile ? 'block' : 'none'}; margin-top: 8px;">
+                            <label for="pet-commentary-preset-file">选择预设文件:</label>
+                            <select id="pet-commentary-preset-file" class="text_pole">
+                                <option value="">-- 选择预设文件 --</option>
+                            </select>
+                            <span class="pet-commentary-hint">使用预设文件的提示词和聊天记录格式</span>
+                        </div>
+
+                        <label class="pet-commentary-toggle checkbox_label" id="pet-commentary-merge-wrapper" style="display: ${usePresetFile ? 'flex' : 'none'}; margin-top: 8px;">
+                            <input type="checkbox" id="pet-commentary-merge-chat" ${mergeChatHistory ? 'checked' : ''}>
+                            <span>合并聊天记录为一条消息</span>
                         </label>
 
                         <div class="pet-commentary-field">
                             <label for="pet-commentary-max-messages">上下文消息数:</label>
                             <input type="number" id="pet-commentary-max-messages" class="text_pole"
-                                   value="${maxMessages}" min="1" max="50" style="width: 80px;">
-                            <span class="pet-commentary-hint">发送给AI的最近消息条数</span>
+                                   value="${maxMessages}" min="-1" max="999" style="width: 80px;">
+                            <span class="pet-commentary-hint">发送给AI的最近消息条数，-1表示全部</span>
                         </div>
 
                         <div class="pet-commentary-field">
-                            <label for="pet-commentary-prompt">
-                                系统提示词:
-                                <button class="menu_button menu_button_icon" id="pet-commentary-reset-prompt"
-                                        title="重置为默认" style="margin-left: 8px; padding: 2px 6px;">
+                            <label for="pet-commentary-bubble-duration">气泡持续时间:</label>
+                            <input type="number" id="pet-commentary-bubble-duration" class="text_pole"
+                                   value="${bubbleDuration}" min="1" max="999" style="width: 80px;">
+                            <span class="pet-commentary-hint">吐槽文本显示多少秒后自动消失</span>
+                        </div>
+
+                        <div class="pet-commentary-field">
+                            <div class="pet-commentary-label-row">
+                                <label for="pet-commentary-prompt">系统提示词:</label>
+                                <button class="pet-commentary-reset-btn" id="pet-commentary-reset-prompt" title="重置为默认">
                                     <i class="fa-solid fa-rotate-left"></i>
                                 </button>
-                            </label>
+                            </div>
                             <textarea id="pet-commentary-prompt" class="text_pole textarea_compact"
                                       rows="4" placeholder="吐槽系统提示词...">${systemPrompt}</textarea>
                             <span class="pet-commentary-hint">变量: {{petName}} 宠物名, {{user}} 用户名</span>
                         </div>
 
+                        <div class="pet-commentary-field">
+                            <div class="pet-commentary-label-row">
+                                <label for="pet-commentary-user-prompt">用户提示词:</label>
+                                <button class="pet-commentary-reset-btn" id="pet-commentary-reset-user-prompt" title="重置为默认">
+                                    <i class="fa-solid fa-rotate-left"></i>
+                                </button>
+                            </div>
+                            <textarea id="pet-commentary-user-prompt" class="text_pole textarea_compact"
+                                      rows="2" placeholder="用户提示词...">${userPrompt}</textarea>
+                            <span class="pet-commentary-hint">作为最后一条消息发送给AI</span>
+                        </div>
+
                         <div class="pet-commentary-actions">
-                            <button class="menu_button" id="pet-commentary-test">
-                                <i class="fa-solid fa-comment-dots"></i> 测试吐槽
+                            <button class="menu_button pet-commentary-test-btn" id="pet-commentary-test">
+                                <i class="fa-solid fa-comment-dots"></i> <span>测试吐槽</span>
                             </button>
                         </div>
                     </div>
@@ -462,6 +512,13 @@ export function renderPetView(container) {
     const profileSelect = container.querySelector('#pet-commentary-profile');
     if (profileSelect && connectionProfile) {
         profileSelect.value = connectionProfile;
+    }
+
+    // 填充预设文件选项
+    populatePresetFiles();
+    const presetFileSelect = container.querySelector('#pet-commentary-preset-file');
+    if (presetFileSelect && presetFileName) {
+        presetFileSelect.value = presetFileName;
     }
 }
 
@@ -478,6 +535,31 @@ function populateConnectionProfiles() {
             const option = document.createElement('option');
             option.value = profile.id;
             option.textContent = profile.name;
+            select.appendChild(option);
+        }
+    }
+}
+
+/**
+ * 填充预设文件选项
+ */
+function populatePresetFiles() {
+    const select = document.getElementById('pet-commentary-preset-file');
+    if (!select) return;
+
+    // 从 SillyTavern 的预设下拉框获取所有预设名称
+    const presetDropdown = document.getElementById('settings_preset_openai');
+    if (!presetDropdown) {
+        console.warn('[PetCommentary] settings_preset_openai dropdown not found');
+        return;
+    }
+
+    const options = presetDropdown.querySelectorAll('option');
+    for (const opt of options) {
+        if (opt.value && opt.textContent) {
+            const option = document.createElement('option');
+            option.value = opt.textContent; // 使用预设名称作为值
+            option.textContent = opt.textContent;
             select.appendChild(option);
         }
     }

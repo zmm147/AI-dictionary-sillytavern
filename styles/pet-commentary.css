@@ -12,6 +12,7 @@
     background: rgba(255, 255, 255, 0.05);
     border-radius: 8px;
     border: 1px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
 }
 
 .pet-commentary-title {
@@ -82,15 +83,15 @@
     pointer-events: auto;
 }
 
-/* 气泡三角箭头 */
+/* 气泡三角箭头 - 指向右侧 */
 .pet-commentary-bubble::after {
     content: '';
     position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
+    top: 50%;
+    left: 100%;
+    transform: translateY(-50%);
     border: 8px solid transparent;
-    border-bottom-color: var(--SmartThemeBorderColor, #666);
+    border-left-color: var(--SmartThemeBorderColor, #666);
 }
 
 .pet-commentary-text {
@@ -256,5 +257,201 @@
 
     .pet-action-btn i {
         font-size: 12px;
+    }
+}
+
+/* ===== 宠物面板新UI样式 ===== */
+
+/* 宠物名字行 */
+.farm-pet-name-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    flex-shrink: 0;
+}
+
+.farm-pet-name-row .pet-name {
+    margin: 0;
+    font-size: 22px;
+    color: #fff;
+    font-weight: bold;
+}
+
+.pet-name-edit-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.pet-name-edit-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+}
+
+.pet-name-edit-btn i {
+    font-size: 12px;
+}
+
+.pet-name-input {
+    font-size: 20px;
+    font-weight: bold;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.3);
+    border: 2px solid rgba(255, 215, 0, 0.5);
+    border-radius: 8px;
+    color: #fff;
+    padding: 4px 12px;
+    width: auto;
+    max-width: 200px;
+}
+
+.pet-name-input:focus {
+    outline: none;
+    border-color: #ffd700;
+}
+
+/* 吐槽设置头部 */
+.pet-commentary-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.pet-commentary-header .pet-commentary-toggle {
+    margin-bottom: 0;
+}
+
+.pet-commentary-collapse-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.pet-commentary-collapse-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+}
+
+/* 提示词标签行（横向对齐） */
+.pet-commentary-label-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.pet-commentary-label-row label {
+    margin-bottom: 0;
+}
+
+.pet-commentary-reset-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.pet-commentary-reset-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+}
+
+.pet-commentary-reset-btn i {
+    font-size: 11px;
+}
+
+/* 测试按钮样式 */
+.pet-commentary-test-btn {
+    display: flex !important;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.pet-commentary-test-btn span {
+    display: inline;
+}
+
+/* 按钮文字横向排列修复 */
+.farm-pet-page .menu_button {
+    display: flex !important;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap !important;
+    flex-direction: row !important;
+}
+
+.farm-pet-page .menu_button span {
+    display: inline;
+}
+
+.farm-pet-page .menu_button i {
+    flex-shrink: 0;
+}
+
+/* 移动端适配 */
+@media screen and (max-width: 768px) {
+    .farm-pet-name-row .pet-name {
+        font-size: 18px;
+    }
+
+    .pet-name-edit-btn {
+        width: 24px;
+        height: 24px;
+    }
+
+    .pet-name-input {
+        font-size: 16px;
+        max-width: 150px;
+    }
+
+    .pet-commentary-collapse-btn {
+        width: 24px;
+        height: 24px;
+    }
+}
+
+@media screen and (max-width: 450px) {
+    .farm-pet-name-row .pet-name {
+        font-size: 16px;
+    }
+
+    .pet-name-edit-btn {
+        width: 22px;
+        height: 22px;
+    }
+
+    .pet-name-input {
+        font-size: 14px;
+        max-width: 120px;
     }
 }

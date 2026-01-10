@@ -998,6 +998,7 @@
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 .farm-pet-container {
@@ -1005,9 +1006,10 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
     gap: 20px;
     padding: 20px;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .farm-pet-avatar {
@@ -1021,6 +1023,7 @@
     border: 3px solid rgba(255, 255, 255, 0.2);
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
     overflow: hidden;
+    flex-shrink: 0;
 }
 
 .pet-emoji-large {
@@ -1038,6 +1041,7 @@
 .farm-pet-info {
     text-align: center;
     max-width: 300px;
+    flex-shrink: 0;
 }
 
 .pet-name {
@@ -1070,6 +1074,7 @@
     display: flex;
     gap: 10px;
     justify-content: center;
+    flex-shrink: 0;
 }
 
 .pet-action-btn {
@@ -1110,11 +1115,146 @@
         width: 70px;
         height: 70px;
     }
+
+    /* 宠物面板移动端适配 */
+    .farm-pet-container {
+        gap: 12px;
+        padding: 10px;
+    }
+
+    .farm-pet-avatar {
+        width: 80px;
+        height: 80px;
+    }
+
+    .pet-emoji-large {
+        font-size: 48px;
+    }
+
+    .pet-name {
+        font-size: 18px;
+    }
+
+    .pet-species {
+        font-size: 12px;
+        margin-bottom: 8px;
+    }
+
+    .pet-description {
+        font-size: 11px;
+        margin-bottom: 8px;
+    }
+
+    .pet-obtained {
+        font-size: 10px;
+    }
+
+    .farm-pet-actions {
+        gap: 6px;
+    }
+
+    .farm-pet-actions .pet-action-btn {
+        padding: 6px 12px !important;
+        font-size: 11px !important;
+    }
+
+    /* 吐槽配置区域移动端适配 */
+    .farm-pet-commentary-section {
+        padding: 10px;
+        margin-top: 12px;
+    }
+
+    .pet-commentary-title {
+        font-size: 14px;
+        margin-bottom: 10px;
+    }
+
+    .pet-commentary-toggle {
+        margin-bottom: 8px;
+    }
+
+    .pet-commentary-toggle span {
+        font-size: 12px;
+    }
+
+    .pet-commentary-field {
+        margin-bottom: 8px;
+    }
+
+    .pet-commentary-field label {
+        font-size: 11px;
+    }
+
+    .pet-commentary-field select,
+    .pet-commentary-field textarea,
+    .pet-commentary-field input[type="number"] {
+        font-size: 12px;
+        padding: 6px;
+    }
+
+    .pet-commentary-hint {
+        font-size: 10px;
+    }
+
+    .pet-commentary-actions .menu_button {
+        font-size: 11px !important;
+        padding: 6px 10px !important;
+    }
 }
 
 @media screen and (max-width: 450px) {
     .floating-pet {
         width: 50px;
         height: 50px;
+    }
+
+    /* 宠物面板超小屏幕适配 */
+    .farm-pet-container {
+        gap: 8px;
+        padding: 8px;
+    }
+
+    .farm-pet-avatar {
+        width: 60px;
+        height: 60px;
+    }
+
+    .pet-emoji-large {
+        font-size: 36px;
+    }
+
+    .pet-name {
+        font-size: 16px;
+    }
+
+    .pet-species {
+        font-size: 11px;
+    }
+
+    .pet-description {
+        font-size: 10px;
+    }
+
+    .farm-pet-actions {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .farm-pet-actions .pet-action-btn {
+        padding: 5px 10px !important;
+        font-size: 10px !important;
+    }
+
+    /* 吐槽配置区域超小屏幕适配 */
+    .farm-pet-commentary-section {
+        padding: 8px;
+    }
+
+    .pet-commentary-title {
+        font-size: 13px;
+    }
+
+    .pet-commentary-field textarea {
+        font-size: 11px;
     }
 }
