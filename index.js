@@ -5,7 +5,8 @@
 
 import { extension_settings, getContext } from '../../../extensions.js';
 import { saveSettingsDebounced, eventSource, event_types, generateRaw, setExtensionPrompt, extension_prompt_types } from '../../../../script.js';
-import { oai_settings, sendOpenAIRequest } from '../../../openai.js';
+import { oai_settings, sendOpenAIRequest, openai_settings, openai_setting_names } from '../../../openai.js';
+import { system_prompts } from '../../../sysprompt.js';
 
 // Import modules
 import { fetchYoudaoDictionary } from './modules/youdao.js';
@@ -543,7 +544,10 @@ const init = async () => {
         getContext,
         sendOpenAIRequest,
         generateRaw,
-        oaiSettings: oai_settings
+        oaiSettings: oai_settings,
+        systemPrompts: system_prompts,
+        openaiSettings: openai_settings,
+        openaiSettingNames: openai_setting_names
     });
 
     console.log(`[${EXTENSION_NAME}] Ready`);

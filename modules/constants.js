@@ -82,6 +82,7 @@ export const defaultSettings = {
         enabled: false,
         autoTrigger: false,
         connectionProfile: '',
+        useProfilePrompt: false,  // 使用API预设绑定的提示词
         systemPrompt: `你是一只可爱又毒舌的宠物，名叫{{petName}}，正在旁观主人{{user}}和AI角色的聊天。请用简短（1-2句话）、俏皮、略带吐槽的语气评论这段对话。可以评论剧情发展、角色行为、或者主人的选择。保持轻松幽默的风格。`,
         maxMessages: 10,
     },

@@ -10,6 +10,9 @@ let getContextFn = null;
 let sendOpenAIRequestFn = null;
 let generateRawFn = null;
 let oaiSettingsObj = null;
+let systemPromptsArr = null;
+let openaiSettingsArr = null;
+let openaiSettingNamesObj = null;
 
 /**
  * 获取当前设置（从全局对象动态读取）
@@ -28,7 +31,10 @@ export function initPetCommentary(options) {
         getContext,
         sendOpenAIRequest,
         generateRaw,
-        oaiSettings
+        oaiSettings,
+        systemPrompts,
+        openaiSettings,
+        openaiSettingNames
     } = options;
 
     eventSource = es;
@@ -37,6 +43,9 @@ export function initPetCommentary(options) {
     sendOpenAIRequestFn = sendOpenAIRequest;
     generateRawFn = generateRaw;
     oaiSettingsObj = oaiSettings;
+    systemPromptsArr = systemPrompts;
+    openaiSettingsArr = openaiSettings;
+    openaiSettingNamesObj = openaiSettingNames;
 
     // 监听 MESSAGE_RECEIVED 事件
     eventSource.on(event_types.MESSAGE_RECEIVED, async (messageIndex) => {
@@ -76,12 +85,25 @@ function isPetDisplaying() {
 }
 
 /**
- * 构建聊天上下文 - 将聊天记录聚合为一条 user 消息
+ * 构建聊天上下文 - 直接使用预设中的提示词和消息结构
  */
 function buildChatContext(context, settings) {
-    const maxMessages = settings.petCommentary.maxMessages || 10;
     const userName = context.name1 || 'User';
     const charName = context.name2 || 'Character';
+
+    // 如果启用了使用绑定的提示词，直接使用预设的完整结构
+    if (settings.petCommentary.useProfilePrompt && settings.petCommentary.connectionProfile) {
+        console.log('[PetCommentary] Building messages from bound preset prompts');
+
+        const messages = getMessagesFromPreset(settings.petCommentary.connectionProfile, userName, charName);
+        if (messages && messages.length > 0) {
+            console.log('[PetCommentary] Built', messages.length, 'messages from preset');
+            return messages;
+        }
+    }
+
+    // 原有的自定义提示词逻辑（禁用时使用）
+    const maxMessages = settings.petCommentary.maxMessages || 10;
 
     // 获取当前展示的宠物名称
     const floatingPetData = localStorage.getItem('ai-dict-floating-pet');
@@ -89,7 +111,6 @@ function buildChatContext(context, settings) {
     if (floatingPetData) {
         try {
             const petInfo = JSON.parse(floatingPetData);
-            // 从 gameState 中查找宠物的自定义名称
             const farmData = localStorage.getItem('ai-dict-farm-game');
             if (farmData) {
                 const gameState = JSON.parse(farmData);
@@ -131,6 +152,276 @@ function buildChatContext(context, settings) {
     ];
 
     return messages;
+}
+
+/**
+ * 从预设中构建消息数组，按照每个提示词的 role 字段，并包含聊天记录
+ */
+function getMessagesFromPreset(profileId, userName, charName) {
+    try {
+        const extensionSettings = window.extension_settings || {};
+        const connectionManager = extensionSettings.connectionManager;
+
+        if (!connectionManager || !Array.isArray(connectionManager.profiles)) {
+            console.warn('[PetCommentary] connectionManager.profiles not available');
+            return null;
+        }
+
+        const profile = connectionManager.profiles.find(p => p.id === profileId);
+        if (!profile) {
+            console.warn('[PetCommentary] Profile not found');
+            return null;
+        }
+
+        const presetName = profile.preset;
+        if (!presetName) {
+            console.warn('[PetCommentary] Profile has no preset');
+            return null;
+        }
+
+        // 检查是否是当前活动的预设
+        const currentPresetName = oaiSettingsObj?.preset_settings_openai;
+        const isCurrentPreset = presetName === currentPresetName;
+
+        let prompts, promptOrder;
+
+        if (isCurrentPreset) {
+            console.log('[PetCommentary] Using current active preset');
+            prompts = oaiSettingsObj.prompts;
+            promptOrder = oaiSettingsObj.prompt_order;
+        } else {
+            console.log('[PetCommentary] Using stored preset');
+
+            if (!openaiSettingNamesObj || typeof openaiSettingNamesObj !== 'object') {
+                console.warn('[PetCommentary] openaiSettingNamesObj not available');
+                return null;
+            }
+
+            const presetIndex = openaiSettingNamesObj[presetName];
+            if (presetIndex === undefined) {
+                console.warn('[PetCommentary] Preset index not found for:', presetName);
+                return null;
+            }
+
+            if (!Array.isArray(openaiSettingsArr)) {
+                console.warn('[PetCommentary] openaiSettingsArr not available');
+                return null;
+            }
+
+            const preset = openaiSettingsArr[presetIndex];
+            if (!preset) {
+                console.warn('[PetCommentary] Preset not found at index:', presetIndex);
+                return null;
+            }
+
+            prompts = preset.prompts;
+            promptOrder = preset.prompt_order;
+        }
+
+        if (!Array.isArray(prompts)) {
+            console.warn('[PetCommentary] No prompts array found');
+            return null;
+        }
+
+        // 获取全局的 prompt_order
+        let globalOrder = null;
+        if (Array.isArray(promptOrder)) {
+            globalOrder = promptOrder.find(po => po.character_id === 100001)?.order;
+        }
+
+        if (!Array.isArray(globalOrder)) {
+            console.warn('[PetCommentary] No global prompt order found');
+            return null;
+        }
+
+        // 构建消息数组，按照 prompt_order 顺序
+        const messages = [];
+        for (const orderEntry of globalOrder) {
+            // 只取启用的
+            if (!orderEntry.enabled) continue;
+
+            // 检查是否是 chatHistory（聊天记录占位符）
+            if (orderEntry.identifier === 'chatHistory') {
+                console.log('[PetCommentary] Adding chat history');
+                // 从当前聊天上下文获取消息
+                const context = getContextFn?.();
+                if (context && Array.isArray(context.chat)) {
+                    const chat = context.chat;
+                    // 将所有聊天记录合并为一条消息
+                    const chatText = chat
+                        .filter(msg => !msg.is_system)
+                        .map(msg => {
+                            const role = msg.is_user ? userName : charName;
+                            return `${role}: ${msg.mes}`;
+                        })
+                        .join('\n\n');
+
+                    if (chatText.trim()) {
+                        // 使用 chatHistory 本身的 role 设置
+                        const chatHistoryPrompt = prompts.find(p => p && p.identifier === 'chatHistory');
+                        const role = chatHistoryPrompt?.role || 'user';
+
+                        messages.push({
+                            role: role,
+                            content: chatText
+                        });
+                        console.log('[PetCommentary] Added chat history as single message with role:', role);
+                    }
+                }
+                continue;
+            }
+
+            // 在 prompts 中查找
+            const prompt = prompts.find(p => p && p.identifier === orderEntry.identifier);
+
+            // 跳过找不到的或没有内容的
+            if (!prompt || !prompt.content || prompt.content.trim() === '') continue;
+
+            // 获取 role，默认为 "system"
+            const role = prompt.role || 'system';
+
+            // 替换变量
+            let content = prompt.content
+                .replace(/\{\{user\}\}/gi, userName)
+                .replace(/\{\{char\}\}/gi, charName);
+
+            messages.push({ role, content });
+            console.log('[PetCommentary] Added message with role:', role, 'identifier:', orderEntry.identifier);
+        }
+
+        return messages.length > 0 ? messages : null;
+    } catch (e) {
+        console.error('[PetCommentary] Failed to get messages from preset:', e);
+        return null;
+    }
+}
+
+/**
+ * 从API预设获取绑定的所有激活提示词
+ * @param {string} profileId - API预设ID
+ * @returns {string|null} - 组合后的提示词内容，如果未找到则返回null
+ */
+function getBoundSystemPrompt(profileId) {
+    try {
+        const extensionSettings = window.extension_settings || {};
+        const connectionManager = extensionSettings.connectionManager;
+
+        console.log('[PetCommentary] getBoundSystemPrompt called with profileId:', profileId);
+
+        if (!connectionManager || !Array.isArray(connectionManager.profiles)) {
+            console.warn('[PetCommentary] connectionManager.profiles not available');
+            return null;
+        }
+
+        // 找到选中的profile
+        const profile = connectionManager.profiles.find(p => p.id === profileId);
+        if (!profile) {
+            console.warn('[PetCommentary] Profile not found');
+            return null;
+        }
+
+        // 获取预设名称
+        const presetName = profile.preset;
+        if (!presetName) {
+            console.warn('[PetCommentary] Profile has no preset');
+            return null;
+        }
+
+        console.log('[PetCommentary] Preset name:', presetName);
+
+        // 检查是否是当前活动的预设，如果是则使用 oai_settings（实时数据）
+        const currentPresetName = oaiSettingsObj?.preset_settings_openai;
+        const isCurrentPreset = presetName === currentPresetName;
+
+        let prompts, promptOrder;
+
+        if (isCurrentPreset) {
+            // 使用当前活动的设置（实时数据）
+            console.log('[PetCommentary] Using current active preset settings');
+            prompts = oaiSettingsObj.prompts;
+            promptOrder = oaiSettingsObj.prompt_order;
+        } else {
+            // 从 openaiSettingsArr 获取预设数据
+            console.log('[PetCommentary] Using stored preset settings');
+
+            if (!openaiSettingNamesObj || typeof openaiSettingNamesObj !== 'object') {
+                console.warn('[PetCommentary] openaiSettingNamesObj not available');
+                return null;
+            }
+
+            const presetIndex = openaiSettingNamesObj[presetName];
+            if (presetIndex === undefined) {
+                console.warn('[PetCommentary] Preset index not found for:', presetName);
+                return null;
+            }
+
+            if (!Array.isArray(openaiSettingsArr)) {
+                console.warn('[PetCommentary] openaiSettingsArr not available');
+                return null;
+            }
+
+            const preset = openaiSettingsArr[presetIndex];
+            if (!preset) {
+                console.warn('[PetCommentary] Preset not found at index:', presetIndex);
+                return null;
+            }
+
+            prompts = preset.prompts;
+            promptOrder = preset.prompt_order;
+        }
+
+        if (!Array.isArray(prompts)) {
+            console.warn('[PetCommentary] No prompts array found');
+            return null;
+        }
+
+        // 获取全局的 prompt_order (character_id === 100001 是默认/全局)
+        let globalOrder = null;
+        if (Array.isArray(promptOrder)) {
+            globalOrder = promptOrder.find(po => po.character_id === 100001)?.order;
+        }
+
+        if (!Array.isArray(globalOrder)) {
+            console.warn('[PetCommentary] No global prompt order found, using prompts directly');
+            // 如果没有 prompt_order，直接从 prompts 中获取有内容的
+            const enabledPrompts = prompts
+                .filter(p => p && p.content && p.content.trim() !== '')
+                .map(p => p.content);
+
+            if (enabledPrompts.length > 0) {
+                console.log('[PetCommentary] Found', enabledPrompts.length, 'prompts (no order)');
+                return enabledPrompts.join('\n\n');
+            }
+            return null;
+        }
+
+        // 根据 prompt_order 顺序获取全部启用的提示词（不做任何筛选）
+        const combinedPrompts = [];
+        for (const orderEntry of globalOrder) {
+            // 只跳过未启用的
+            if (!orderEntry.enabled) continue;
+
+            // 在 prompts 中查找
+            const prompt = prompts.find(p => p && p.identifier === orderEntry.identifier);
+
+            // 跳过找不到的或没有内容的
+            if (!prompt || !prompt.content || prompt.content.trim() === '') continue;
+
+            combinedPrompts.push(prompt.content);
+            console.log('[PetCommentary] Added prompt:', orderEntry.identifier);
+        }
+
+        if (combinedPrompts.length > 0) {
+            console.log('[PetCommentary] Total enabled prompts:', combinedPrompts.length);
+            return combinedPrompts.join('\n\n');
+        }
+
+        console.warn('[PetCommentary] No enabled prompts found');
+        return null;
+    } catch (e) {
+        console.error('[PetCommentary] Failed to get bound system prompt:', e);
+        return null;
+    }
 }
 
 /**

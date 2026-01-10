@@ -364,6 +364,7 @@ export function renderPetView(container) {
     const commentaryEnabled = commentarySettings.enabled || false;
     const autoTrigger = commentarySettings.autoTrigger || false;
     const connectionProfile = commentarySettings.connectionProfile || '';
+    const useProfilePrompt = commentarySettings.useProfilePrompt || false;
     const systemPrompt = commentarySettings.systemPrompt || '';
     const maxMessages = commentarySettings.maxMessages || 10;
 
@@ -419,6 +420,11 @@ export function renderPetView(container) {
                             </select>
                             <span class="pet-commentary-hint">选择用于吐槽的API配置</span>
                         </div>
+
+                        <label class="pet-commentary-toggle checkbox_label" id="pet-commentary-use-profile-prompt-wrapper" style="display: ${connectionProfile ? 'flex' : 'none'}; margin-top: 8px;">
+                            <input type="checkbox" id="pet-commentary-use-profile-prompt" ${useProfilePrompt ? 'checked' : ''}>
+                            <span>使用绑定的提示词</span>
+                        </label>
 
                         <div class="pet-commentary-field">
                             <label for="pet-commentary-max-messages">上下文消息数:</label>

@@ -393,6 +393,20 @@ const FarmGame = (() => {
                 settings.petCommentary.connectionProfile = e.target.value;
                 window.aiDictionary.saveSettings?.();
             }
+            // 显示/隐藏 "使用绑定的提示词" 选项
+            const wrapper = document.getElementById('pet-commentary-use-profile-prompt-wrapper');
+            if (wrapper) {
+                wrapper.style.display = e.target.value ? 'flex' : 'none';
+            }
+        });
+
+        // 使用绑定的提示词复选框
+        document.getElementById('pet-commentary-use-profile-prompt')?.addEventListener('change', (e) => {
+            const settings = window.aiDictionary?.settings;
+            if (settings && settings.petCommentary) {
+                settings.petCommentary.useProfilePrompt = e.target.checked;
+                window.aiDictionary.saveSettings?.();
+            }
         });
 
         // 上下文消息数
