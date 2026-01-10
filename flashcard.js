@@ -279,6 +279,7 @@ const Flashcard = (() => {
      */
     async function handleAnswer(remembered) {
         const card = deck[currentIndex];
+        const wasLastCard = currentIndex === deck.length - 1;
         let cardMovedToBottom = false; // 标记当前卡是否被移到了底部
 
         if (remembered) {
@@ -313,6 +314,9 @@ const Flashcard = (() => {
                 deck.splice(currentIndex, 1);
                 deck.push(card);
                 cardMovedToBottom = true;
+                if (wasLastCard) {
+                    currentIndex = 0;
+                }
                 if (currentIndex >= deck.length) {
                     currentIndex = 0;
                 }
@@ -323,6 +327,9 @@ const Flashcard = (() => {
             deck.splice(currentIndex, 1);
             deck.push(card);
             cardMovedToBottom = true;
+            if (wasLastCard) {
+                currentIndex = 0;
+            }
             if (currentIndex >= deck.length) {
                 currentIndex = 0;
             }
@@ -429,11 +436,12 @@ const Flashcard = (() => {
         // 从底部取卡
         const reviewCard = deck.pop();
         if (reviewCard) {
-            // 插入到当前位置（下一张要显示的卡）
-            deck.splice(currentIndex, 0, reviewCard);
+            // 插入到当前位置的下一张（不打断当前正在看的卡片）
+            const insertIndex = Math.min(currentIndex + 1, deck.length);
+            deck.splice(insertIndex, 0, reviewCard);
             lastReviewTime = Date.now();
-            console.log(`[Flashcard] 定时复习: 插入单词 "${reviewCard.word}"`);
-            render();
+            console.log(`[Flashcard] 定时复习: 静默插入单词 "${reviewCard.word}" 到位置 ${insertIndex}`);
+            // 不调用 render()，避免打断用户当前正在看的卡片
         }
     }
 

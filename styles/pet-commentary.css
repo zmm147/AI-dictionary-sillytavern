@@ -153,20 +153,34 @@
 @media screen and (max-width: 768px) {
     .pet-commentary-bubble {
         max-width: 180px;
+        min-width: 120px;
         font-size: 12px;
-        padding: 10px 12px;
+        padding: 8px 10px;
+    }
+
+    .pet-commentary-bubble::after {
+        display: none;
     }
 
     .pet-commentary-close {
         font-size: 14px;
+    }
+
+    .pet-commentary-text {
+        max-height: 120px;
     }
 }
 
 @media screen and (max-width: 450px) {
     .pet-commentary-bubble {
         max-width: 150px;
+        min-width: 100px;
         font-size: 11px;
-        padding: 8px 10px;
+        padding: 6px 8px;
+    }
+
+    .pet-commentary-text {
+        max-height: 100px;
     }
 }
 
@@ -246,17 +260,48 @@
 /* 移动端菜单适配 */
 @media screen and (max-width: 768px) {
     .pet-action-menu {
-        padding: 6px;
-        gap: 6px;
+        padding: 4px !important;
+        gap: 4px !important;
+        border-radius: 8px !important;
     }
 
-    .pet-action-btn {
-        padding: 6px 10px;
-        font-size: 12px;
+    .pet-action-menu .pet-action-btn {
+        padding: 5px 8px !important;
+        font-size: 11px !important;
+        gap: 4px !important;
+        border-radius: 6px !important;
     }
 
-    .pet-action-btn i {
-        font-size: 12px;
+    .pet-action-menu .pet-action-btn i {
+        font-size: 12px !important;
+    }
+
+    .pet-action-menu .pet-action-btn span {
+        font-size: 11px !important;
+    }
+}
+
+@media screen and (max-width: 450px) {
+    .pet-action-menu {
+        padding: 2px !important;
+        gap: 2px !important;
+    }
+
+    .pet-action-menu .pet-action-btn {
+        padding: 4px 6px !important;
+        font-size: 0 !important;
+        gap: 0 !important;
+        min-width: 28px !important;
+        min-height: 28px !important;
+    }
+
+    /* 小屏只显示图标 */
+    .pet-action-menu .pet-action-btn i {
+        font-size: 12px !important;
+    }
+
+    .pet-action-menu .pet-action-btn span {
+        display: none !important;
     }
 }
 

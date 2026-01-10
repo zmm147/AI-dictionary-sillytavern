@@ -659,22 +659,44 @@ export function hidePetBubble() {
  */
 function positionBubble(petElement, bubbleElement) {
     const petRect = petElement.getBoundingClientRect();
-    const bubbleWidth = 250;
-    const bubbleHeight = 150;
+    const screenWidth = window.innerWidth;
+    const isSmallMobile = screenWidth <= 450;
+    const isMobile = screenWidth <= 768;
+
+    // 根据屏幕尺寸使用不同的尺寸和间距
+    let bubbleWidth, bubbleHeight, gap;
+    if (isSmallMobile) {
+        bubbleWidth = 150;
+        bubbleHeight = 80;
+        gap = 3;
+    } else if (isMobile) {
+        bubbleWidth = 180;
+        bubbleHeight = 100;
+        gap = 5;
+    } else {
+        bubbleWidth = 250;
+        bubbleHeight = 150;
+        gap = 15;
+    }
 
     // 默认显示在宠物左侧
     let top = petRect.top + petRect.height / 2 - bubbleHeight / 2;
-    let left = petRect.left - bubbleWidth - 15;
+    let left = petRect.left - bubbleWidth - gap;
 
     // 检查是否超出屏幕左侧，如果是则显示在右侧
     if (left < 10) {
-        left = petRect.right + 15;
+        left = petRect.right + gap;
     }
 
-    // 检查是否超出屏幕右侧，如果是则显示在下方
-    if (left + bubbleWidth > window.innerWidth - 10) {
-        left = petRect.left + petRect.width / 2 - bubbleWidth / 2;
-        top = petRect.bottom + 10;
+    // 检查是否超出屏幕右侧，如果是则显示在上方或下方
+    if (left + bubbleWidth > screenWidth - 10) {
+        left = Math.max(10, petRect.left + petRect.width / 2 - bubbleWidth / 2);
+        // 优先显示在上方
+        if (petRect.top > bubbleHeight + gap + 10) {
+            top = petRect.top - bubbleHeight - gap;
+        } else {
+            top = petRect.bottom + gap;
+        }
     }
 
     // 检查是否超出屏幕顶部
@@ -690,6 +712,11 @@ function positionBubble(petElement, bubbleElement) {
     // 最终检查左侧边界
     if (left < 10) {
         left = 10;
+    }
+
+    // 确保不超出右侧边界
+    if (left + bubbleWidth > screenWidth - 10) {
+        left = screenWidth - bubbleWidth - 10;
     }
 
     bubbleElement.style.top = `${top}px`;
