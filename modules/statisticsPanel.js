@@ -23,6 +23,8 @@ let calendarMonth = new Date().getMonth();
  */
 function getReviewScheduleMap(reviewData) {
     const scheduleMap = {};
+    const today = new Date();
+    const todayKey = formatDateKey(today);
 
     // Add pending words (they become reviewable the next day after adding)
     for (const item of reviewData.pendingWords) {
@@ -30,7 +32,12 @@ function getReviewScheduleMap(reviewData) {
         // Available for review starting the next day
         const reviewDate = new Date(addedDate);
         reviewDate.setDate(reviewDate.getDate() + 1);
-        const dateKey = formatDateKey(reviewDate);
+        let dateKey = formatDateKey(reviewDate);
+
+        // If the review date is in the past, move it to today
+        if (dateKey < todayKey) {
+            dateKey = todayKey;
+        }
 
         if (!scheduleMap[dateKey]) {
             scheduleMap[dateKey] = [];
@@ -45,7 +52,12 @@ function getReviewScheduleMap(reviewData) {
     // Add reviewing words with their next review date
     for (const [word, data] of Object.entries(reviewData.reviewingWords)) {
         const reviewDate = new Date(data.nextReviewDate);
-        const dateKey = formatDateKey(reviewDate);
+        let dateKey = formatDateKey(reviewDate);
+
+        // If the review date is in the past, move it to today
+        if (dateKey < todayKey) {
+            dateKey = todayKey;
+        }
 
         if (!scheduleMap[dateKey]) {
             scheduleMap[dateKey] = [];

@@ -44,6 +44,13 @@ const FarmGame = (() => {
         const container = document.getElementById('farm-game-container');
         if (!container) return;
 
+        // 控制关闭按钮显示：只在主界面显示
+        const closeBtn = document.querySelector('.ai-dict-farm-close-btn');
+        const isMainView = !uiState.showingFlashcards && !uiState.showingPet && !uiState.showingShop && !uiState.showingInventory;
+        if (closeBtn) {
+            closeBtn.style.display = isMainView ? '' : 'none';
+        }
+
         if (uiState.showingFlashcards) {
             // 只在首次显示时渲染flashcard视图，之后由Flashcard模块自行管理
             if (!uiState.flashcardStarted) {

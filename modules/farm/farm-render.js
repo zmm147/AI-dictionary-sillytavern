@@ -85,28 +85,21 @@ export function renderQuickSlots() {
 export function renderPlot(plot, index) {
     let emoji = '🟫';
     let className = 'empty';
-    let timeInfo = '';
 
     if (plot.crop) {
         const stage = getGrowthStage(plot);
         if (stage >= 3 || isRipe(plot)) {
             emoji = CROPS[plot.crop].emoji;
             className = 'ripe';
-            timeInfo = '<span class="plot-time ready">可收获</span>';
         } else {
             emoji = GROWTH_STAGES[stage];
             className = 'growing';
-            const remaining = getRemainingDays(plot);
-            const hours = Math.floor((remaining % 1) * 24);
-            const days = Math.floor(remaining);
-            timeInfo = `<span class="plot-time">${days > 0 ? days + '天' : ''}${hours}时</span>`;
         }
     }
 
     return `
         <div class="farm-plot ${className}" data-index="${index}">
             <span class="plot-emoji">${emoji}</span>
-            ${timeInfo}
         </div>
     `;
 }

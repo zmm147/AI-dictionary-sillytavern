@@ -30,46 +30,43 @@
 .ai-dict-farm-panel-content {
     background: var(--SmartThemeBlurTintColor, #1a1a2e);
     border-radius: 16px;
-    padding: 20px;
+    padding: 0;
     max-width: 400px;
     width: 90%;
     max-height: 90vh;
-    overflow-y: auto;
+    overflow: hidden;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-    border: 1px solid var(--SmartThemeBorderColor, #333);
+    position: relative;
 }
 
-.ai-dict-farm-panel-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--SmartThemeBorderColor, #333);
+/* Floating close button in farm panel */
+.ai-dict-farm-close-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 10;
+    padding: 6px 8px !important;
+    font-size: 12px !important;
+    background: rgba(0, 0, 0, 0.4) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    border-radius: 6px !important;
+    color: rgba(255, 255, 255, 0.8) !important;
+    cursor: pointer;
+    transition: all 0.2s;
 }
 
-.ai-dict-farm-panel-header > span {
-    font-size: 18px;
-    font-weight: bold;
-    color: var(--SmartThemeBodyColor, #fff);
-}
-
-.ai-dict-farm-panel-btns {
-    display: flex;
-    gap: 8px;
-}
-
-.ai-dict-farm-panel-btns .menu_button {
-    padding: 6px 10px;
-    font-size: 14px;
+.ai-dict-farm-close-btn:hover {
+    background: rgba(0, 0, 0, 0.6) !important;
+    border-color: rgba(255, 255, 255, 0.4) !important;
+    color: #fff !important;
 }
 
 /* Farm Game Main Container */
 .farm-game {
     padding: 15px;
     background: linear-gradient(135deg, #2d5016 0%, #1a3009 100%);
-    border-radius: 12px;
-    margin: 10px 0;
+    border-radius: 16px;
+    margin: 0;
 }
 
 /* Farm Header */

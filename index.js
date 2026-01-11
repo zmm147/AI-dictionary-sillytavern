@@ -445,8 +445,27 @@ const init = async () => {
 
     // Event listeners for chat messages
     eventSource.on(event_types.MESSAGE_RECEIVED, (messageIndex) => {
-        // Only highlight confusable words, word checking is now done in GENERATION_STARTED
+        // Highlight confusable words
         setTimeout(() => highlightAllConfusableWords(settings.confusableWords, settings.highlightConfusables), 100);
+
+        // Check AI message for review words (immersive review)
+        if (settings.immersiveReview) {
+            try {
+                const context = getContext();
+                if (context && context.chat && messageIndex >= 0) {
+                    const message = context.chat[messageIndex];
+                    // Only check AI messages (not user messages)
+                    if (message && !message.is_user && !message.is_system && message.mes) {
+                        const reviewData = getReviewData();
+                        if (reviewData.currentSession.words.length > 0) {
+                            checkAIResponseForReviewWords(message.mes, settings.immersiveReview);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn(`[${EXTENSION_NAME}] Error checking AI message for review words:`, e);
+            }
+        }
     });
 
     eventSource.on(event_types.MESSAGE_SENT, () => {
