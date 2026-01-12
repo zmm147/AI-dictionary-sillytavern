@@ -12,7 +12,7 @@ export const gameState = {
     selectedSeed: null,
     totalHarvested: 0,
     boostDays: 0, // 累计加速天数
-    unlockedCrops: ['carrot', 'potato'], // 已解锁的作物
+    unlockedCrops: ['tomato', 'carrot', 'potato'], // 已解锁的作物
     ownedItems: [], // 拥有的物品 [{type: 'pet', id: 'cat', name: '猫咪', emoji: '🐱', timestamp: Date}]
     quickSlots: [null, null, null], // 快捷栏（3个槽位），存储种子类型
 };
@@ -34,7 +34,8 @@ export const uiState = {
  */
 export function initGameState() {
     gameState.plots = [];
-    for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+    // GRID_SIZE = GRID_ROWS * GRID_COLS = 50 个地块
+    for (let i = 0; i < GRID_SIZE; i++) {
         gameState.plots.push({
             crop: null,
             plantedAt: null,
@@ -52,7 +53,7 @@ export function resetGameState() {
     gameState.selectedSeed = null;
     gameState.totalHarvested = 0;
     gameState.boostDays = 0;
-    gameState.unlockedCrops = ['carrot', 'potato'];
+    gameState.unlockedCrops = ['tomato', 'carrot', 'potato'];
     gameState.ownedItems = [];
     gameState.quickSlots = [null, null, null];
     initGameState();

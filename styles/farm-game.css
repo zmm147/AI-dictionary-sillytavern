@@ -31,9 +31,9 @@
     background: var(--SmartThemeBlurTintColor, #1a1a2e);
     border-radius: 16px;
     padding: 0;
-    max-width: 400px;
-    width: 90%;
-    max-height: 90vh;
+    max-width: 450px;
+    width: 95%;
+    max-height: 95vh;
     overflow: hidden;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
     position: relative;
@@ -61,24 +61,59 @@
     color: #fff !important;
 }
 
-/* Farm Game Main Container */
+/* Farm Game Main Container - 使用背景图片 */
 .farm-game {
-    padding: 15px;
-    background: linear-gradient(135deg, #2d5016 0%, #1a3009 100%);
+    padding: 0;
     border-radius: 16px;
     margin: 0;
+    overflow: hidden;
 }
 
-/* Farm Header */
+/* Farm Background Wrapper - 包含背景图和所有UI */
+.farm-bg-wrapper {
+    position: relative;
+    background-size: cover;
+    background-position: center top;
+    background-repeat: no-repeat;
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+/* Farm Header - 顶部悬浮 */
 .farm-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
     padding: 8px 12px;
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
     gap: 8px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+}
+
+.farm-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.farm-close-btn {
+    padding: 4px 8px !important;
+    font-size: 14px !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    border-radius: 6px !important;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.farm-close-btn:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border-color: rgba(255, 255, 255, 0.4) !important;
 }
 
 .farm-header-right {
@@ -204,101 +239,108 @@
     display: none;
 }
 
-/* Farm Grid */
-.farm-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-    margin-bottom: 15px;
+/* Farm Background Container - 保持背景图比例 */
+.farm-bg-container {
+    position: relative;
+    width: 100%;
+    padding-bottom: 179.17%; /* 2752/1536 = 1.7917 保持图片比例 */
 }
 
+/* Farm Grid - 种植区域定位 */
+.farm-grid {
+    position: absolute;
+    display: grid;
+    gap: 1px;
+    z-index: 5;
+}
+
+/* Farm Plot - 土地格子（透明） */
 .farm-plot {
     aspect-ratio: 1;
     display: flex;
-    flex-direction: column;
-    align-items: center;
+    align-items: flex-end;
     justify-content: center;
-    background: #8b4513;
-    border-radius: 8px;
+    background: transparent;
     cursor: pointer;
-    transition: all 0.2s ease;
-    border: 2px solid #5d3a1a;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+    transition: all 0.15s ease;
     position: relative;
-    padding: 4px;
-    gap: 2px;
+    z-index: 1;
 }
 
 .farm-plot:hover {
-    transform: scale(1.05);
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.15);
 }
 
+/* 空地 - 没选种子时透明 */
 .farm-plot.empty {
-    background: linear-gradient(135deg, #8b4513 0%, #654321 100%);
+    background: transparent;
 }
 
-.farm-plot.growing {
-    background: linear-gradient(135deg, #654321 0%, #4a3520 100%);
-    animation: growing-pulse 2s infinite;
+/* 空地 - 选了种子时显示网格线 */
+.farm-plot.empty.show-grid {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px dashed rgba(255, 255, 255, 0.3);
+}
+
+.farm-plot.empty.show-grid:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* 有作物的地块 */
+.farm-plot.growing,
+.farm-plot.ripe {
+    background: transparent;
 }
 
 .farm-plot.ripe {
-    background: linear-gradient(135deg, #228b22 0%, #006400 100%);
-    border-color: #32cd32;
-    animation: ripe-glow 1s infinite;
-}
-
-@keyframes growing-pulse {
-    0%, 100% { box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3); }
-    50% { box-shadow: inset 0 2px 8px rgba(144, 238, 144, 0.3); }
+    animation: ripe-glow 1.5s infinite;
 }
 
 @keyframes ripe-glow {
-    0%, 100% { box-shadow: 0 0 5px #32cd32; }
-    50% { box-shadow: 0 0 15px #32cd32, 0 0 25px #228b22; }
+    0%, 100% { box-shadow: none; }
+    50% { box-shadow: inset 0 0 15px rgba(255, 215, 0, 0.4); }
 }
 
-.plot-emoji {
-    font-size: 24px;
-    user-select: none;
-}
-
-.plot-time {
-    font-size: 9px;
-    color: rgba(255, 255, 255, 0.8);
-    background: rgba(0, 0, 0, 0.4);
-    padding: 1px 4px;
-    border-radius: 4px;
-    white-space: nowrap;
-}
-
-.plot-time.ready {
-    color: #90ee90;
-    background: rgba(50, 205, 50, 0.3);
-}
-
-.plot-boost-btn {
+/* 作物图片 - 底部边框中点对齐格子中心 */
+.crop-image {
+    width: auto;
+    height: 60%;
+    max-height: 24px;
+    object-fit: contain;
+    image-rendering: pixelated;
     position: absolute;
-    top: 2px;
-    right: 2px;
-    width: 18px;
-    height: 18px;
-    padding: 0;
-    border: none;
-    background: linear-gradient(135deg, #ff9500, #ff6b00);
-    border-radius: 50%;
-    font-size: 10px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-    transition: transform 0.2s;
+    bottom: 40%;
+    left: 50%;
+    transform: translateX(-50%);
+    pointer-events: none;
+    filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.4));
 }
 
-.plot-boost-btn:hover {
-    transform: scale(1.2);
+/* 根据不同阶段调整图片大小 */
+.farm-plot.growing .crop-image {
+    height: 50%;
+    max-height: 20px;
+}
+
+.farm-plot.ripe .crop-image {
+    height: 70%;
+    max-height: 28px;
+}
+
+/* Farm Actions - 底部按钮（覆盖在背景上） */
+.farm-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
 }
 
 /* Pixel Art Styles */
@@ -419,27 +461,6 @@
     border-radius: 6px;
 }
 
-/* Farm Status Bar */
-.farm-status {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 10px;
-    padding: 8px;
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 6px;
-    margin-bottom: 10px;
-    font-size: 13px;
-}
-
-.farm-selected-seed {
-    color: #90ee90;
-}
-
-.farm-no-seed {
-    color: rgba(255, 255, 255, 0.6);
-}
-
 .farm-boost-badge {
     background: linear-gradient(135deg, #ff6b35, #f7931e);
     padding: 2px 8px;
@@ -447,13 +468,6 @@
     font-size: 11px;
     color: #fff;
     font-weight: bold;
-}
-
-/* Farm Actions */
-.farm-actions {
-    display: flex;
-    gap: 10px;
-    justify-content: center;
 }
 
 .farm-action-btn {

@@ -27,8 +27,25 @@ export function loadGame() {
             const data = JSON.parse(saved);
             Object.assign(gameState, data);
 
-            if (!gameState.plots || gameState.plots.length !== GRID_SIZE * GRID_SIZE) {
-                initGameState();
+            // 检查地块数量，如果不匹配则扩展或重建
+            if (!gameState.plots || gameState.plots.length < GRID_SIZE) {
+                // 保留现有地块，扩展新地块
+                const existingPlots = gameState.plots || [];
+                gameState.plots = [];
+                for (let i = 0; i < GRID_SIZE; i++) {
+                    if (i < existingPlots.length) {
+                        gameState.plots.push(existingPlots[i]);
+                    } else {
+                        gameState.plots.push({
+                            crop: null,
+                            plantedAt: null,
+                            boostedDays: 0,
+                        });
+                    }
+                }
+            } else if (gameState.plots.length > GRID_SIZE) {
+                // 截断多余的地块
+                gameState.plots = gameState.plots.slice(0, GRID_SIZE);
             }
 
             // 兼容旧数据
@@ -37,7 +54,11 @@ export function loadGame() {
                 delete gameState.boostSeconds;
             }
             if (!Array.isArray(gameState.unlockedCrops)) {
-                gameState.unlockedCrops = ['carrot', 'potato'];
+                gameState.unlockedCrops = ['tomato', 'carrot', 'potato'];
+            }
+            // 确保番茄默认解锁
+            if (!gameState.unlockedCrops.includes('tomato')) {
+                gameState.unlockedCrops.unshift('tomato');
             }
             if (!Array.isArray(gameState.ownedItems)) {
                 gameState.ownedItems = [];

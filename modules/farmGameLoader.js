@@ -54,9 +54,6 @@ export async function showFarmGamePanel(extensionUrl) {
     panel.className = 'ai-dict-farm-panel';
     panel.innerHTML = `
         <div class="ai-dict-farm-panel-content">
-            <button class="ai-dict-farm-close-btn menu_button" title="关闭">
-                <i class="fa-solid fa-times"></i>
-            </button>
             <div id="farm-game-container"></div>
         </div>
     `;
@@ -65,16 +62,6 @@ export async function showFarmGamePanel(extensionUrl) {
 
     if (window.FarmGame) {
         window.FarmGame.init();
-    }
-
-    const closeBtn = panel.querySelector('.ai-dict-farm-close-btn');
-    if (closeBtn) {
-        closeBtn.addEventListener('click', () => {
-            if (window.FarmGame && typeof window.FarmGame.cleanup === 'function') {
-                window.FarmGame.cleanup();
-            }
-            panel.remove();
-        });
     }
 
     panel.addEventListener('click', (e) => {

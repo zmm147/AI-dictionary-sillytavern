@@ -102,7 +102,16 @@ const FarmGame = (() => {
                 const slotIndex = parseInt(el.dataset.slotIndex);
                 const cropType = el.dataset.cropType;
                 if (cropType && isCropUnlocked(cropType)) {
-                    gameState.selectedSeed = cropType;
+                    // 再次点击已选中的种子，取消选择
+                    if (gameState.selectedSeed === cropType) {
+                        gameState.selectedSeed = null;
+                    } else {
+                        gameState.selectedSeed = cropType;
+                    }
+                    render();
+                } else {
+                    // 点击空槽位，取消选择
+                    gameState.selectedSeed = null;
                     render();
                 }
             });
@@ -136,6 +145,15 @@ const FarmGame = (() => {
             uiState.showingInventory = true;
             uiState.inventoryTab = 'items'; // 默认显示物品页
             render();
+        });
+
+        // 关闭按钮
+        document.getElementById('farm-close')?.addEventListener('click', () => {
+            const panel = document.getElementById('ai-dict-farm-panel');
+            if (panel) {
+                cleanup();
+                panel.remove();
+            }
         });
     }
 

@@ -20,11 +20,16 @@ export function getGrowthProgress(plot) {
 }
 
 /**
- * 获取作物生长阶段（0-3）
+ * 获取作物生长阶段（0-2，共3阶段）
+ * 0: 种子阶段 (0-50%)
+ * 1: 生长阶段 (50%-99%)
+ * 2: 成熟阶段 (100%)
  */
 export function getGrowthStage(plot) {
     const progress = getGrowthProgress(plot);
-    return Math.floor(progress * 3);
+    if (progress >= 1) return 2;      // 成熟
+    if (progress >= 0.5) return 1;    // 生长中
+    return 0;                          // 种子
 }
 
 /**
@@ -69,14 +74,13 @@ export function unlockCrop(cropKey) {
 }
 
 /**
- * 种植作物
+ * 种植作物（不再检查/扣除金币，种子在调用处消耗）
  */
 export function plantCrop(index, cropType) {
     const crop = CROPS[cropType];
-    if (gameState.coins < crop.seedPrice) return false;
+    if (!crop) return false;
     if (!isCropUnlocked(cropType)) return false;
 
-    gameState.coins -= crop.seedPrice;
     gameState.plots[index] = {
         crop: cropType,
         plantedAt: Date.now(),

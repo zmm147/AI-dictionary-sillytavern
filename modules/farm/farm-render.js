@@ -3,7 +3,7 @@
  * 渲染相关功能
  */
 
-import { CROPS, GROWTH_STAGES, PETS } from './farm-config.js';
+import { CROPS, GROWTH_STAGES, PETS, CROP_IMAGES, GRID_COLS, BG_IMAGE, BG_WIDTH, BG_HEIGHT, PLANT_AREA } from './farm-config.js';
 import { gameState, uiState } from './farm-state.js';
 import {
     getGrowthStage,
@@ -18,12 +18,44 @@ import { getSeedCount } from './farm-seed-inventory.js';
 import { getPetDisplayName, loadFloatingPet, removeFloatingPet } from './farm-pet.js';
 
 /**
+ * 获取扩展基础路径
+ */
+function getBasePath() {
+    const currentScript = document.querySelector('script[src*="farm-game.js"]');
+    return currentScript ? currentScript.src.replace('farm-game.js', '') : '';
+}
+
+/**
+ * 获取作物图片路径
+ * @param {string} cropType - 作物类型
+ * @param {number} stage - 生长阶段 (0-2)
+ */
+function getCropImageSrc(cropType, stage) {
+    const basePath = getBasePath();
+
+    // 阶段 0：所有作物使用通用种子图片
+    if (stage === 0) {
+        return basePath + CROP_IMAGES.seed;
+    }
+
+    // 番茄使用专用图片
+    if (cropType === 'tomato') {
+        return stage === 1
+            ? basePath + CROP_IMAGES.tomato1
+            : basePath + CROP_IMAGES.tomato2;
+    }
+
+    // 其他作物使用浆果图片
+    return stage === 1
+        ? basePath + CROP_IMAGES.berry1
+        : basePath + CROP_IMAGES.berry2;
+}
+
+/**
  * 获取宠物图标HTML
  */
 function getPetIconHTML(petId, petEmoji, className = 'shop-item-emoji') {
-    // 获取图片路径
-    const currentScript = document.querySelector('script[src*="farm-game.js"]');
-    const basePath = currentScript ? currentScript.src.replace('farm-game.js', '') : '';
+    const basePath = getBasePath();
 
     // 如果是猫咪，使用图片
     if (petId === 'cat') {
@@ -83,25 +115,28 @@ export function renderQuickSlots() {
  * 渲染地块
  */
 export function renderPlot(plot, index) {
-    let emoji = '🟫';
-    let className = 'empty';
+    const hasSeedSelected = !!gameState.selectedSeed;
 
     if (plot.crop) {
+        // 有作物
         const stage = getGrowthStage(plot);
-        if (stage >= 3 || isRipe(plot)) {
-            emoji = CROPS[plot.crop].emoji;
-            className = 'ripe';
-        } else {
-            emoji = GROWTH_STAGES[stage];
-            className = 'growing';
-        }
-    }
+        const ripe = isRipe(plot);
+        const imageSrc = getCropImageSrc(plot.crop, stage);
+        const className = ripe ? 'ripe' : 'growing';
 
-    return `
-        <div class="farm-plot ${className}" data-index="${index}">
-            <span class="plot-emoji">${emoji}</span>
-        </div>
-    `;
+        return `
+            <div class="farm-plot ${className}" data-index="${index}">
+                <img src="${imageSrc}" class="crop-image" alt="${CROPS[plot.crop].name}" />
+            </div>
+        `;
+    } else {
+        // 空地
+        const showGrid = hasSeedSelected;
+        return `
+            <div class="farm-plot empty ${showGrid ? 'show-grid' : ''}" data-index="${index}">
+            </div>
+        `;
+    }
 }
 
 /**
@@ -562,42 +597,64 @@ function populatePresetFiles() {
  * 渲染主游戏视图
  */
 export function renderMainView(container) {
+    // 检查 selectedSeed 是否仍有效（有库存）
+    if (gameState.selectedSeed) {
+        const seedCount = getSeedCount(gameState.selectedSeed);
+        if (seedCount <= 0) {
+            gameState.selectedSeed = null;
+        }
+    }
+
+    const hasSeedSelected = !!gameState.selectedSeed;
+    const basePath = getBasePath();
+    const bgImageUrl = basePath + BG_IMAGE;
+
+    // 计算种植区域的百分比位置
+    const plantAreaLeft = (PLANT_AREA.left / BG_WIDTH * 100).toFixed(2);
+    const plantAreaTop = (PLANT_AREA.top / BG_HEIGHT * 100).toFixed(2);
+    const plantAreaWidth = ((PLANT_AREA.right - PLANT_AREA.left) / BG_WIDTH * 100).toFixed(2);
+    const plantAreaHeight = ((PLANT_AREA.bottom - PLANT_AREA.top) / BG_HEIGHT * 100).toFixed(2);
+
     const html = `
-        <div class="farm-game">
-            <div class="farm-header">
-                <span class="farm-coins">💰 ${gameState.coins}</span>
-                <div class="farm-quick-slots">
-                    ${renderQuickSlots()}
+        <div class="farm-game ${hasSeedSelected ? 'seed-selected' : ''}">
+            <div class="farm-bg-wrapper" style="background-image: url('${bgImageUrl}');">
+                <div class="farm-header">
+                    <div class="farm-header-left">
+                        <button class="farm-close-btn menu_button" id="farm-close" title="关闭">
+                            <i class="fa-solid fa-times"></i>
+                        </button>
+                        <span class="farm-coins">💰 ${gameState.coins}</span>
+                    </div>
+                    <div class="farm-quick-slots">
+                        ${renderQuickSlots()}
+                    </div>
+                    <div class="farm-header-right">
+                        <button class="farm-inventory-btn menu_button" id="farm-open-inventory" title="物品">
+                            🎁
+                        </button>
+                        <span class="farm-boost-points ${gameState.boostDays >= 1 ? 'clickable' : ''}"
+                              id="farm-boost-points"
+                              title="${gameState.boostDays >= 1 ? '点击使用加速' : '加速天数'}">
+                            ⚡ ${gameState.boostDays}天
+                        </span>
+                    </div>
                 </div>
-                <div class="farm-header-right">
-                    <button class="farm-inventory-btn menu_button" id="farm-open-inventory" title="物品">
-                        🎁
+
+                <div class="farm-bg-container">
+                    <div class="farm-grid"
+                         style="left: ${plantAreaLeft}%; top: ${plantAreaTop}%; width: ${plantAreaWidth}%; height: ${plantAreaHeight}%; grid-template-columns: repeat(${GRID_COLS}, 1fr);">
+                        ${gameState.plots.map((plot, i) => renderPlot(plot, i)).join('')}
+                    </div>
+                </div>
+
+                <div class="farm-actions">
+                    <button class="farm-action-btn menu_button" id="farm-open-shop">
+                        🏪 商店
                     </button>
-                    <span class="farm-boost-points ${gameState.boostDays >= 1 ? 'clickable' : ''}"
-                          id="farm-boost-points"
-                          title="${gameState.boostDays >= 1 ? '点击使用加速' : '加速天数'}">
-                        ⚡ ${gameState.boostDays}天
-                    </span>
+                    <button class="farm-action-btn menu_button" id="farm-start-flashcard">
+                        📚 背单词
+                    </button>
                 </div>
-            </div>
-
-            <div class="farm-grid">
-                ${gameState.plots.map((plot, i) => renderPlot(plot, i)).join('')}
-            </div>
-
-            <div class="farm-status">
-                ${gameState.selectedSeed
-                    ? `<span class="farm-selected-seed">已选: ${CROPS[gameState.selectedSeed].emoji} ${CROPS[gameState.selectedSeed].name}</span>`
-                    : '<span class="farm-no-seed">点击下方选种子</span>'}
-            </div>
-
-            <div class="farm-actions">
-                <button class="farm-action-btn menu_button" id="farm-open-shop">
-                    🏪 商店
-                </button>
-                <button class="farm-action-btn menu_button" id="farm-start-flashcard">
-                    📚 背单词
-                </button>
             </div>
         </div>
     `;
