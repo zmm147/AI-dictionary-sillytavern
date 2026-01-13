@@ -23,7 +23,8 @@ import {
 import {
     loadReviewDataFromJsonBackup,
     backupReviewDataToJson,
-    restoreReviewDataFromBackup
+    restoreReviewDataFromBackup,
+    deleteReviewDataJsonBackup
 } from './backup.js';
 import { debounce, cleanWord, ensureWordsArray } from './utils.js';
 
@@ -614,4 +615,5 @@ export async function clearAllReviewData() {
     reviewData.currentSession.lastUpdated = null;
 
     await clearAllReviewDataFromDb();
+    await deleteReviewDataJsonBackup();
 }

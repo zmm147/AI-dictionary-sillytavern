@@ -235,6 +235,28 @@ export async function backupFlashcardDataToJson(flashcardData) {
 }
 
 /**
+ * Delete review data JSON backup file
+ * @returns {Promise<boolean>}
+ */
+export async function deleteReviewDataJsonBackup() {
+    try {
+        const response = await fetch('/api/files/delete', {
+            method: 'POST',
+            headers: getRequestHeaders(),
+            body: JSON.stringify({ path: `/user/files/${BACKUP_REVIEW_DATA_FILE}` }),
+        });
+
+        if (response.ok) {
+            console.log(`[${EXTENSION_NAME}] Review data backup file deleted`);
+            return true;
+        }
+    } catch (e) {
+        console.error(`[${EXTENSION_NAME}] Delete review backup error:`, e.message);
+    }
+    return false;
+}
+
+/**
  * Restore flashcard data from backup to IndexedDB
  * @param {Object} backupData
  */

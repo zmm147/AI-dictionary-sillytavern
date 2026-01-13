@@ -76,7 +76,7 @@ export const defaultSettings = {
     autoFetchAI: true,
     fetchAIOnYoudaoExpand: true,
     immersiveReview: true,
-    reviewPrompt: `Naturally incorporate the following words into the narrative at least once, without making the story feel forced or awkward: [%words%]. If the current part of the story does not naturally fit these words, you may develop the scene to make their use plausible.`,
+    reviewPrompt: `Naturally incorporate at least one of the following words into the narrative without making the story feel forced or awkward: [%words%]. You do not need to use all the words from the list in a single reply. If some words do not fit naturally into the current scene, feel free to expand or advance the story to set up opportunities for incorporating the remaining words in future responses.`,
     // Pet commentary settings
     petCommentary: {
         enabled: false,

@@ -161,7 +161,7 @@ export function createSidePanel(options) {
 
         toggle.style.position = 'fixed';
         toggle.style.pointerEvents = 'auto';
-        toggle.style.zIndex = '200005';
+        toggle.style.zIndex = '99997'; // 低于农场面板(99998)和悬浮宠物(99999)
 
         if (settings.mobileTogglePosition) {
             toggle.style.left = settings.mobileTogglePosition.left;

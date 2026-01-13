@@ -115,6 +115,13 @@ body.ai-dict-disable-context-menu * {
     background-color: var(--SmartThemeHoverColor);
 }
 
+/* Mobile: 词典图标在农场面板下面 */
+@media screen and (max-width: 768px) {
+    #ai-dictionary-icon {
+        z-index: 99997;
+    }
+}
+
 /* Desktop Popup */
 .ai-dict-desktop-popup {
     position: fixed;

@@ -3,6 +3,22 @@
  * Farm game panel, grid, shop, and game mechanics styles
  */
 
+/* 移动端优化：禁用点击高亮、双击缩放，减少闪烁 */
+.ai-dict-farm-panel,
+.ai-dict-farm-panel *,
+.farm-game,
+.farm-game * {
+    -webkit-tap-highlight-color: transparent !important;
+    -webkit-touch-callout: none !important;
+    touch-action: manipulation !important;
+}
+
+/* 防止移动端长按选中文本 */
+.ai-dict-farm-panel {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+}
+
 /* Fix for menu_button text wrapping issue */
 .farm-game .menu_button,
 .farm-shop .menu_button,
@@ -318,14 +334,16 @@
 }
 
 /* 根据不同阶段调整图片大小 */
+/* 第一阶段（种子）- 更小 */
 .farm-plot.growing .crop-image {
-    height: 50%;
-    max-height: 20px;
+    height: 35%;
+    max-height: 14px;
 }
 
+/* 第二阶段（成熟）- 更大 */
 .farm-plot.ripe .crop-image {
-    height: 70%;
-    max-height: 28px;
+    height: 85%;
+    max-height: 34px;
 }
 
 /* Farm Actions - 底部按钮（覆盖在背景上） */
@@ -486,6 +504,7 @@
     background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
     border-radius: 12px;
     height: 100%;
+    min-height: 0;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
@@ -522,6 +541,7 @@
     gap: 8px;
     flex: 1;
     overflow-y: auto;
+    min-height: 0;
 }
 
 .farm-shop-item {
@@ -1006,6 +1026,7 @@
     background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
     border-radius: 12px;
     height: 100%;
+    min-height: 0;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
@@ -1021,6 +1042,7 @@
     padding: 20px;
     overflow-y: auto;
     overflow-x: hidden;
+    min-height: 0;
 }
 
 .farm-pet-avatar {
@@ -1122,6 +1144,11 @@
 
 /* Mobile Responsive - Floating Pet */
 @media screen and (max-width: 768px) {
+    /* 农场面板在移动端置于最顶层（仅低于悬浮宠物） */
+    .ai-dict-farm-panel {
+        z-index: 99998;
+    }
+
     .floating-pet {
         width: 70px;
         height: 70px;

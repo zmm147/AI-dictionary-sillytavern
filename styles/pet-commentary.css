@@ -31,6 +31,9 @@
 
 .pet-commentary-config {
     margin-top: 12px;
+    max-height: 400px;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .pet-commentary-field {
@@ -483,6 +486,10 @@
         width: 24px;
         height: 24px;
     }
+
+    .pet-commentary-config {
+        max-height: 300px;
+    }
 }
 
 @media screen and (max-width: 450px) {
@@ -498,5 +505,9 @@
     .pet-name-input {
         font-size: 14px;
         max-width: 120px;
+    }
+
+    .pet-commentary-config {
+        max-height: 250px;
     }
 }

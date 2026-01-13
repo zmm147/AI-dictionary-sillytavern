@@ -22,6 +22,7 @@ import { exchangePet } from './modules/farm/farm-shop.js';
 import { setQuickSlot, getQuickSlot } from './modules/farm/farm-quickslot.js';
 import { addSeedToInventory, consumeSeed, hasSeed } from './modules/farm/farm-seed-inventory.js';
 import { renamePet, createFloatingPet, restoreFloatingPet, removeFloatingPet, loadFloatingPet, FLOATING_PET_POSITION_KEY } from './modules/farm/farm-pet.js';
+import { bindPetCommentaryEvents } from './modules/farm/farm-pet-commentary.js';
 import {
     renderMainView,
     renderShopView,
@@ -31,7 +32,8 @@ import {
     showHarvestMessage,
     showBoostMessage,
     showBoostAppliedMessage,
-    showMessage
+    showMessage,
+    renderPlot
 } from './modules/farm/farm-render.js';
 
 const FarmGame = (() => {
@@ -85,40 +87,197 @@ const FarmGame = (() => {
     }
 
     /**
+     * 只更新选中状态的UI，不重新渲染整个视图（避免闪烁）
+     */
+    function updateSelectionUI() {
+        const hasSeedSelected = !!gameState.selectedSeed;
+
+        // 更新游戏容器的 seed-selected 类
+        const gameContainer = document.querySelector('.farm-game');
+        if (gameContainer) {
+            gameContainer.classList.toggle('seed-selected', hasSeedSelected);
+        }
+
+        // 更新快捷栏选中状态
+        document.querySelectorAll('.farm-quick-slot').forEach(el => {
+            const cropType = el.dataset.cropType;
+            if (cropType) {
+                el.classList.toggle('selected', gameState.selectedSeed === cropType);
+            }
+        });
+
+        // 更新空地块的 show-grid 状态
+        document.querySelectorAll('.farm-plot.empty').forEach(el => {
+            el.classList.toggle('show-grid', hasSeedSelected);
+        });
+    }
+
+    /**
+     * 更新单个地块的显示（避免全量重渲染导致闪烁）
+     */
+    function updateSinglePlot(index) {
+        const plotElement = document.querySelector(`.farm-plot[data-index="${index}"]`);
+        if (!plotElement) return;
+
+        const plot = gameState.plots[index];
+        const newHtml = renderPlot(plot, index);
+
+        // 使用临时元素避免闪烁
+        const temp = document.createElement('div');
+        temp.innerHTML = newHtml.trim();
+        const newElement = temp.firstChild;
+
+        // 保留事件监听器（需要重新绑定）
+        plotElement.innerHTML = newElement.innerHTML;
+        plotElement.className = newElement.className;
+
+        // 重新绑定这个地块的事件
+        const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+        // 移除旧的事件监听器（通过克隆）
+        const newPlotElement = plotElement.cloneNode(true);
+        plotElement.parentNode.replaceChild(newPlotElement, plotElement);
+
+        // 重新绑定事件
+        let lastTapTime = 0;
+        if (isTouchDevice) {
+            newPlotElement.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const now = Date.now();
+                if (now - lastTapTime < 300) return;
+                lastTapTime = now;
+                handlePlotClick(index);
+            }, { passive: false });
+        } else {
+            newPlotElement.addEventListener('click', () => {
+                handlePlotClick(index);
+            });
+        }
+
+        // 更新空地块的 show-grid 状态
+        if (!plot.crop) {
+            newPlotElement.classList.toggle('show-grid', !!gameState.selectedSeed);
+        }
+    }
+
+    /**
+     * 更新金币显示
+     */
+    function updateCoinDisplay() {
+        const coinElements = document.querySelectorAll('.farm-coins, .farm-shop-coins');
+        coinElements.forEach(el => {
+            el.textContent = `💰 ${gameState.coins}`;
+        });
+    }
+
+    /**
+     * 处理地块点击
+     */
+    function handlePlotClick(index) {
+        const plot = gameState.plots[index];
+
+        if (plot.crop) {
+            const crop = harvestCrop(index);
+            if (crop) {
+                showHarvestMessage(crop);
+                updateSinglePlot(index);
+                updateCoinDisplay();
+            }
+        } else {
+            if (gameState.selectedSeed && isCropUnlocked(gameState.selectedSeed)) {
+                // 检查是否有种子
+                if (!hasSeed(gameState.selectedSeed)) {
+                    showHarvestMessage({ emoji: '❌', sellPrice: 0 });
+                    const container = document.querySelector('.farm-harvest-msg');
+                    if (container) container.textContent = '没有种子！';
+                    return;
+                }
+
+                // 尝试种植（会扣金币）
+                if (plantCrop(index, gameState.selectedSeed)) {
+                    // 种植成功，消耗种子
+                    consumeSeed(gameState.selectedSeed, 1);
+                    updateSinglePlot(index);
+                    updateCoinDisplay();
+                }
+            }
+        }
+    }
+
+    /**
      * 绑定主界面事件
      */
     function bindEvents() {
+        // 检测是否为触摸设备
+        const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
         // 地块点击
         document.querySelectorAll('.farm-plot').forEach(el => {
-            el.addEventListener('click', () => {
-                const index = parseInt(el.dataset.index);
-                handlePlotClick(index);
-            });
+            let lastTapTime = 0;
+
+            // 触摸设备使用 touchstart 防止闪烁
+            if (isTouchDevice) {
+                el.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    const now = Date.now();
+                    if (now - lastTapTime < 300) return;
+                    lastTapTime = now;
+                    const index = parseInt(el.dataset.index);
+                    handlePlotClick(index);
+                }, { passive: false });
+            } else {
+                // PC端使用普通 click
+                el.addEventListener('click', () => {
+                    const index = parseInt(el.dataset.index);
+                    handlePlotClick(index);
+                });
+            }
         });
 
         // 快捷栏点击
         document.querySelectorAll('.farm-quick-slot').forEach(el => {
-            el.addEventListener('click', () => {
-                const slotIndex = parseInt(el.dataset.slotIndex);
-                const cropType = el.dataset.cropType;
-                if (cropType && isCropUnlocked(cropType)) {
-                    // 再次点击已选中的种子，取消选择
-                    if (gameState.selectedSeed === cropType) {
-                        gameState.selectedSeed = null;
+            let lastTapTime = 0;
+
+            if (isTouchDevice) {
+                el.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    const now = Date.now();
+                    if (now - lastTapTime < 300) return;
+                    lastTapTime = now;
+                    const cropType = el.dataset.cropType;
+                    if (cropType && isCropUnlocked(cropType)) {
+                        if (gameState.selectedSeed === cropType) {
+                            gameState.selectedSeed = null;
+                        } else {
+                            gameState.selectedSeed = cropType;
+                        }
+                        updateSelectionUI();
                     } else {
-                        gameState.selectedSeed = cropType;
+                        gameState.selectedSeed = null;
+                        updateSelectionUI();
                     }
-                    render();
-                } else {
-                    // 点击空槽位，取消选择
-                    gameState.selectedSeed = null;
-                    render();
-                }
-            });
+                }, { passive: false });
+            } else {
+                // PC端使用普通 click
+                el.addEventListener('click', () => {
+                    const cropType = el.dataset.cropType;
+                    if (cropType && isCropUnlocked(cropType)) {
+                        if (gameState.selectedSeed === cropType) {
+                            gameState.selectedSeed = null;
+                        } else {
+                            gameState.selectedSeed = cropType;
+                        }
+                        updateSelectionUI();
+                    } else {
+                        gameState.selectedSeed = null;
+                        updateSelectionUI();
+                    }
+                });
+            }
         });
 
         // 加速天数点击
-        document.getElementById('farm-boost-points')?.addEventListener('click', () => {
+        document.getElementById('farm-boost-points')?.addEventListener('click', (e) => {
             if (gameState.boostDays >= 1) {
                 if (boostAllCrops()) {
                     showBoostAppliedMessage();
@@ -143,7 +302,7 @@ const FarmGame = (() => {
         // 物品按钮
         document.getElementById('farm-open-inventory')?.addEventListener('click', () => {
             uiState.showingInventory = true;
-            uiState.inventoryTab = 'items'; // 默认显示物品页
+            uiState.inventoryTab = 'items';
             render();
         });
 
@@ -425,218 +584,8 @@ const FarmGame = (() => {
             }
         });
 
-        // ===== 吐槽配置事件 =====
-
-        // 启用吐槽功能复选框
-        const enabledCheckbox = document.getElementById('pet-commentary-enabled');
-        const configContainer = document.getElementById('pet-commentary-config');
-        const collapseBtn = document.getElementById('pet-commentary-collapse');
-
-        enabledCheckbox?.addEventListener('change', () => {
-            const settings = window.aiDictionary?.settings;
-            if (settings && settings.petCommentary) {
-                settings.petCommentary.enabled = enabledCheckbox.checked;
-                window.aiDictionary.saveSettings?.();
-
-                // 显示/隐藏折叠按钮
-                if (collapseBtn) {
-                    collapseBtn.style.display = enabledCheckbox.checked ? 'flex' : 'none';
-                }
-
-                // 显示/隐藏配置区域（根据折叠状态）
-                if (configContainer) {
-                    const isCollapsed = settings.petCommentary.collapsed !== false;
-                    configContainer.style.display = enabledCheckbox.checked && !isCollapsed ? 'block' : 'none';
-                }
-            }
-        });
-
-        // 折叠/展开按钮
-        collapseBtn?.addEventListener('click', () => {
-            const settings = window.aiDictionary?.settings;
-            if (settings && settings.petCommentary) {
-                const isCollapsed = settings.petCommentary.collapsed !== false;
-                settings.petCommentary.collapsed = !isCollapsed;
-                window.aiDictionary.saveSettings?.();
-
-                // 更新UI
-                if (configContainer) {
-                    configContainer.style.display = isCollapsed ? 'block' : 'none';
-                }
-                const icon = collapseBtn.querySelector('i');
-                if (icon) {
-                    icon.className = isCollapsed ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down';
-                }
-                collapseBtn.title = isCollapsed ? '折叠设置' : '展开设置';
-            }
-        });
-
-        // 自动吐槽复选框
-        document.getElementById('pet-commentary-auto')?.addEventListener('change', (e) => {
-            const settings = window.aiDictionary?.settings;
-            if (settings && settings.petCommentary) {
-                settings.petCommentary.autoTrigger = e.target.checked;
-                window.aiDictionary.saveSettings?.();
-            }
-            // 显示/隐藏随机选项
-            const randomWrapper = document.getElementById('pet-commentary-random-wrapper');
-            if (randomWrapper) {
-                randomWrapper.style.display = e.target.checked ? 'flex' : 'none';
-            }
-        });
-
-        // 随机触发复选框
-        document.getElementById('pet-commentary-random')?.addEventListener('change', (e) => {
-            const settings = window.aiDictionary?.settings;
-            if (settings && settings.petCommentary) {
-                settings.petCommentary.randomTrigger = e.target.checked;
-                window.aiDictionary.saveSettings?.();
-            }
-            // 启用/禁用概率输入框
-            const chanceInput = document.getElementById('pet-commentary-random-chance');
-            if (chanceInput) {
-                chanceInput.disabled = !e.target.checked;
-            }
-        });
-
-        // 随机概率输入
-        document.getElementById('pet-commentary-random-chance')?.addEventListener('change', (e) => {
-            const settings = window.aiDictionary?.settings;
-            if (settings && settings.petCommentary) {
-                let value = parseInt(e.target.value) || 30;
-                value = Math.max(1, Math.min(100, value));
-                e.target.value = value;
-                settings.petCommentary.randomChance = value;
-                window.aiDictionary.saveSettings?.();
-            }
-        });
-
-        // API预设选择
-        document.getElementById('pet-commentary-profile')?.addEventListener('change', (e) => {
-            const settings = window.aiDictionary?.settings;
-            if (settings && settings.petCommentary) {
-                settings.petCommentary.connectionProfile = e.target.value;
-                window.aiDictionary.saveSettings?.();
-            }
-        });
-
-        // 使用预设文件复选框
-        document.getElementById('pet-commentary-use-preset-file')?.addEventListener('change', (e) => {
-            const settings = window.aiDictionary?.settings;
-            if (settings && settings.petCommentary) {
-                settings.petCommentary.usePresetFile = e.target.checked;
-                window.aiDictionary.saveSettings?.();
-            }
-            // 显示/隐藏预设文件选择和合并选项
-            const wrapper = document.getElementById('pet-commentary-preset-file-wrapper');
-            const mergeWrapper = document.getElementById('pet-commentary-merge-wrapper');
-            if (wrapper) {
-                wrapper.style.display = e.target.checked ? 'block' : 'none';
-            }
-            if (mergeWrapper) {
-                mergeWrapper.style.display = e.target.checked ? 'flex' : 'none';
-            }
-        });
-
-        // 预设文件选择
-        document.getElementById('pet-commentary-preset-file')?.addEventListener('change', (e) => {
-            const settings = window.aiDictionary?.settings;
-            if (settings && settings.petCommentary) {
-                settings.petCommentary.presetFileName = e.target.value;
-                window.aiDictionary.saveSettings?.();
-            }
-        });
-
-        // 合并聊天记录复选框
-        document.getElementById('pet-commentary-merge-chat')?.addEventListener('change', (e) => {
-            const settings = window.aiDictionary?.settings;
-            if (settings && settings.petCommentary) {
-                settings.petCommentary.mergeChatHistory = e.target.checked;
-                window.aiDictionary.saveSettings?.();
-            }
-        });
-
-        // 上下文消息数
-        document.getElementById('pet-commentary-max-messages')?.addEventListener('change', (e) => {
-            const settings = window.aiDictionary?.settings;
-            if (settings && settings.petCommentary) {
-                const value = parseInt(e.target.value);
-                settings.petCommentary.maxMessages = isNaN(value) ? 10 : value;
-                window.aiDictionary.saveSettings?.();
-            }
-        });
-
-        // 气泡持续时间
-        document.getElementById('pet-commentary-bubble-duration')?.addEventListener('change', (e) => {
-            const settings = window.aiDictionary?.settings;
-            if (settings && settings.petCommentary) {
-                let value = parseInt(e.target.value) || 20;
-                value = Math.max(1, Math.min(999, value));
-                e.target.value = value;
-                settings.petCommentary.bubbleDuration = value;
-                window.aiDictionary.saveSettings?.();
-            }
-        });
-
-        // 系统提示词
-        document.getElementById('pet-commentary-prompt')?.addEventListener('change', (e) => {
-            const settings = window.aiDictionary?.settings;
-            if (settings && settings.petCommentary) {
-                settings.petCommentary.systemPrompt = e.target.value;
-                window.aiDictionary.saveSettings?.();
-            }
-        });
-
-        // 重置提示词按钮
-        document.getElementById('pet-commentary-reset-prompt')?.addEventListener('click', () => {
-            const settings = window.aiDictionary?.settings;
-            const defaultPrompt = window.aiDictionary?.defaultSettings?.petCommentary?.systemPrompt || '';
-
-            if (settings && settings.petCommentary) {
-                settings.petCommentary.systemPrompt = defaultPrompt;
-                window.aiDictionary.saveSettings?.();
-
-                const textarea = document.getElementById('pet-commentary-prompt');
-                if (textarea) {
-                    textarea.value = defaultPrompt;
-                }
-            }
-        });
-
-        // 用户提示词
-        document.getElementById('pet-commentary-user-prompt')?.addEventListener('change', (e) => {
-            const settings = window.aiDictionary?.settings;
-            if (settings && settings.petCommentary) {
-                settings.petCommentary.userPrompt = e.target.value;
-                window.aiDictionary.saveSettings?.();
-            }
-        });
-
-        // 重置用户提示词按钮
-        document.getElementById('pet-commentary-reset-user-prompt')?.addEventListener('click', () => {
-            const settings = window.aiDictionary?.settings;
-            const defaultPrompt = window.aiDictionary?.defaultSettings?.petCommentary?.userPrompt || '';
-
-            if (settings && settings.petCommentary) {
-                settings.petCommentary.userPrompt = defaultPrompt;
-                window.aiDictionary.saveSettings?.();
-
-                const textarea = document.getElementById('pet-commentary-user-prompt');
-                if (textarea) {
-                    textarea.value = defaultPrompt;
-                }
-            }
-        });
-
-        // 测试吐槽按钮
-        document.getElementById('pet-commentary-test')?.addEventListener('click', () => {
-            if (typeof window.triggerPetCommentary === 'function') {
-                window.triggerPetCommentary();
-            } else {
-                console.warn('[FarmGame] triggerPetCommentary not available');
-                alert('吐槽功能未初始化，请先展示宠物后再试。');
-            }
-        });
+        // 绑定吐槽配置事件
+        bindPetCommentaryEvents();
     }
 
     /**
@@ -663,38 +612,6 @@ const FarmGame = (() => {
                 uiState.flashcardStarted = false;
                 render();
             });
-        }
-    }
-
-    /**
-     * 处理地块点击
-     */
-    function handlePlotClick(index) {
-        const plot = gameState.plots[index];
-
-        if (plot.crop) {
-            const crop = harvestCrop(index);
-            if (crop) {
-                showHarvestMessage(crop);
-                render();
-            }
-        } else {
-            if (gameState.selectedSeed && isCropUnlocked(gameState.selectedSeed)) {
-                // 检查是否有种子
-                if (!hasSeed(gameState.selectedSeed)) {
-                    showHarvestMessage({ emoji: '❌', sellPrice: 0 });
-                    const container = document.querySelector('.farm-harvest-msg');
-                    if (container) container.textContent = '没有种子！';
-                    return;
-                }
-
-                // 尝试种植（会扣金币）
-                if (plantCrop(index, gameState.selectedSeed)) {
-                    // 种植成功，消耗种子
-                    consumeSeed(gameState.selectedSeed, 1);
-                    render();
-                }
-            }
         }
     }
 
@@ -740,9 +657,9 @@ const FarmGame = (() => {
         if (gameLoop) return;
         gameLoop = setInterval(() => {
             if (document.getElementById('farm-game-container') && !uiState.showingFlashcards) {
-                render();
+                saveGame();
             }
-        }, 60000); // 每分钟更新一次
+        }, 300000); // 每5分钟自动保存一次
     }
 
     function stopGameLoop() {
@@ -769,6 +686,7 @@ const FarmGame = (() => {
     function init() {
         resetUIState();
         loadGame();
+        gameState.selectedSeed = null;
         restoreFloatingPet(); // 恢复悬浮宠物
         render();
         startGameLoop();
