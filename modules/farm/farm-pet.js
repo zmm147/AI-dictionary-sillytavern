@@ -140,8 +140,7 @@ export function createFloatingPet(petId, timestamp) {
     const position = savedPosition || { x: window.innerWidth - 150, y: 100 };
 
     // 获取图片路径
-    const currentScript = document.querySelector('script[src*="farm-game.js"]');
-    const basePath = currentScript ? currentScript.src.replace('farm-game.js', '') : '';
+    const basePath = new URL('../../', import.meta.url).href;
     const petImageSrc = basePath + 'flycat.gif';
 
     // 创建悬浮元素

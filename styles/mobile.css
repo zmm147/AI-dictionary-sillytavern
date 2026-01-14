@@ -178,8 +178,19 @@
     }
 
     /* ===== Flashcard Mobile ===== */
+    .flashcard-panel-content {
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 0;
+    }
+
     .flashcard-container {
         padding: 10px;
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
     }
 
     .flashcard-progress {
@@ -257,6 +268,57 @@
     .flashcard-back-btn {
         margin-bottom: 10px;
         padding: 8px 12px !important;
+    }
+
+    /* Flashcard Listen Area Mobile */
+    .flashcard-sentence-buttons {
+        gap: 6px;
+    }
+
+    .flashcard-sentence-btn {
+        width: 32px;
+        height: 32px;
+    }
+
+    .flashcard-sentence-btn i {
+        font-size: 12px;
+    }
+
+    .flashcard-sentence-text {
+        font-size: 12px;
+        padding: 6px 10px;
+    }
+
+    .flashcard-input-area input {
+        max-width: 100%;
+        font-size: 14px;
+    }
+
+    .flashcard-realtime-feedback {
+        font-size: 18px;
+    }
+
+    .flashcard-blind-input-body {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .flashcard-blind-input-body input {
+        max-width: none;
+        width: 100%;
+    }
+
+    .flashcard-blind-realtime-feedback {
+        font-size: 18px;
+    }
+
+    .flashcard-blind-sentence-text {
+        font-size: 13px;
+        padding: 8px;
+    }
+
+    .flashcard-blind-controls {
+        flex-direction: column;
     }
 
     .flashcard-empty {

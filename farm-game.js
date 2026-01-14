@@ -36,6 +36,10 @@ import {
     renderPlot
 } from './modules/farm/farm-render.js';
 
+/** @type {string} */
+const FLASHCARD_SCRIPT_URL = new URL('flashcard.js', import.meta.url).href;
+console.log('[FarmGame] Module loaded, FLASHCARD_SCRIPT_URL:', FLASHCARD_SCRIPT_URL);
+
 const FarmGame = (() => {
     let gameLoop = null;
 
@@ -616,26 +620,60 @@ const FarmGame = (() => {
     }
 
     /**
+     * 显示背单词加载失败提示
+     * @param {string} message
+     */
+    function showFlashcardLoadError(message) {
+        const container = document.getElementById('flashcard-container');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="flashcard-empty">
+                <div class="flashcard-empty-icon">⚠️</div>
+                <div class="flashcard-empty-text">${message}</div>
+                <div class="flashcard-empty-stats">请刷新页面或稍后再试。</div>
+            </div>
+        `;
+    }
+
+    /**
      * 加载并启动背单词
      */
     async function loadFlashcardAndStart() {
+        const startFlashcard = async () => {
+            try {
+                await window.Flashcard.start(onFlashcardComplete);
+            } catch (error) {
+                console.error('[FarmGame] Flashcard start error:', error);
+                showFlashcardLoadError('背单词启动失败');
+            }
+        };
+
         if (!window.Flashcard) {
             try {
+                console.log('[FarmGame] Loading flashcard from:', FLASHCARD_SCRIPT_URL);
                 const script = document.createElement('script');
-                const currentScript = document.querySelector('script[src*="farm-game.js"]');
-                const basePath = currentScript ? currentScript.src.replace('farm-game.js', '') : '';
-                script.src = basePath + 'flashcard.js';
+                script.src = FLASHCARD_SCRIPT_URL;
                 script.onload = () => {
+                    console.log('[FarmGame] Flashcard script loaded, window.Flashcard:', !!window.Flashcard);
                     if (window.Flashcard) {
-                        window.Flashcard.start(onFlashcardComplete);
+                        startFlashcard();
+                    } else {
+                        console.error('[FarmGame] window.Flashcard is not defined after script load');
+                        showFlashcardLoadError('背单词加载失败');
                     }
+                };
+                script.onerror = (e) => {
+                    console.error('[FarmGame] Failed to load flashcard script:', e);
+                    showFlashcardLoadError('背单词加载失败');
                 };
                 document.head.appendChild(script);
             } catch (e) {
                 console.error('[FarmGame] Failed to load flashcard:', e);
+                showFlashcardLoadError('背单词加载失败');
             }
         } else {
-            window.Flashcard.start(onFlashcardComplete);
+            await startFlashcard();
         }
     }
 

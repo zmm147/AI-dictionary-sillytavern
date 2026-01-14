@@ -21,8 +21,7 @@ import { getPetDisplayName, loadFloatingPet, removeFloatingPet } from './farm-pe
  * 获取扩展基础路径
  */
 function getBasePath() {
-    const currentScript = document.querySelector('script[src*="farm-game.js"]');
-    return currentScript ? currentScript.src.replace('farm-game.js', '') : '';
+    return new URL('../../', import.meta.url).href;
 }
 
 /**
@@ -375,9 +374,7 @@ export function renderPetView(container) {
     const displayName = getPetDisplayName(pet);
 
     // 获取图片路径
-    const currentScript = document.querySelector('script[src*="farm-game.js"]');
-    const basePath = currentScript ? currentScript.src.replace('farm-game.js', '') : '';
-    const petImageSrc = basePath + 'flycat.png';
+    const petImageSrc = getBasePath() + 'flycat.png';
 
     // 检查当前是否有悬浮宠物显示
     const floatingPetState = loadFloatingPet();
