@@ -38,7 +38,6 @@ const Flashcard = (() => {
     let blindListeningAudio = null;
     let blindListeningPlaybackToken = 0;
     let blindListeningGenerationToken = 0;
-    let audioUnlocked = false;
     let mobileTtsCache = new Map();
     let mobileTtsBufferCache = new Map();
     let iosAudioContext = null;
@@ -47,8 +46,8 @@ const Flashcard = (() => {
     let inputExpanded = false;
     let showActionButtons = false;
     let showWordOnFront = false;
+    let ttsSpeed = parseFloat(localStorage.getItem('flashcard_tts_speed')) || 1.0;
 
-    const AUDIO_UNLOCK_SRC = 'data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQIAAAAAAA==';
     const MOBILE_TTS_ENDPOINT = 'https://tts.wangwangit.com/v1/audio/speech';
     const MOBILE_TTS_VOICE = 'en-US-JennyNeural';
     let blindListeningDisplayedSentence = '';  // 显示在音频区域的句子文本
@@ -283,6 +282,17 @@ const Flashcard = (() => {
         container.innerHTML = `
             <div class="flashcard-progress">
                 <span>📚 ${progressInfo}</span>
+                <div class="flashcard-speed-control">
+                    <label>语速:</label>
+                    <select class="form-select" id="flashcard-speed-select">
+                        <option value="0.5" ${ttsSpeed === 0.5 ? 'selected' : ''}>🐌 很慢</option>
+                        <option value="0.75" ${ttsSpeed === 0.75 ? 'selected' : ''}>🚶 慢速</option>
+                        <option value="1.0" ${ttsSpeed === 1.0 ? 'selected' : ''}>⚡ 正常</option>
+                        <option value="1.25" ${ttsSpeed === 1.25 ? 'selected' : ''}>🏃 快速</option>
+                        <option value="1.5" ${ttsSpeed === 1.5 ? 'selected' : ''}>🚀 很快</option>
+                        <option value="2.0" ${ttsSpeed === 2.0 ? 'selected' : ''}>💨 极速</option>
+                    </select>
+                </div>
                 <span>✅ ${progressScore.toFixed(1)} | ${initialDeckSize}</span>
             </div>
 
@@ -312,7 +322,7 @@ const Flashcard = (() => {
 
             <div class="flashcard-input-area">
                 <button class="flashcard-input-toggle-btn" id="flashcard-input-toggle">
-                    <i class="fa-solid fa-chevron-${inputExpanded ? 'up' : 'down'}"></i>
+                    <i class="fa-solid fa-keyboard"></i>
                 </button>
                 <div class="flashcard-input-body ${inputExpanded ? 'expanded' : 'collapsed'}">
                     <input type="text" id="flashcard-word-input" placeholder="输入听到的单词"
@@ -347,63 +357,6 @@ const Flashcard = (() => {
         `;
 
         bindCardEvents();
-    }
-
-    /**
-     * Unlock audio playback on mobile browsers.
-     * @param {HTMLAudioElement|null} audioElement
-     */
-    function unlockAudioPlayback(audioElement) {
-        if (!audioElement || audioUnlocked) return;
-
-        try {
-            const previousSrc = audioElement.getAttribute('src') || '';
-            const previousMuted = audioElement.muted;
-            const previousVolume = audioElement.volume;
-            audioElement.muted = false;
-            audioElement.volume = 0;
-            audioElement.src = AUDIO_UNLOCK_SRC;
-            audioElement.setAttribute('playsinline', '');
-            audioElement.playsInline = true;
-
-            const playPromise = audioElement.play();
-            const finalize = () => {
-                audioElement.pause();
-                audioElement.currentTime = 0;
-                audioElement.muted = previousMuted;
-                audioElement.volume = previousVolume;
-                if (previousSrc) {
-                    audioElement.src = previousSrc;
-                } else {
-                    audioElement.removeAttribute('src');
-                }
-                if (typeof audioElement.load === 'function') {
-                    audioElement.load();
-                }
-                audioUnlocked = true;
-                blindListeningStatusMessage = '';
-            };
-
-            if (playPromise && typeof playPromise.then === 'function') {
-                playPromise.then(finalize).catch((error) => {
-                    console.warn('[Flashcard] Audio unlock failed:', error);
-                    audioElement.muted = previousMuted;
-                    audioElement.volume = previousVolume;
-                    if (previousSrc) {
-                        audioElement.src = previousSrc;
-                    } else {
-                        audioElement.removeAttribute('src');
-                    }
-                    if (typeof audioElement.load === 'function') {
-                        audioElement.load();
-                    }
-                });
-            } else {
-                finalize();
-            }
-        } catch (error) {
-            console.warn('[Flashcard] Audio unlock failed:', error);
-        }
     }
 
     /**
@@ -442,7 +395,7 @@ const Flashcard = (() => {
         const requestBody = JSON.stringify({
             input: text,
             voice: MOBILE_TTS_VOICE,
-            speed: 1.0,
+            speed: ttsSpeed,
             pitch: '0',
             style: 'general'
         });
@@ -486,15 +439,12 @@ const Flashcard = (() => {
     }
 
     /**
-     * Prefetch mobile TTS audio for iOS.
+     * Prefetch mobile TTS audio for all platforms.
      * @param {string[]} sentences
      * @param {string} cachePrefix
      * @returns {Promise<void>}
      */
     async function prefetchMobileTtsSentences(sentences, cachePrefix) {
-        if (!isIosDevice()) {
-            return;
-        }
         const tasks = sentences.slice(0, 3).map((sentence, index) => {
             const key = `${cachePrefix}-${index}`;
             return getMobileTtsAudioUrl(sentence, key).catch(() => {});
@@ -509,14 +459,33 @@ const Flashcard = (() => {
      * @returns {Promise<void>}
      */
     async function playAudioFromUrl(audioElement, url) {
-        if (audioElement.src !== url) {
-            audioElement.pause();
-            audioElement.src = url;
-            audioElement.setAttribute('playsinline', '');
-            audioElement.playsInline = true;
-        } else {
-            audioElement.currentTime = 0;
-        }
+        // 先停止当前播放
+        audioElement.pause();
+        audioElement.currentTime = 0;
+
+        // 设置新的音频源
+        audioElement.src = url;
+        audioElement.setAttribute('playsinline', '');
+        audioElement.playsInline = true;
+
+        // 等待音频加载完成
+        await new Promise((resolve, reject) => {
+            const onCanPlay = () => {
+                audioElement.removeEventListener('canplaythrough', onCanPlay);
+                audioElement.removeEventListener('error', onError);
+                resolve();
+            };
+            const onError = (e) => {
+                audioElement.removeEventListener('canplaythrough', onCanPlay);
+                audioElement.removeEventListener('error', onError);
+                reject(new Error('Audio load failed'));
+            };
+            audioElement.addEventListener('canplaythrough', onCanPlay, { once: true });
+            audioElement.addEventListener('error', onError, { once: true });
+            audioElement.load();
+        });
+
+        // 播放音频
         await audioElement.play();
     }
 
@@ -612,11 +581,70 @@ const Flashcard = (() => {
     }
 
     /**
+     * 重新生成当前卡片和后续2个卡片的音频（语速改变时调用）
+     */
+    async function regenerateAudioForCurrentAndUpcoming() {
+        if (!deck.length) return;
+
+        // 收集需要重新生成音频的卡片（当前卡片 + 后续2个非复习卡片）
+        const cardsToRegenerate = [];
+
+        // 当前卡片
+        const currentCard = deck[currentIndex];
+        if (currentCard && blindListeningSentences.has(currentCard.word)) {
+            cardsToRegenerate.push(currentCard);
+        }
+
+        // 后续2个非复习卡片
+        let count = 0;
+        let searchIndex = 1;
+        while (count < 2 && searchIndex < deck.length) {
+            const nextIndex = (currentIndex + searchIndex) % deck.length;
+            const nextCard = deck[nextIndex];
+            searchIndex++;
+
+            if (!nextCard) continue;
+            if (nextCard.isReviewCard) continue;
+            if (!blindListeningSentences.has(nextCard.word)) continue;
+
+            cardsToRegenerate.push(nextCard);
+            count++;
+        }
+
+        // 重新生成音频
+        for (const card of cardsToRegenerate) {
+            const sentences = blindListeningSentences.get(card.word);
+            if (sentences && sentences.length > 0) {
+                await prefetchMobileTtsSentences(sentences, card.word);
+                console.log(`[Flashcard] Regenerated audio for: ${card.word}`);
+            }
+        }
+    }
+
+    /**
      * 绑定卡片事件
      */
     function bindCardEvents() {
         // 初始化音频元素
         blindListeningAudio = document.getElementById('flashcard-audio');
+
+        // 语速选择器
+        const speedSelect = document.getElementById('flashcard-speed-select');
+        if (speedSelect) {
+            speedSelect.addEventListener('change', async (e) => {
+                const newSpeed = parseFloat(e.target.value);
+                if (newSpeed !== ttsSpeed) {
+                    ttsSpeed = newSpeed;
+                    // 保存到localStorage
+                    localStorage.setItem('flashcard_tts_speed', ttsSpeed.toString());
+                    // 清除所有音频缓存，强制重新生成
+                    mobileTtsCache.clear();
+                    mobileTtsBufferCache.clear();
+                    // 重新生成当前卡片和后续卡片的音频
+                    await regenerateAudioForCurrentAndUpcoming();
+                }
+            });
+        }
 
         // 输入框折叠/展开按钮
         const inputToggleBtn = document.getElementById('flashcard-input-toggle');
@@ -659,7 +687,6 @@ const Flashcard = (() => {
         document.querySelectorAll('.flashcard-sentence-btn').forEach((button) => {
             button.addEventListener('click', async (e) => {
                 e.stopPropagation();
-                unlockAudioPlayback(blindListeningAudio);
                 const sentenceIndex = Number(button.dataset.sentenceIndex);
                 const currentCard = deck[currentIndex];
                 const sentences = blindListeningSentences.get(currentCard?.word) || [];
@@ -1221,7 +1248,6 @@ const Flashcard = (() => {
 
         document.querySelectorAll('.flashcard-blind-play-btn').forEach((button) => {
             button.addEventListener('click', async () => {
-                unlockAudioPlayback(blindListeningAudio);
                 const sentenceIndex = Number(button.dataset.sentenceIndex);
                 const currentCard = getBlindListeningCard();
                 const sentences = getBlindListeningSentences(currentCard?.word);
