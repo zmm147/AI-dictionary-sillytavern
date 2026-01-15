@@ -1,5 +1,6 @@
 node_modules/
 *.log
+*.vtt
 .DS_Store
 dist/
 build/

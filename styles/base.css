@@ -94,7 +94,7 @@ body.ai-dict-disable-context-menu * {
 /* Lookup Icon */
 #ai-dictionary-icon {
     position: fixed;
-    z-index: 99999;
+    z-index: 2147483647;
     cursor: pointer;
     background-color: var(--SmartThemeBlurTintColor);
     border: 1px solid var(--SmartThemeBorderColor);
@@ -118,7 +118,7 @@ body.ai-dict-disable-context-menu * {
 /* Mobile: 词典图标在农场面板下面 */
 @media screen and (max-width: 768px) {
     #ai-dictionary-icon {
-        z-index: 99997;
+        z-index: 2147483647;
     }
 }
 
