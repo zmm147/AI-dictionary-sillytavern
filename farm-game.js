@@ -37,7 +37,7 @@ import {
 } from './modules/farm/farm-render.js';
 
 /** @type {string} */
-const FLASHCARD_SCRIPT_URL = new URL('flashcard.js', import.meta.url).href;
+const FLASHCARD_SCRIPT_URL = new URL('modules/flashcard/flashcard.js', import.meta.url).href;
 console.log('[FarmGame] Module loaded, FLASHCARD_SCRIPT_URL:', FLASHCARD_SCRIPT_URL);
 
 const FarmGame = (() => {
@@ -653,15 +653,19 @@ const FarmGame = (() => {
             try {
                 console.log('[FarmGame] Loading flashcard from:', FLASHCARD_SCRIPT_URL);
                 const script = document.createElement('script');
+                script.type = 'module'; // ES6 模块
                 script.src = FLASHCARD_SCRIPT_URL;
                 script.onload = () => {
-                    console.log('[FarmGame] Flashcard script loaded, window.Flashcard:', !!window.Flashcard);
-                    if (window.Flashcard) {
-                        startFlashcard();
-                    } else {
-                        console.error('[FarmGame] window.Flashcard is not defined after script load');
-                        showFlashcardLoadError('背单词加载失败');
-                    }
+                    // 模块加载后需要等待一下让 window.Flashcard 被设置
+                    setTimeout(() => {
+                        console.log('[FarmGame] Flashcard script loaded, window.Flashcard:', !!window.Flashcard);
+                        if (window.Flashcard) {
+                            startFlashcard();
+                        } else {
+                            console.error('[FarmGame] window.Flashcard is not defined after script load');
+                            showFlashcardLoadError('背单词加载失败');
+                        }
+                    }, 100);
                 };
                 script.onerror = (e) => {
                     console.error('[FarmGame] Failed to load flashcard script:', e);
