@@ -127,6 +127,296 @@
     opacity: 1 !important;
 }
 
+/* Video section */
+.ai-dict-video-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ai-dict-video-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.ai-dict-video-header label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.ai-dict-video-header label i {
+    color: var(--SmartThemeQuoteColor);
+}
+
+.ai-dict-video-import {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.ai-dict-video-import button {
+    height: 32px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 10px;
+    flex-shrink: 0;
+}
+
+#ai-dict-subtitle-import-btn {
+    min-width: auto;
+}
+
+.ai-dict-video-filename {
+    font-size: 12px;
+    color: var(--SmartThemeEmColor);
+    opacity: 0.8;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ai-dict-video-container {
+    --ai-dict-subtitle-offset: 20px;
+    width: 100%;
+    background: #000;
+    border-radius: 6px;
+    position: relative;
+}
+
+.ai-dict-video-container video {
+    width: 100%;
+    max-height: 200px;
+    display: block;
+    background: #000;
+    border-radius: 6px;
+}
+
+/* Custom subtitle overlay - on top of video, selectable text */
+.ai-dict-custom-subtitle {
+    position: absolute;
+    bottom: var(--ai-dict-subtitle-offset, 20px);
+    left: 0;
+    right: 0;
+    transform: none;
+    padding: 1px 4px;
+    background: red;
+    color: #fff;
+    font-size: 14px;
+    line-height: 1.2;
+    text-align: center;
+    border-radius: 2px;
+    user-select: text;
+    cursor: text;
+    z-index: 10;
+}
+
+.ai-dict-custom-subtitle:empty {
+    display: none;
+}
+
+/* Custom fullscreen button */
+.ai-dict-fullscreen-btn {
+    width: 32px;
+    height: 32px;
+    background: rgba(0, 0, 0, 0.6);
+    border: none;
+    border-radius: 4px;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ai-dict-fullscreen-btn:hover {
+    background: rgba(0, 0, 0, 0.8);
+}
+
+/* Video controls container */
+.ai-dict-video-controls {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    gap: 4px;
+    z-index: 15;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.ai-dict-video-container:hover .ai-dict-video-controls {
+    opacity: 1;
+}
+
+/* Control buttons */
+.ai-dict-control-btn {
+    width: 28px;
+    height: 28px;
+    background: rgba(0, 0, 0, 0.6);
+    border: none;
+    border-radius: 4px;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+}
+
+.ai-dict-control-btn:hover {
+    background: rgba(0, 0, 0, 0.8);
+}
+
+/* Video wrapper for pseudo-fullscreen */
+.ai-dict-video-wrapper {
+    position: relative;
+}
+
+/* Pseudo-fullscreen mode */
+.ai-dict-video-wrapper.pseudo-fullscreen {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    height: 100dvh !important; /* Dynamic viewport height for mobile */
+    z-index: 2147483647 !important; /* Maximum z-index */
+    background: #000 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.ai-dict-video-wrapper.pseudo-fullscreen .ai-dict-video-container {
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+}
+
+.ai-dict-video-wrapper.pseudo-fullscreen .ai-dict-video-container video {
+    max-height: 100%;
+    height: 100%;
+    border-radius: 0;
+}
+
+.ai-dict-video-wrapper.pseudo-fullscreen .ai-dict-custom-subtitle {
+    top: auto;
+    font-size: 24px;
+    padding: 0;
+    height: auto !important;
+}
+
+.ai-dict-video-wrapper.pseudo-fullscreen .ai-dict-fullscreen-btn {
+    opacity: 1;
+    top: 16px;
+    right: 16px;
+    width: 40px;
+    height: 40px;
+}
+
+/* Subtitle error message */
+.ai-dict-subtitle-error {
+    color: #ff6b6b;
+    font-size: 12px;
+    padding: 6px 10px;
+    background: rgba(255, 107, 107, 0.1);
+    border-radius: 4px;
+    border-left: 3px solid #ff6b6b;
+}
+
+/* Subtitle panel */
+.ai-dict-subtitle-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.ai-dict-subtitle-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 6px 8px;
+    background: var(--SmartThemeBlurTintColor);
+    border-radius: 4px;
+    font-size: 12px;
+    user-select: none;
+    transition: background 0.2s ease;
+}
+
+.ai-dict-subtitle-toggle:hover {
+    background: var(--SmartThemeBorderColor);
+}
+
+.ai-dict-subtitle-toggle i {
+    font-size: 10px;
+    color: var(--SmartThemeEmColor);
+    transition: transform 0.2s ease;
+}
+
+.ai-dict-subtitle-name {
+    color: var(--SmartThemeEmColor);
+    opacity: 0.7;
+    font-size: 11px;
+    margin-left: auto;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ai-dict-subtitle-content {
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 8px;
+    background: var(--SmartThemeBlurTintColor);
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.ai-dict-subtitle-line {
+    display: flex;
+    gap: 10px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--SmartThemeBorderColor);
+}
+
+.ai-dict-subtitle-line:last-child {
+    border-bottom: none;
+}
+
+.ai-dict-subtitle-time {
+    color: var(--SmartThemeQuoteColor);
+    font-size: 11px;
+    flex-shrink: 0;
+    min-width: 70px;
+}
+
+.ai-dict-subtitle-text {
+    color: var(--SmartThemeBodyColor);
+    line-height: 1.4;
+}
+
+.ai-dict-subtitle-empty {
+    color: var(--SmartThemeEmColor);
+    opacity: 0.6;
+    text-align: center;
+    padding: 10px;
+}
+
 /* Mobile adjustments */
 @media screen and (max-width: 768px) {
     #ai-dict-top-bar-drawer-content {
@@ -137,5 +427,40 @@
     .ai-dict-top-bar-actions button {
         min-width: 60px;
         font-size: 11px;
+    }
+
+    .ai-dict-video-container video {
+        max-height: 150px;
+    }
+
+    .ai-dict-custom-subtitle {
+        bottom: auto;
+        top: calc(100% - var(--ai-dict-subtitle-offset, 20px) - 1.2em);
+        font-size: 12px;
+        padding: 1px 4px;
+    }
+
+    .ai-dict-video-wrapper.pseudo-fullscreen .ai-dict-custom-subtitle {
+        bottom: auto;
+        top: calc(100% - var(--ai-dict-subtitle-offset, 20px) - 1.2em);
+    }
+
+    .ai-dict-video-container {
+        --ai-dict-subtitle-offset: 20px;
+    }
+
+    .ai-dict-video-controls {
+        opacity: 1;
+    }
+
+    .ai-dict-control-btn {
+        width: 24px;
+        height: 24px;
+        font-size: 10px;
+    }
+
+    .ai-dict-fullscreen-btn {
+        width: 28px;
+        height: 28px;
     }
 }
