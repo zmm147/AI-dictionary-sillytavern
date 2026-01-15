@@ -133,7 +133,7 @@ body.ai-dict-disable-context-menu * {
     border: 1px solid var(--SmartThemeBorderColor, #444);
     border-radius: 12px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-    z-index: 100000;
+    z-index: 2147483647;
     min-width: 350px;
     max-width: 90vw;
     width: 450px;
@@ -160,7 +160,7 @@ body.ai-dict-disable-context-menu * {
     color: var(--SmartThemeBodyColor, #e5e5e5);
     border-left: 1px solid var(--SmartThemeBorderColor, #444);
     box-shadow: -5px 0 20px rgba(0,0,0,0.4);
-    z-index: 200000;
+    z-index: 2147483647;
     transform: translateX(100%);
     transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     display: flex;
