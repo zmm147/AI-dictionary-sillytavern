@@ -41,6 +41,7 @@ export class SettingsUi {
      * @param {Function} options.removeConfusableHighlights - Function to remove highlights
      * @param {Function} options.highlightAllConfusableWords - Function to highlight words
      * @param {Function} options.updateHighlightColor - Function to update highlight color
+     * @param {Function} options.updateTopBar - Function to update top bar visibility
      */
     constructor(options) {
         this.dom = null;
@@ -54,6 +55,7 @@ export class SettingsUi {
         this.removeConfusableHighlights = options.removeConfusableHighlights;
         this.highlightAllConfusableWords = options.highlightAllConfusableWords;
         this.updateHighlightColor = options.updateHighlightColor;
+        this.updateTopBar = options.updateTopBar;
     }
 
     async render() {
@@ -132,6 +134,17 @@ export class SettingsUi {
             directLookupInput.addEventListener('change', () => {
                 this.settings.enableDirectLookup = directLookupInput.checked;
                 this.saveSettings();
+            });
+        }
+
+        // Enable Top Bar
+        const enableTopBarInput = this.dom.querySelector('#ai-dict-enable-top-bar');
+        if (enableTopBarInput) {
+            enableTopBarInput.checked = this.settings.enableTopBar;
+            enableTopBarInput.addEventListener('change', () => {
+                this.settings.enableTopBar = enableTopBarInput.checked;
+                this.saveSettings();
+                this.updateTopBar?.();
             });
         }
 

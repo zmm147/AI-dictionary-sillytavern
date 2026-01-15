@@ -113,6 +113,9 @@ import { getContextForLookup } from './modules/context.js';
 // Import pet commentary module
 import { initPetCommentary, hidePetBubble } from './modules/petCommentary.js';
 
+// Import top bar module
+import { createTopBarIcon, updateTopBar, bindTopBarEvents } from './modules/topBar.js';
+
 // Dynamically determine extension path
 const getExtensionUrl = () => {
     try {
@@ -381,6 +384,29 @@ function showFarmGamePanelWrapper() {
     showFarmGamePanel(EXTENSION_URL);
 }
 
+// --- Top Bar Wrapper ---
+
+function updateTopBarWrapper() {
+    updateTopBar({
+        settings,
+        saveSettings
+    });
+
+    // Bind events after creating
+    if (settings.enableTopBar) {
+        bindTopBarEvents({
+            performLookup: (word) => {
+                setSelectedText(word);
+                setSelectedContext('');
+                performDictionaryLookup();
+            },
+            showStatisticsPanel: showStatisticsPanelWrapper,
+            showFarmGamePanel: showFarmGamePanelWrapper,
+            showFlashcardPanel: null // TODO: Add flashcard panel function if available
+        });
+    }
+}
+
 // --- Initialization ---
 
 const init = async () => {
@@ -412,7 +438,8 @@ const init = async () => {
         showFarmGamePanel: showFarmGamePanelWrapper,
         removeConfusableHighlights: removeConfusableHighlights,
         highlightAllConfusableWords: () => highlightAllConfusableWords(settings.confusableWords, settings.highlightConfusables),
-        updateHighlightColor: () => updateHighlightColor(settings.highlightColor)
+        updateHighlightColor: () => updateHighlightColor(settings.highlightColor),
+        updateTopBar: updateTopBarWrapper
     });
 
     const renderedUi = await manager.render();
@@ -442,6 +469,11 @@ const init = async () => {
 
     // Initialize the side panel
     createSidePanel({ settings, saveSettings });
+
+    // Initialize top bar if enabled
+    if (settings.enableTopBar) {
+        updateTopBarWrapper();
+    }
 
     // Event listeners for chat messages
     eventSource.on(event_types.MESSAGE_RECEIVED, (messageIndex) => {
