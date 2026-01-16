@@ -206,7 +206,8 @@
     left: 0;
     right: 0;
     transform: none;
-    padding: 1px 4px;
+    padding: 1px 23px;
+    margin: 15px;
     background: red;
     color: #fff;
     font-size: 14px;
@@ -314,7 +315,8 @@
 .ai-dict-video-wrapper.pseudo-fullscreen .ai-dict-custom-subtitle {
     top: auto;
     font-size: 24px;
-    padding: 0;
+    padding: 0 23px;
+    margin: 15px;
     height: auto !important;
 }
 
