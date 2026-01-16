@@ -1,0 +1,128 @@
+/**
+ * AI Dictionary - Top Bar Base Styles
+ * Basic panel, header, sections, lookup input, actions, and icon styles
+ */
+
+/* Top bar drawer panel - use SillyTavern default width (var(--sheldWidth)) */
+#ai-dict-top-bar-drawer-content .scrollableInner {
+    padding: 10px 15px;
+}
+
+/* Panel container */
+.ai-dict-top-bar-panel {
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Header */
+.ai-dict-top-bar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--SmartThemeBorderColor);
+}
+
+.ai-dict-top-bar-header h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ai-dict-top-bar-header h3 i {
+    color: var(--SmartThemeQuoteColor);
+}
+
+/* Section */
+.ai-dict-top-bar-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Lookup input row */
+.ai-dict-top-bar-lookup {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.ai-dict-top-bar-lookup input {
+    flex: 1;
+    min-width: 0;
+    height: 32px;
+    font-size: 13px;
+}
+
+.ai-dict-top-bar-lookup button {
+    height: 32px;
+    width: 32px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+/* Action buttons row */
+.ai-dict-top-bar-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.ai-dict-top-bar-actions button {
+    flex: 1;
+    min-width: 70px;
+    height: 32px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 0 8px;
+}
+
+.ai-dict-top-bar-actions button i {
+    font-size: 12px;
+}
+
+.ai-dict-top-bar-actions button span {
+    white-space: nowrap;
+}
+
+/* Info/tip section */
+.ai-dict-top-bar-info {
+    padding-top: 8px;
+    border-top: 1px solid var(--SmartThemeBorderColor);
+}
+
+.ai-dict-top-bar-tip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--SmartThemeEmColor);
+    opacity: 0.8;
+}
+
+.ai-dict-top-bar-tip i {
+    color: var(--SmartThemeQuoteColor);
+    font-size: 14px;
+}
+
+/* Icon styling */
+#ai-dict-top-bar-icon {
+    font-size: 18px;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+
+#ai-dict-top-bar-icon:hover {
+    opacity: 1 !important;
+}

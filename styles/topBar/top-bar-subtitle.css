@@ -1,0 +1,128 @@
+/**
+ * AI Dictionary - Top Bar Subtitle Styles
+ * Custom subtitle overlay, subtitle panel, and related styles
+ */
+
+/* Custom subtitle overlay - on top of video, selectable text */
+.ai-dict-custom-subtitle {
+    position: absolute;
+    bottom: var(--ai-dict-subtitle-offset, 20px);
+    left: 0;
+    right: 0;
+    transform: none;
+    padding: 1px 23px;
+    margin: 15px;
+    background: red;
+    color: #fff;
+    font-size: 14px;
+    line-height: 1.2;
+    text-align: center;
+    border-radius: 2px;
+    user-select: text;
+    cursor: text;
+    z-index: 10;
+}
+
+.ai-dict-custom-subtitle:empty {
+    display: none;
+}
+
+/* Pseudo-fullscreen subtitle adjustments */
+.ai-dict-video-wrapper.pseudo-fullscreen .ai-dict-custom-subtitle {
+    top: auto;
+    font-size: 24px;
+    padding: 0 23px;
+    margin: 15px;
+    height: auto !important;
+}
+
+/* Subtitle error message */
+.ai-dict-subtitle-error {
+    color: #ff6b6b;
+    font-size: 12px;
+    padding: 6px 10px;
+    background: rgba(255, 107, 107, 0.1);
+    border-radius: 4px;
+    border-left: 3px solid #ff6b6b;
+}
+
+/* Subtitle panel */
+.ai-dict-subtitle-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.ai-dict-subtitle-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 6px 8px;
+    background: var(--SmartThemeBlurTintColor);
+    border-radius: 4px;
+    font-size: 12px;
+    user-select: none;
+    transition: background 0.2s ease;
+}
+
+.ai-dict-subtitle-toggle:hover {
+    background: var(--SmartThemeBorderColor);
+}
+
+.ai-dict-subtitle-toggle i {
+    font-size: 10px;
+    color: var(--SmartThemeEmColor);
+    transition: transform 0.2s ease;
+}
+
+.ai-dict-subtitle-name {
+    color: var(--SmartThemeEmColor);
+    opacity: 0.7;
+    font-size: 11px;
+    margin-left: auto;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ai-dict-subtitle-content {
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 8px;
+    background: var(--SmartThemeBlurTintColor);
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.ai-dict-subtitle-line {
+    display: flex;
+    gap: 10px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--SmartThemeBorderColor);
+}
+
+.ai-dict-subtitle-line:last-child {
+    border-bottom: none;
+}
+
+.ai-dict-subtitle-time {
+    color: var(--SmartThemeQuoteColor);
+    font-size: 11px;
+    flex-shrink: 0;
+    min-width: 70px;
+}
+
+.ai-dict-subtitle-text {
+    color: var(--SmartThemeBodyColor);
+    line-height: 1.4;
+}
+
+.ai-dict-subtitle-empty {
+    color: var(--SmartThemeEmColor);
+    opacity: 0.6;
+    text-align: center;
+    padding: 10px;
+}

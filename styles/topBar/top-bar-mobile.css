@@ -1,0 +1,51 @@
+/**
+ * AI Dictionary - Top Bar Mobile Styles
+ * Responsive adjustments for mobile devices
+ */
+
+@media screen and (max-width: 768px) {
+    #ai-dict-top-bar-drawer-content {
+        min-width: 260px;
+        max-width: 90vw;
+    }
+
+    .ai-dict-top-bar-actions button {
+        min-width: 60px;
+        font-size: 11px;
+    }
+
+    .ai-dict-video-container video {
+        max-height: 150px;
+    }
+
+    .ai-dict-custom-subtitle {
+        bottom: auto;
+        top: calc(100% - var(--ai-dict-subtitle-offset, 20px) - 1.2em);
+        font-size: 12px;
+        padding: 1px 4px;
+    }
+
+    .ai-dict-video-wrapper.pseudo-fullscreen .ai-dict-custom-subtitle {
+        bottom: auto;
+        top: calc(100% - var(--ai-dict-subtitle-offset, 20px) - 1.2em);
+    }
+
+    .ai-dict-video-container {
+        --ai-dict-subtitle-offset: 20px;
+    }
+
+    .ai-dict-video-controls {
+        opacity: 1;
+    }
+
+    .ai-dict-control-btn {
+        width: 24px;
+        height: 24px;
+        font-size: 10px;
+    }
+
+    .ai-dict-fullscreen-btn {
+        width: 28px;
+        height: 28px;
+    }
+}

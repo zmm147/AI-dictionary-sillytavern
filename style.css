@@ -29,8 +29,11 @@
 /* Pet commentary styles */
 @import url('./styles/pet-commentary.css');
 
-/* Top bar styles */
-@import url('./styles/top-bar.css');
+/* Top bar styles (modularized) */
+@import url('./styles/topBar/top-bar-base.css');
+@import url('./styles/topBar/top-bar-video.css');
+@import url('./styles/topBar/top-bar-subtitle.css');
+@import url('./styles/topBar/top-bar-mobile.css');
 
 /* Mobile responsive styles - must be last to override other styles */
 @import url('./styles/mobile.css');
