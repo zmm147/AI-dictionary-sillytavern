@@ -200,6 +200,7 @@ export function isLoggedIn() {
 
 /**
  * Sync a word to cloud (real-time single word sync)
+ * Local data is already complete (local updates first), so directly upsert to overwrite cloud
  * @param {string} word
  * @param {Object} data - { count, lookups, contexts }
  * @returns {Promise<{success: boolean, error?: string}>}
@@ -210,78 +211,27 @@ export async function syncWordToCloud(word, data) {
     }
 
     try {
-        // Upsert word to words table
-        const { data: wordData, error: wordError } = await supabaseClient
+        // Convert lookups to ISO strings
+        const lookups = (data.lookups || []).map(ts => new Date(ts).toISOString());
+
+        // Directly upsert with complete local data
+        const { error } = await supabaseClient
             .from('words')
             .upsert({
                 user_id: currentUser.id,
                 word: word.toLowerCase(),
                 lookup_count: data.count,
                 last_lookup_at: new Date().toISOString(),
-                is_blacklisted: false
+                is_blacklisted: false,
+                lookups: lookups,
+                contexts: data.contexts || []
             }, {
                 onConflict: 'user_id,word'
-            })
-            .select()
-            .single();
+            });
 
-        if (wordError) {
-            console.error(`[${EXTENSION_NAME}] Sync word error:`, wordError);
-            return { success: false, error: wordError.message };
-        }
-
-        // Sync contexts if any
-        if (data.contexts && data.contexts.length > 0) {
-            // Get existing contexts
-            const { data: existingContexts } = await supabaseClient
-                .from('word_contexts')
-                .select('context')
-                .eq('word_id', wordData.id);
-
-            const existingSet = new Set((existingContexts || []).map(c => c.context));
-
-            // Insert new contexts
-            const newContexts = data.contexts.filter(c => !existingSet.has(c));
-            if (newContexts.length > 0) {
-                const contextInserts = newContexts.map(context => ({
-                    word_id: wordData.id,
-                    user_id: currentUser.id,
-                    context
-                }));
-
-                await supabaseClient
-                    .from('word_contexts')
-                    .insert(contextInserts);
-            }
-        }
-
-        // Sync lookups - only add the latest lookup timestamp
-        if (data.lookups && data.lookups.length > 0) {
-            // Get the latest lookup timestamp from local data
-            const latestLookup = data.lookups[data.lookups.length - 1];
-
-            // Check if this lookup already exists
-            const { data: existingLookups, error: lookupCheckError } = await supabaseClient
-                .from('word_lookups')
-                .select('looked_up_at')
-                .eq('word_id', wordData.id)
-                .eq('user_id', currentUser.id)
-                .order('looked_up_at', { ascending: false })
-                .limit(1);
-
-            // Only insert if it's a new lookup
-            const latestLookupTime = new Date(latestLookup).toISOString();
-            const existingLatest = existingLookups?.[0]?.looked_up_at;
-
-            if (!existingLatest || new Date(existingLatest).getTime() < latestLookup) {
-                await supabaseClient
-                    .from('word_lookups')
-                    .insert({
-                        word_id: wordData.id,
-                        user_id: currentUser.id,
-                        looked_up_at: latestLookupTime
-                    });
-            }
+        if (error) {
+            console.error(`[${EXTENSION_NAME}] Sync word error:`, error);
+            return { success: false, error: error.message };
         }
 
         return { success: true };
@@ -301,10 +251,10 @@ export async function fetchWordsFromCloud() {
     }
 
     try {
-        // Fetch all words
+        // Fetch all words with embedded lookups and contexts arrays
         const { data: words, error: wordsError } = await supabaseClient
             .from('words')
-            .select('*')
+            .select('word, lookup_count, lookups, contexts')
             .eq('user_id', currentUser.id)
             .eq('is_blacklisted', false);
 
@@ -316,66 +266,15 @@ export async function fetchWordsFromCloud() {
             return { success: true, data: {} };
         }
 
-        // Fetch all contexts and lookups in batches (to avoid URL too long error)
-        const wordIds = words.map(w => w.id);
-        const BATCH_SIZE = 100;
-        let allContexts = [];
-        let allLookups = [];
-
-        for (let i = 0; i < wordIds.length; i += BATCH_SIZE) {
-            const batchIds = wordIds.slice(i, i + BATCH_SIZE);
-
-            // Fetch contexts
-            const { data: batchContexts, error: contextError } = await supabaseClient
-                .from('word_contexts')
-                .select('word_id, context')
-                .in('word_id', batchIds);
-
-            if (contextError) {
-                console.warn(`[${EXTENSION_NAME}] Fetch contexts batch error:`, contextError);
-            } else if (batchContexts) {
-                allContexts = allContexts.concat(batchContexts);
-            }
-
-            // Fetch lookups (timestamps)
-            const { data: batchLookups, error: lookupError } = await supabaseClient
-                .from('word_lookups')
-                .select('word_id, looked_up_at')
-                .in('word_id', batchIds);
-
-            if (lookupError) {
-                console.warn(`[${EXTENSION_NAME}] Fetch lookups batch error:`, lookupError);
-            } else if (batchLookups) {
-                allLookups = allLookups.concat(batchLookups);
-            }
-        }
-
-        // Build context map
-        const contextMap = {};
-        allContexts.forEach(c => {
-            if (!contextMap[c.word_id]) {
-                contextMap[c.word_id] = [];
-            }
-            contextMap[c.word_id].push(c.context);
-        });
-
-        // Build lookups map (convert timestamps to milliseconds)
-        const lookupsMap = {};
-        allLookups.forEach(l => {
-            if (!lookupsMap[l.word_id]) {
-                lookupsMap[l.word_id] = [];
-            }
-            // Convert ISO timestamp to milliseconds
-            const timestamp = new Date(l.looked_up_at).getTime();
-            lookupsMap[l.word_id].push(timestamp);
-        });
-
+        // Build word history directly from words table
         const wordHistory = {};
         words.forEach(w => {
+            // Convert ISO timestamps to milliseconds
+            const lookups = (w.lookups || []).map(ts => new Date(ts).getTime());
             wordHistory[w.word] = {
                 count: w.lookup_count,
-                contexts: contextMap[w.id] || [],
-                lookups: lookupsMap[w.id] || []
+                contexts: w.contexts || [],
+                lookups: lookups
             };
         });
 
@@ -402,7 +301,7 @@ export async function fetchWordsIncrementally(sinceTimestamp) {
         // Fetch words updated since the given timestamp
         const { data: words, error: wordsError } = await supabaseClient
             .from('words')
-            .select('*')
+            .select('word, lookup_count, lookups, contexts, updated_at')
             .eq('user_id', currentUser.id)
             .eq('is_blacklisted', false)
             .gt('updated_at', sinceISO);
@@ -415,61 +314,17 @@ export async function fetchWordsIncrementally(sinceTimestamp) {
             return { success: true, data: {}, latestUpdatedAt: sinceTimestamp };
         }
 
-        // Fetch contexts and lookups for updated words
-        const wordIds = words.map(w => w.id);
-        const BATCH_SIZE = 100;
-        let allContexts = [];
-        let allLookups = [];
-
-        for (let i = 0; i < wordIds.length; i += BATCH_SIZE) {
-            const batchIds = wordIds.slice(i, i + BATCH_SIZE);
-
-            const { data: batchContexts } = await supabaseClient
-                .from('word_contexts')
-                .select('word_id, context')
-                .in('word_id', batchIds);
-
-            if (batchContexts) {
-                allContexts = allContexts.concat(batchContexts);
-            }
-
-            const { data: batchLookups } = await supabaseClient
-                .from('word_lookups')
-                .select('word_id, looked_up_at')
-                .in('word_id', batchIds);
-
-            if (batchLookups) {
-                allLookups = allLookups.concat(batchLookups);
-            }
-        }
-
-        // Build context map
-        const contextMap = {};
-        allContexts.forEach(c => {
-            if (!contextMap[c.word_id]) {
-                contextMap[c.word_id] = [];
-            }
-            contextMap[c.word_id].push(c.context);
-        });
-
-        // Build lookups map
-        const lookupsMap = {};
-        allLookups.forEach(l => {
-            if (!lookupsMap[l.word_id]) {
-                lookupsMap[l.word_id] = [];
-            }
-            lookupsMap[l.word_id].push(new Date(l.looked_up_at).getTime());
-        });
-
         // Build word history and find latest updated_at
         const wordHistory = {};
         let latestUpdatedAt = sinceTimestamp;
 
         words.forEach(w => {
+            // Convert ISO timestamps to milliseconds
+            const lookups = (w.lookups || []).map(ts => new Date(ts).getTime());
             wordHistory[w.word] = {
                 count: w.lookup_count,
-                contexts: contextMap[w.id] || [],
-                lookups: lookupsMap[w.id] || []
+                contexts: w.contexts || [],
+                lookups: lookups
             };
 
             // Note: JavaScript Date only has millisecond precision, but Supabase has microsecond precision
@@ -519,18 +374,23 @@ export async function uploadAllWordsToCloud(wordHistoryData, onProgress = null) 
             const batchWords = localWords.slice(i, i + BATCH_SIZE).map(w => w.toLowerCase());
             const { data: cloudWords } = await supabaseClient
                 .from('words')
-                .select('id, word, lookup_count')
+                .select('word, lookup_count, lookups, contexts')
                 .eq('user_id', currentUser.id)
                 .in('word', batchWords);
 
             (cloudWords || []).forEach(row => {
-                cloudWordMap[row.word] = { id: row.id, count: row.lookup_count };
+                cloudWordMap[row.word] = {
+                    count: row.lookup_count,
+                    lookups: row.lookups || [],
+                    contexts: row.contexts || []
+                };
             });
         }
 
-        // Step 2: Filter words that need to be synced
-        const wordsToSync = [];
-        const wordIdMap = {};
+        // Step 2: Build records with merged arrays
+        if (onProgress) onProgress(0, localWords.length, '准备同步数据...');
+
+        const recordsToUpsert = [];
 
         for (const word of localWords) {
             const wordKey = word.toLowerCase();
@@ -538,37 +398,51 @@ export async function uploadAllWordsToCloud(wordHistoryData, onProgress = null) 
             const cloudData = cloudWordMap[wordKey];
 
             if (!cloudData) {
-                // New word, needs sync
-                wordsToSync.push(word);
+                // New word - use local data directly
+                const lookups = (localData.lookups || []).map(ts => new Date(ts).toISOString());
+                recordsToUpsert.push({
+                    user_id: currentUser.id,
+                    word: wordKey,
+                    lookup_count: localData.count || 1,
+                    last_lookup_at: new Date().toISOString(),
+                    is_blacklisted: false,
+                    lookups: lookups,
+                    contexts: localData.contexts || []
+                });
             } else if (localData.count > cloudData.count) {
-                // Local has more lookups, needs sync
-                wordsToSync.push(word);
-                wordIdMap[wordKey] = cloudData.id;
+                // Local has more lookups - merge arrays
+                const localLookups = (localData.lookups || []).map(ts => new Date(ts).toISOString());
+                const mergedLookupsSet = new Set([...cloudData.lookups, ...localLookups]);
+                const mergedLookups = [...mergedLookupsSet].sort();
+
+                const mergedContextsSet = new Set([...cloudData.contexts, ...(localData.contexts || [])]);
+                const mergedContexts = [...mergedContextsSet];
+
+                recordsToUpsert.push({
+                    user_id: currentUser.id,
+                    word: wordKey,
+                    lookup_count: localData.count,
+                    last_lookup_at: new Date().toISOString(),
+                    is_blacklisted: false,
+                    lookups: mergedLookups,
+                    contexts: mergedContexts
+                });
             } else {
                 // Cloud is up to date
-                wordIdMap[wordKey] = cloudData.id;
                 skipped++;
             }
         }
 
-        if (wordsToSync.length === 0) {
+        if (recordsToUpsert.length === 0) {
             if (onProgress) onProgress(100, 100, `无需同步，${skipped} 词已是最新`);
             return { success: true, synced: 0, skipped };
         }
 
-        // Step 3: Batch upsert words that need sync
-        if (onProgress) onProgress(0, wordsToSync.length, `同步 ${wordsToSync.length} 词...`);
+        // Step 3: Batch upsert words with embedded arrays
+        if (onProgress) onProgress(0, recordsToUpsert.length, `同步 ${recordsToUpsert.length} 词...`);
 
-        const wordRecords = wordsToSync.map(word => ({
-            user_id: currentUser.id,
-            word: word.toLowerCase(),
-            lookup_count: wordHistoryData[word].count || 1,
-            last_lookup_at: new Date().toISOString(),
-            is_blacklisted: false
-        }));
-
-        for (let i = 0; i < wordRecords.length; i += BATCH_SIZE) {
-            const batch = wordRecords.slice(i, i + BATCH_SIZE);
+        for (let i = 0; i < recordsToUpsert.length; i += BATCH_SIZE) {
+            const batch = recordsToUpsert.slice(i, i + BATCH_SIZE);
             const { error } = await supabaseClient
                 .from('words')
                 .upsert(batch, { onConflict: 'user_id,word' });
@@ -577,100 +451,11 @@ export async function uploadAllWordsToCloud(wordHistoryData, onProgress = null) 
                 console.error(`[${EXTENSION_NAME}] Batch upsert error:`, error);
             }
 
-            synced = Math.min(i + BATCH_SIZE, wordRecords.length);
-            if (onProgress) onProgress(synced, wordsToSync.length, `上传单词 ${synced}/${wordsToSync.length}`);
+            synced = Math.min(i + BATCH_SIZE, recordsToUpsert.length);
+            if (onProgress) onProgress(synced, recordsToUpsert.length, `上传单词 ${synced}/${recordsToUpsert.length}`);
         }
 
-        // Step 4: Fetch IDs for newly synced words
-        if (onProgress) onProgress(synced, wordsToSync.length, '获取单词ID...');
-
-        for (let i = 0; i < wordsToSync.length; i += BATCH_SIZE) {
-            const batchWords = wordsToSync.slice(i, i + BATCH_SIZE).map(w => w.toLowerCase());
-            const { data: wordRows } = await supabaseClient
-                .from('words')
-                .select('id, word')
-                .eq('user_id', currentUser.id)
-                .in('word', batchWords);
-
-            (wordRows || []).forEach(row => {
-                wordIdMap[row.word] = row.id;
-            });
-        }
-
-        // Step 5: Sync contexts for words that were synced
-        if (onProgress) onProgress(synced, wordsToSync.length, '同步上下文...');
-
-        const allContexts = [];
-        for (const word of wordsToSync) {
-            const wordKey = word.toLowerCase();
-            const wordId = wordIdMap[wordKey];
-            const contexts = wordHistoryData[word].contexts || [];
-
-            if (wordId && contexts.length > 0) {
-                for (const context of contexts) {
-                    allContexts.push({
-                        word_id: wordId,
-                        user_id: currentUser.id,
-                        context
-                    });
-                }
-            }
-        }
-
-        if (allContexts.length > 0) {
-            for (let i = 0; i < allContexts.length; i += BATCH_SIZE) {
-                const batch = allContexts.slice(i, i + BATCH_SIZE);
-                await supabaseClient
-                    .from('word_contexts')
-                    .upsert(batch, {
-                        onConflict: 'word_id,context',
-                        ignoreDuplicates: true
-                    });
-            }
-        }
-
-        // Step 6: Sync lookups for words that were synced
-        if (onProgress) onProgress(synced, wordsToSync.length, '同步查词记录...');
-
-        const allLookups = [];
-        for (const word of wordsToSync) {
-            const wordKey = word.toLowerCase();
-            const wordId = wordIdMap[wordKey];
-            const lookups = wordHistoryData[word].lookups || [];
-
-            if (wordId && lookups.length > 0) {
-                for (const timestamp of lookups) {
-                    allLookups.push({
-                        word_id: wordId,
-                        user_id: currentUser.id,
-                        looked_up_at: new Date(timestamp).toISOString()
-                    });
-                }
-            }
-        }
-
-        if (allLookups.length > 0) {
-            // Delete existing lookups for synced words
-            const syncedWordIds = wordsToSync.map(w => wordIdMap[w.toLowerCase()]).filter(Boolean);
-            for (let i = 0; i < syncedWordIds.length; i += BATCH_SIZE) {
-                const batchIds = syncedWordIds.slice(i, i + BATCH_SIZE);
-                await supabaseClient
-                    .from('word_lookups')
-                    .delete()
-                    .eq('user_id', currentUser.id)
-                    .in('word_id', batchIds);
-            }
-
-            // Insert new lookups
-            for (let i = 0; i < allLookups.length; i += BATCH_SIZE) {
-                const batch = allLookups.slice(i, i + BATCH_SIZE);
-                await supabaseClient
-                    .from('word_lookups')
-                    .insert(batch);
-            }
-        }
-
-        if (onProgress) onProgress(wordsToSync.length, wordsToSync.length, `上传完成: ${synced} 新/更新, ${skipped} 跳过`);
+        if (onProgress) onProgress(recordsToUpsert.length, recordsToUpsert.length, `上传完成: ${synced} 新/更新, ${skipped} 跳过`);
 
         return { success: true, synced, skipped };
     } catch (e) {
@@ -762,7 +547,7 @@ export async function getCloudWordCount() {
 // ==================== Flashcard Progress Sync ====================
 
 /**
- * Get or create word ID in cloud
+ * Get or create word ID in cloud (single upsert call)
  * @param {string} word
  * @returns {Promise<string|null>}
  */
@@ -771,34 +556,26 @@ async function getOrCreateWordId(word) {
 
     const wordLower = word.toLowerCase();
 
-    // Try to get existing word
-    const { data: existing } = await supabaseClient
+    // Upsert and return ID in one call
+    const { data, error } = await supabaseClient
         .from('words')
-        .select('id')
-        .eq('user_id', currentUser.id)
-        .eq('word', wordLower)
-        .single();
-
-    if (existing) return existing.id;
-
-    // Create new word
-    const { data: created, error } = await supabaseClient
-        .from('words')
-        .insert({
+        .upsert({
             user_id: currentUser.id,
             word: wordLower,
             lookup_count: 1,
             is_blacklisted: false
+        }, {
+            onConflict: 'user_id,word'
         })
         .select('id')
         .single();
 
     if (error) {
-        console.error(`[${EXTENSION_NAME}] Create word error:`, error);
+        console.error(`[${EXTENSION_NAME}] Get/create word error:`, error);
         return null;
     }
 
-    return created?.id || null;
+    return data?.id || null;
 }
 
 /**
@@ -1129,13 +906,13 @@ export async function deleteImmersiveReviewFromCloud(word) {
     }
 
     try {
-        // First get word_id
+        // Get word_id (maybeSingle returns null if not found)
         const { data: wordData } = await supabaseClient
             .from('words')
             .select('id')
             .eq('user_id', currentUser.id)
             .eq('word', word.toLowerCase())
-            .single();
+            .maybeSingle();
 
         if (!wordData) {
             return { success: true }; // Word doesn't exist, nothing to delete
@@ -1153,6 +930,34 @@ export async function deleteImmersiveReviewFromCloud(word) {
 
         return { success: true };
     } catch (e) {
+        return { success: false, error: e.message };
+    }
+}
+
+/**
+ * Delete all immersive review data from cloud for current user
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+export async function deleteAllImmersiveReviewFromCloud() {
+    if (!supabaseClient || !currentUser) {
+        return { success: false, error: 'Not logged in' };
+    }
+
+    try {
+        const { error } = await supabaseClient
+            .from('immersive_review')
+            .delete()
+            .eq('user_id', currentUser.id);
+
+        if (error) {
+            console.error(`[${EXTENSION_NAME}] Delete all immersive review error:`, error);
+            return { success: false, error: error.message };
+        }
+
+        console.log(`[${EXTENSION_NAME}] Deleted all immersive review from cloud`);
+        return { success: true };
+    } catch (e) {
+        console.error(`[${EXTENSION_NAME}] Delete all immersive review exception:`, e);
         return { success: false, error: e.message };
     }
 }

@@ -45,16 +45,21 @@ let cloudSyncCallback = null;
 /** @type {Function|null} */
 let cloudDeleteCallback = null;
 
+/** @type {Function|null} */
+let cloudDeleteAllCallback = null;
+
 /**
  * Enable cloud sync for immersive review
  * @param {Object} callbacks
  * @param {Function} callbacks.onSync - Called when review needs to sync (word, status, data)
  * @param {Function} callbacks.onDelete - Called when review is deleted (word)
+ * @param {Function} callbacks.onDeleteAll - Called when all reviews are deleted
  */
 export function enableReviewCloudSync(callbacks) {
     cloudSyncEnabled = true;
     cloudSyncCallback = callbacks.onSync || null;
     cloudDeleteCallback = callbacks.onDelete || null;
+    cloudDeleteAllCallback = callbacks.onDeleteAll || null;
     console.log(`[${EXTENSION_NAME}] Review cloud sync enabled`);
 }
 
@@ -65,6 +70,7 @@ export function disableReviewCloudSync() {
     cloudSyncEnabled = false;
     cloudSyncCallback = null;
     cloudDeleteCallback = null;
+    cloudDeleteAllCallback = null;
     console.log(`[${EXTENSION_NAME}] Review cloud sync disabled`);
 }
 
@@ -784,4 +790,13 @@ export async function clearAllReviewData() {
 
     await clearAllReviewDataFromDb();
     await deleteReviewDataJsonBackup();
+
+    // Clear from cloud if enabled
+    if (cloudSyncEnabled && cloudDeleteAllCallback) {
+        try {
+            await cloudDeleteAllCallback();
+        } catch (e) {
+            console.error(`[${EXTENSION_NAME}] Cloud delete all review error:`, e.message);
+        }
+    }
 }

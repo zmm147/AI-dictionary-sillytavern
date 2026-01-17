@@ -25,6 +25,7 @@ import {
     uploadAllFlashcardProgressToCloud,
     syncImmersiveReviewToCloud,
     deleteImmersiveReviewFromCloud,
+    deleteAllImmersiveReviewFromCloud,
     fetchImmersiveReviewFromCloud,
     fetchImmersiveReviewIncrementally,
     uploadAllImmersiveReviewToCloud,
@@ -106,7 +107,10 @@ export async function initAuth(cloudSyncEnabled = false, waitForCloudData = fals
         // but it's idempotent so it's safe to call again)
         enableCloudSync({
             onSync: async (word, data) => {
-                await syncWordToCloud(word, data);
+                const result = await syncWordToCloud(word, data);
+                if (result.success) {
+                    await setLastSyncTime('words', Date.now());
+                }
             },
             onDelete: async (word) => {
                 await deleteWordFromCloud(word);
@@ -117,15 +121,24 @@ export async function initAuth(cloudSyncEnabled = false, waitForCloudData = fals
         });
 
         enableFlashcardCloudSync(async (word, progress) => {
-            await syncFlashcardProgressToCloud(word, progress);
+            const result = await syncFlashcardProgressToCloud(word, progress);
+            if (result.success) {
+                await setLastSyncTime('flashcard', Date.now());
+            }
         });
 
         enableReviewCloudSync({
             onSync: async (word, status, data) => {
-                await syncImmersiveReviewToCloud(word, status, data);
+                const result = await syncImmersiveReviewToCloud(word, status, data);
+                if (result.success) {
+                    await setLastSyncTime('review', Date.now());
+                }
             },
             onDelete: async (word) => {
                 await deleteImmersiveReviewFromCloud(word);
+            },
+            onDeleteAll: async () => {
+                await deleteAllImmersiveReviewFromCloud();
             }
         });
 
@@ -393,7 +406,10 @@ function handleAuthStateChange(user) {
         // Enable real-time cloud sync
         enableCloudSync({
             onSync: async (word, data) => {
-                await syncWordToCloud(word, data);
+                const result = await syncWordToCloud(word, data);
+                if (result.success) {
+                    await setLastSyncTime('words', Date.now());
+                }
             },
             onDelete: async (word) => {
                 await deleteWordFromCloud(word);
@@ -405,16 +421,25 @@ function handleAuthStateChange(user) {
 
         // Enable flashcard cloud sync
         enableFlashcardCloudSync(async (word, progress) => {
-            await syncFlashcardProgressToCloud(word, progress);
+            const result = await syncFlashcardProgressToCloud(word, progress);
+            if (result.success) {
+                await setLastSyncTime('flashcard', Date.now());
+            }
         });
 
         // Enable immersive review cloud sync
         enableReviewCloudSync({
             onSync: async (word, status, data) => {
-                await syncImmersiveReviewToCloud(word, status, data);
+                const result = await syncImmersiveReviewToCloud(word, status, data);
+                if (result.success) {
+                    await setLastSyncTime('review', Date.now());
+                }
             },
             onDelete: async (word) => {
                 await deleteImmersiveReviewFromCloud(word);
+            },
+            onDeleteAll: async () => {
+                await deleteAllImmersiveReviewFromCloud();
             }
         });
 
