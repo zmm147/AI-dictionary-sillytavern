@@ -56,6 +56,7 @@ export const uiState = {
     showWordOnFront: false,
     ttsSpeed: parseFloat(localStorage.getItem(TTS_SPEED_STORAGE_KEY)) || DEFAULT_TTS_SPEED,
     ttsStatusMessage: '',
+    blindListeningEnabled: localStorage.getItem('flashcard-blind-listening-enabled') === 'true',
 };
 
 /**
@@ -116,6 +117,15 @@ export function resetUIState() {
 export function saveTtsSpeed(speed) {
     uiState.ttsSpeed = speed;
     localStorage.setItem(TTS_SPEED_STORAGE_KEY, speed.toString());
+}
+
+/**
+ * 保存盲听开关状态到localStorage
+ * @param {boolean} enabled
+ */
+export function saveBlindListeningEnabled(enabled) {
+    uiState.blindListeningEnabled = enabled;
+    localStorage.setItem('flashcard-blind-listening-enabled', enabled.toString());
 }
 
 /**

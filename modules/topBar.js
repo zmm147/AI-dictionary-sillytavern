@@ -9,6 +9,8 @@ import { drawerState, resetDrawerState } from './topBar/top-bar-state.js';
 import { toggleDrawer, closeDrawer } from './topBar/top-bar-drawer.js';
 import { createPanelContent } from './topBar/top-bar-render.js';
 import { bindVideoEvents } from './topBar/top-bar-video.js';
+import { bindAuthEvents, initAuth, setSaveSettingsCallback, updateCloudSyncUI } from './topBar/top-bar-auth.js';
+import { setCloudSyncMode } from './backup.js';
 
 /**
  * Create the top bar icon and drawer
@@ -118,9 +120,11 @@ export function updateTopBar(options) {
  * @param {Function} options.showStatisticsPanel - Function to show statistics
  * @param {Function} options.showFarmGamePanel - Function to show farm game
  * @param {Function} options.showFlashcardPanel - Function to show flashcard (optional)
+ * @param {Object} options.settings - Current settings object
+ * @param {Function} options.saveSettings - Function to save settings
  */
 export function bindTopBarEvents(options) {
-    const { performLookup, showStatisticsPanel, showFarmGamePanel, showFlashcardPanel } = options;
+    const { performLookup, showStatisticsPanel, showFarmGamePanel, showFlashcardPanel, settings, saveSettings } = options;
 
     // Lookup button
     const lookupBtn = document.getElementById('ai-dict-top-bar-lookup-btn');
@@ -169,4 +173,31 @@ export function bindTopBarEvents(options) {
 
     // Video button and functionality
     bindVideoEvents();
+
+    // Set up save settings callback for auth module
+    if (saveSettings && settings) {
+        setSaveSettingsCallback((key, value) => {
+            settings[key] = value;
+            saveSettings();
+
+            // Update cloud sync mode in backup module
+            if (key === 'cloudSyncEnabled') {
+                setCloudSyncMode(value);
+            }
+        });
+
+        // Set initial cloud sync mode (may already be set, but ensure it's correct)
+        setCloudSyncMode(settings.cloudSyncEnabled || false);
+    }
+
+    // Auth events (login, register, sync) - pass cloudSyncEnabled setting
+    bindAuthEvents();
+
+    // Initialize auth module with current cloudSyncEnabled setting
+    // Note: initAuth is idempotent, so it's safe to call multiple times
+    // waitForCloudData = false here because data was already loaded
+    initAuth(settings?.cloudSyncEnabled || false, false);
+
+    // Update UI to reflect current cloudSyncEnabled setting (DOM is now ready)
+    updateCloudSyncUI();
 }

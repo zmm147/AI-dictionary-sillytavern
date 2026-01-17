@@ -37,13 +37,25 @@ export function getWordStatistics(wordHistoryData, range) {
 
     for (const [word, data] of Object.entries(wordHistoryData)) {
         const lookups = data.lookups || [];
-        const rangeCount = lookups.filter(ts => ts >= startTime).length;
+        const totalCount = data.count || 0;
 
-        if (rangeCount > 0) {
+        // If lookups array has timestamps, use them for filtering
+        if (lookups.length > 0) {
+            const rangeCount = lookups.filter(ts => ts >= startTime).length;
+            if (rangeCount > 0) {
+                stats.push({
+                    word: word,
+                    count: rangeCount,
+                    totalCount: totalCount
+                });
+            }
+        } else if (range === 'all' && totalCount > 0) {
+            // For 'all' range, show words even if lookups array is empty
+            // This handles cloud-synced data that doesn't have timestamps
             stats.push({
                 word: word,
-                count: rangeCount,
-                totalCount: data.count || rangeCount
+                count: totalCount,
+                totalCount: totalCount
             });
         }
     }

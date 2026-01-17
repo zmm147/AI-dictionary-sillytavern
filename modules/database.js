@@ -176,3 +176,56 @@ export function dbClear(storeName) {
 export function isDatabaseReady() {
     return db !== null;
 }
+
+// ==================== Last Sync Time Management ====================
+
+const SYNC_TIME_KEY = 'cloud-sync-time';
+
+/**
+ * Get last sync time for a specific data type
+ * @param {'words' | 'flashcard' | 'review'} dataType
+ * @returns {Promise<number>} Timestamp in milliseconds, 0 if never synced
+ */
+export async function getLastSyncTime(dataType) {
+    try {
+        const data = await dbGet(STORE_SESSION, SYNC_TIME_KEY);
+        if (data && data[dataType]) {
+            return data[dataType];
+        }
+        return 0;
+    } catch (e) {
+        console.warn(`[${EXTENSION_NAME}] Get last sync time error:`, e.message);
+        return 0;
+    }
+}
+
+/**
+ * Set last sync time for a specific data type
+ * @param {'words' | 'flashcard' | 'review'} dataType
+ * @param {number} timestamp Timestamp in milliseconds
+ * @returns {Promise<void>}
+ */
+export async function setLastSyncTime(dataType, timestamp) {
+    try {
+        let data = await dbGet(STORE_SESSION, SYNC_TIME_KEY);
+        if (!data) {
+            data = { id: SYNC_TIME_KEY };
+        }
+        data[dataType] = timestamp;
+        await dbPut(STORE_SESSION, data);
+    } catch (e) {
+        console.error(`[${EXTENSION_NAME}] Set last sync time error:`, e.message);
+    }
+}
+
+/**
+ * Clear all sync times (used when logging out or disabling cloud sync)
+ * @returns {Promise<void>}
+ */
+export async function clearAllSyncTimes() {
+    try {
+        await dbDelete(STORE_SESSION, SYNC_TIME_KEY);
+    } catch (e) {
+        console.error(`[${EXTENSION_NAME}] Clear sync times error:`, e.message);
+    }
+}

@@ -221,6 +221,11 @@ export async function handleDelete() {
  * 为当前卡片准备句子（如果尚未生成）
  */
 export async function prepareCurrentCardSentences() {
+    // 如果盲听未开启，不生成句子
+    if (!uiState.blindListeningEnabled) {
+        return;
+    }
+
     if (!deckState.deck.length) return;
 
     const currentCard = deckState.deck[deckState.currentIndex];
@@ -279,6 +284,11 @@ export async function prepareCurrentCardSentences() {
  * 预生成接下来的2个卡片的句子和音频
  */
 async function prefetchUpcomingCards() {
+    // 如果盲听未开启，不预生成
+    if (!uiState.blindListeningEnabled) {
+        return;
+    }
+
     if (!deckState.deck.length) return;
 
     const settings = window.aiDictionary?.settings;
@@ -329,6 +339,11 @@ async function prefetchUpcomingCards() {
  * 重新生成当前卡片和后续2个卡片的音频（语速改变时调用）
  */
 export async function regenerateAudioForCurrentAndUpcoming() {
+    // 如果盲听未开启，不重新生成
+    if (!uiState.blindListeningEnabled) {
+        return;
+    }
+
     if (!deckState.deck.length) return;
 
     // 收集需要重新生成音频的卡片（当前卡片 + 后续2个非复习卡片）

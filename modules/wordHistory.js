@@ -25,7 +25,48 @@ let wordHistoryData = {};
 let pendingWordSaves = new Set();
 
 /** @type {Set<string>} */
+let pendingCloudSyncs = new Set();
+
+/** @type {Set<string>} */
 let blacklistedWords = new Set();
+
+/** @type {boolean} */
+let cloudSyncEnabled = false;
+
+/** @type {Function|null} */
+let cloudSyncCallback = null;
+
+/** @type {Function|null} */
+let cloudDeleteCallback = null;
+
+/** @type {Function|null} */
+let cloudBlacklistCallback = null;
+
+/**
+ * Enable cloud sync with callbacks
+ * @param {Object} callbacks
+ * @param {Function} callbacks.onSync - Called when a word needs to sync (word, data)
+ * @param {Function} callbacks.onDelete - Called when a word is deleted (word)
+ * @param {Function} callbacks.onBlacklist - Called when a word is blacklisted (word)
+ */
+export function enableCloudSync(callbacks) {
+    cloudSyncEnabled = true;
+    cloudSyncCallback = callbacks.onSync || null;
+    cloudDeleteCallback = callbacks.onDelete || null;
+    cloudBlacklistCallback = callbacks.onBlacklist || null;
+    console.log(`[${EXTENSION_NAME}] Cloud sync enabled`);
+}
+
+/**
+ * Disable cloud sync
+ */
+export function disableCloudSync() {
+    cloudSyncEnabled = false;
+    cloudSyncCallback = null;
+    cloudDeleteCallback = null;
+    cloudBlacklistCallback = null;
+    console.log(`[${EXTENSION_NAME}] Cloud sync disabled`);
+}
 
 /**
  * Load blacklisted words from database
@@ -100,12 +141,39 @@ const saveWordHistoryDebounced = debounce(async () => {
 }, 1000);
 
 /**
+ * Debounced cloud sync function
+ */
+const syncToCloudDebounced = debounce(async () => {
+    if (!cloudSyncEnabled || !cloudSyncCallback) return;
+
+    const words = [...pendingCloudSyncs];
+    pendingCloudSyncs.clear();
+
+    // Fire-and-forget: sync all words in parallel without blocking
+    for (const word of words) {
+        const data = wordHistoryData[word];
+        if (data) {
+            cloudSyncCallback(word, data).catch(e => {
+                console.error(`[${EXTENSION_NAME}] Cloud sync error for ${word}:`, e.message);
+            });
+        }
+    }
+}, 2000); // 2 second debounce for cloud sync
+
+/**
  * Mark a word for deferred save
  * @param {string} word
  */
 function markWordForSave(word) {
-    pendingWordSaves.add(word.toLowerCase());
+    const wordKey = word.toLowerCase();
+    pendingWordSaves.add(wordKey);
     saveWordHistoryDebounced();
+
+    // Also mark for cloud sync
+    if (cloudSyncEnabled) {
+        pendingCloudSyncs.add(wordKey);
+        syncToCloudDebounced();
+    }
 }
 
 /**
@@ -266,12 +334,19 @@ export function removeWordHistoryContext(word, contextIndex) {
  * Clear all history for a specific word
  * @param {string} word
  */
-export function clearWordHistory(word) {
+export async function clearWordHistory(word) {
     if (!word) return;
     const wordKey = word.toLowerCase().trim();
     if (wordHistoryData[wordKey]) {
         delete wordHistoryData[wordKey];
-        deleteWordFromDb(wordKey);
+        await deleteWordFromDb(wordKey);
+
+        // Sync deletion to cloud (fire-and-forget)
+        if (cloudSyncEnabled && cloudDeleteCallback) {
+            cloudDeleteCallback(wordKey).catch(e => {
+                console.error(`[${EXTENSION_NAME}] Cloud delete error:`, e.message);
+            });
+        }
     }
 }
 
@@ -292,4 +367,119 @@ export async function deleteWordPermanently(word) {
     // Add to blacklist
     blacklistedWords.add(wordKey);
     await saveBlacklist();
+
+    // Sync blacklist to cloud (fire-and-forget)
+    if (cloudSyncEnabled && cloudBlacklistCallback) {
+        cloudBlacklistCallback(wordKey).catch(e => {
+            console.error(`[${EXTENSION_NAME}] Cloud blacklist error:`, e.message);
+        });
+    }
+}
+
+/**
+ * Merge cloud data with local data
+ * Keeps the higher count and merges contexts
+ * @param {Object} cloudData - Word history data from cloud
+ * @returns {Promise<{merged: number, added: number}>}
+ */
+export async function mergeCloudData(cloudData) {
+    if (!cloudData || typeof cloudData !== 'object') {
+        return { merged: 0, added: 0 };
+    }
+
+    let merged = 0;
+    let added = 0;
+
+    for (const [word, cloudEntry] of Object.entries(cloudData)) {
+        const wordKey = word.toLowerCase();
+
+        // Skip blacklisted words
+        if (blacklistedWords.has(wordKey)) {
+            continue;
+        }
+
+        if (wordHistoryData[wordKey]) {
+            // Word exists locally - merge
+            const localEntry = wordHistoryData[wordKey];
+
+            // Keep the higher count
+            if (cloudEntry.count > localEntry.count) {
+                localEntry.count = cloudEntry.count;
+            }
+
+            // Merge contexts (avoid duplicates)
+            if (cloudEntry.contexts && Array.isArray(cloudEntry.contexts)) {
+                for (const ctx of cloudEntry.contexts) {
+                    if (!localEntry.contexts.includes(ctx)) {
+                        if (localEntry.contexts.length >= WORD_HISTORY_MAX_CONTEXTS) {
+                            localEntry.contexts.shift();
+                        }
+                        localEntry.contexts.push(ctx);
+                    }
+                }
+            }
+
+            merged++;
+        } else {
+            // Word doesn't exist locally - add it
+            wordHistoryData[wordKey] = {
+                count: cloudEntry.count || 1,
+                contexts: cloudEntry.contexts || [],
+                lookups: cloudEntry.lookups || []
+            };
+            added++;
+        }
+
+        // Save to IndexedDB
+        await saveWordToDb(wordKey);
+    }
+
+    console.log(`[${EXTENSION_NAME}] Cloud merge complete: ${added} added, ${merged} merged`);
+
+    // Backup to JSON after merge
+    backupWordHistoryToJson(wordHistoryData);
+
+    return { merged, added };
+}
+
+/**
+ * Replace all local word history with cloud data
+ * @param {Object} cloudData - Word history data from cloud
+ * @returns {Promise<number>} Number of words replaced
+ */
+export async function replaceAllWordHistory(cloudData) {
+    if (!cloudData || typeof cloudData !== 'object') {
+        return 0;
+    }
+
+    // Clear existing data
+    wordHistoryData = {};
+
+    // Clear IndexedDB
+    const { dbClear } = await import('./database.js');
+    await dbClear(STORE_WORD_HISTORY);
+
+    // Load cloud data
+    for (const [word, cloudEntry] of Object.entries(cloudData)) {
+        const wordKey = word.toLowerCase();
+
+        // Skip blacklisted words
+        if (blacklistedWords.has(wordKey)) {
+            continue;
+        }
+
+        wordHistoryData[wordKey] = {
+            count: cloudEntry.count || 1,
+            contexts: cloudEntry.contexts || [],
+            lookups: cloudEntry.lookups || []
+        };
+
+        // Save to IndexedDB
+        await saveWordToDb(wordKey);
+    }
+
+    const count = Object.keys(wordHistoryData).length;
+    console.log(`[${EXTENSION_NAME}] Replaced word history with ${count} words from cloud`);
+
+    return count;
 }

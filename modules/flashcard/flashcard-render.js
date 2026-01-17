@@ -4,7 +4,7 @@
  */
 
 import { DECK_SIZE } from './flashcard-config.js';
-import { deckState, blindState, uiState } from './flashcard-state.js';
+import { deckState, blindState, uiState, saveBlindListeningEnabled } from './flashcard-state.js';
 import { escapeHtml, generateRealtimeFeedback } from './flashcard-utils.js';
 import { stopReviewTimer, saveSession } from './flashcard-deck.js';
 import { renderBlindListeningView, playBlindListeningSentence } from './flashcard-blind.js';
@@ -121,22 +121,32 @@ function renderCardView(container) {
     container.innerHTML = `
         <div class="flashcard-progress">
             <span>📚 ${progressInfo}</span>
-            <div class="flashcard-speed-control">
-                <label>语速:</label>
-                <select class="form-select" id="flashcard-speed-select">
-                    <option value="0.5" ${uiState.ttsSpeed === 0.5 ? 'selected' : ''}>🐌 很慢</option>
-                    <option value="0.75" ${uiState.ttsSpeed === 0.75 ? 'selected' : ''}>🚶 慢速</option>
-                    <option value="1.0" ${uiState.ttsSpeed === 1.0 ? 'selected' : ''}>⚡ 正常</option>
-                    <option value="1.25" ${uiState.ttsSpeed === 1.25 ? 'selected' : ''}>🏃 快速</option>
-                    <option value="1.5" ${uiState.ttsSpeed === 1.5 ? 'selected' : ''}>🚀 很快</option>
-                    <option value="2.0" ${uiState.ttsSpeed === 2.0 ? 'selected' : ''}>💨 极速</option>
-                </select>
+            <div class="flashcard-controls-row">
+                <label class="flashcard-blind-toggle" title="开启后会播放句子音频">
+                    <span>盲听:</span>
+                    <input type="checkbox" id="flashcard-blind-toggle" ${uiState.blindListeningEnabled ? 'checked' : ''}>
+                    <span class="flashcard-checkbox-icon">${uiState.blindListeningEnabled ? '☑' : '☐'}</span>
+                </label>
+                ${uiState.blindListeningEnabled ? `
+                <div class="flashcard-speed-control">
+                    <label>语速:</label>
+                    <select class="form-select" id="flashcard-speed-select">
+                        <option value="0.5" ${uiState.ttsSpeed === 0.5 ? 'selected' : ''}>🐌 很慢</option>
+                        <option value="0.75" ${uiState.ttsSpeed === 0.75 ? 'selected' : ''}>🚶 慢速</option>
+                        <option value="1.0" ${uiState.ttsSpeed === 1.0 ? 'selected' : ''}>⚡ 正常</option>
+                        <option value="1.25" ${uiState.ttsSpeed === 1.25 ? 'selected' : ''}>🏃 快速</option>
+                        <option value="1.5" ${uiState.ttsSpeed === 1.5 ? 'selected' : ''}>🚀 很快</option>
+                        <option value="2.0" ${uiState.ttsSpeed === 2.0 ? 'selected' : ''}>💨 极速</option>
+                    </select>
+                </div>
+                ` : ''}
             </div>
             <span>✅ ${deckState.progressScore.toFixed(1)} | ${initialDeckSize}</span>
         </div>
 
         <div class="flashcard-card ${deckState.isFlipped ? 'flipped' : ''}" id="flashcard-main">
             <div class="flashcard-front">
+                ${uiState.blindListeningEnabled ? `
                 <div class="flashcard-listen-area">
                     <div class="flashcard-sentence-buttons">
                         ${playButtons}
@@ -146,6 +156,11 @@ function renderCardView(container) {
                     ${!uiState.showWordOnFront && !blindState.displayedSentence ? '<div class="flashcard-hint">听出三个句中相同的单词</div>' : ''}
                     ${uiState.showWordOnFront ? `<div class="flashcard-word-reveal">${escapeHtml(card.word)}</div>` : ''}
                 </div>
+                ` : `
+                <div class="flashcard-listen-area">
+                    <div class="flashcard-word-display">${escapeHtml(card.word)}</div>
+                </div>
+                `}
             </div>
             <div class="flashcard-back">
                 <div class="flashcard-word-small">${escapeHtml(card.word)}</div>
@@ -203,6 +218,15 @@ function renderCardView(container) {
 function bindCardEvents() {
     // 初始化音频元素
     blindState.audio = document.getElementById('flashcard-audio');
+
+    // 盲听开关
+    const blindToggle = document.getElementById('flashcard-blind-toggle');
+    if (blindToggle) {
+        blindToggle.addEventListener('change', (e) => {
+            saveBlindListeningEnabled(e.target.checked);
+            render();
+        });
+    }
 
     // 语速选择器
     const speedSelect = document.getElementById('flashcard-speed-select');

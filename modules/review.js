@@ -36,6 +36,146 @@ let reviewData = {
     currentSession: { words: [], lastUpdated: null }
 };
 
+/** @type {boolean} */
+let cloudSyncEnabled = false;
+
+/** @type {Function|null} */
+let cloudSyncCallback = null;
+
+/** @type {Function|null} */
+let cloudDeleteCallback = null;
+
+/**
+ * Enable cloud sync for immersive review
+ * @param {Object} callbacks
+ * @param {Function} callbacks.onSync - Called when review needs to sync (word, status, data)
+ * @param {Function} callbacks.onDelete - Called when review is deleted (word)
+ */
+export function enableReviewCloudSync(callbacks) {
+    cloudSyncEnabled = true;
+    cloudSyncCallback = callbacks.onSync || null;
+    cloudDeleteCallback = callbacks.onDelete || null;
+    console.log(`[${EXTENSION_NAME}] Review cloud sync enabled`);
+}
+
+/**
+ * Disable cloud sync for immersive review
+ */
+export function disableReviewCloudSync() {
+    cloudSyncEnabled = false;
+    cloudSyncCallback = null;
+    cloudDeleteCallback = null;
+    console.log(`[${EXTENSION_NAME}] Review cloud sync disabled`);
+}
+
+/**
+ * Merge cloud review data with local data
+ * @param {Object} cloudData - { pendingWords, reviewingWords, masteredWords }
+ * @returns {Promise<{merged: number, added: number}>}
+ */
+export async function mergeCloudReviewData(cloudData) {
+    if (!cloudData || typeof cloudData !== 'object') {
+        return { merged: 0, added: 0 };
+    }
+
+    let merged = 0;
+    let added = 0;
+
+    // Merge pending words
+    for (const item of (cloudData.pendingWords || [])) {
+        const exists = reviewData.pendingWords.some(w => w.word === item.word);
+        if (!exists && !reviewData.reviewingWords[item.word] &&
+            !reviewData.masteredWords.some(w => w.word === item.word)) {
+            reviewData.pendingWords.push(item);
+            await savePendingWordToDb(item.word, item.addedDate);
+            added++;
+        }
+    }
+
+    // Merge reviewing words
+    for (const [word, data] of Object.entries(cloudData.reviewingWords || {})) {
+        if (!reviewData.reviewingWords[word]) {
+            // Remove from pending if exists
+            const pendingIdx = reviewData.pendingWords.findIndex(w => w.word === word);
+            if (pendingIdx !== -1) {
+                reviewData.pendingWords.splice(pendingIdx, 1);
+                await deletePendingWordFromDb(word);
+            }
+            reviewData.reviewingWords[word] = data;
+            await saveProgressWordToDb(word, data);
+            added++;
+        } else if (data.stage > reviewData.reviewingWords[word].stage) {
+            reviewData.reviewingWords[word] = data;
+            await saveProgressWordToDb(word, data);
+            merged++;
+        }
+    }
+
+    // Merge mastered words
+    for (const item of (cloudData.masteredWords || [])) {
+        const exists = reviewData.masteredWords.some(w => w.word === item.word);
+        if (!exists) {
+            // Remove from reviewing if exists
+            if (reviewData.reviewingWords[item.word]) {
+                delete reviewData.reviewingWords[item.word];
+                await deleteProgressWordFromDb(item.word);
+            }
+            reviewData.masteredWords.push(item);
+            await saveMasteredWordToDb(item.word, item.masteredDate);
+            added++;
+        }
+    }
+
+    console.log(`[${EXTENSION_NAME}] Review merge: ${added} added, ${merged} merged`);
+    return { merged, added };
+}
+
+/**
+ * Replace all local review data with cloud data
+ * @param {Object} cloudData - { pendingWords, reviewingWords, masteredWords }
+ * @returns {Promise<number>} Total number of records replaced
+ */
+export async function replaceAllReviewData(cloudData) {
+    if (!cloudData || typeof cloudData !== 'object') {
+        return 0;
+    }
+
+    // Clear existing data
+    reviewData.pendingWords = [];
+    reviewData.reviewingWords = {};
+    reviewData.masteredWords = [];
+    reviewData.currentSession = { words: [], lastUpdated: null };
+
+    // Clear IndexedDB
+    await clearAllReviewDataFromDb();
+
+    let count = 0;
+
+    // Load pending words
+    for (const item of (cloudData.pendingWords || [])) {
+        reviewData.pendingWords.push(item);
+        await savePendingWordToDb(item.word, item.addedDate, false);
+        count++;
+    }
+
+    // Load reviewing words
+    for (const [word, data] of Object.entries(cloudData.reviewingWords || {})) {
+        reviewData.reviewingWords[word] = data;
+        await saveProgressWordToDb(word, data, false);
+        count++;
+    }
+
+    // Load mastered words
+    for (const item of (cloudData.masteredWords || [])) {
+        reviewData.masteredWords.push(item);
+        await saveMasteredWordToDb(item.word, item.masteredDate, false);
+        count++;
+    }
+
+    console.log(`[${EXTENSION_NAME}] Replaced review data with ${count} records from cloud`);
+    return count;
+}
+
 /**
  * Get the review data object
  * @returns {Object}
@@ -48,10 +188,18 @@ export function getReviewData() {
  * Save pending word to database
  * @param {string} word
  * @param {number} addedDate
+ * @param {boolean} syncCloud - Whether to sync to cloud
  */
-async function savePendingWordToDb(word, addedDate) {
+async function savePendingWordToDb(word, addedDate, syncCloud = true) {
     try {
         await dbPut(STORE_REVIEW_PENDING, { word: word.toLowerCase(), addedDate });
+
+        // Sync to cloud (fire-and-forget)
+        if (syncCloud && cloudSyncEnabled && cloudSyncCallback) {
+            cloudSyncCallback(word, 'pending', { addedAt: addedDate }).catch(e => {
+                console.error(`[${EXTENSION_NAME}] Cloud sync pending error:`, e.message);
+            });
+        }
     } catch (e) {
         console.error(`[${EXTENSION_NAME}] Save pending error:`, e.message);
     }
@@ -73,8 +221,9 @@ async function deletePendingWordFromDb(word) {
  * Save progress word to database
  * @param {string} word
  * @param {Object} data
+ * @param {boolean} syncCloud - Whether to sync to cloud
  */
-async function saveProgressWordToDb(word, data) {
+async function saveProgressWordToDb(word, data, syncCloud = true) {
     try {
         await dbPut(STORE_REVIEW_PROGRESS, {
             word: word.toLowerCase(),
@@ -82,6 +231,17 @@ async function saveProgressWordToDb(word, data) {
             nextReviewDate: data.nextReviewDate,
             lastUsedDate: data.lastUsedDate
         });
+
+        // Sync to cloud (fire-and-forget)
+        if (syncCloud && cloudSyncEnabled && cloudSyncCallback) {
+            cloudSyncCallback(word, 'reviewing', {
+                stage: data.stage,
+                nextReviewAt: data.nextReviewDate,
+                lastUsedAt: data.lastUsedDate
+            }).catch(e => {
+                console.error(`[${EXTENSION_NAME}] Cloud sync progress error:`, e.message);
+            });
+        }
     } catch (e) {
         console.error(`[${EXTENSION_NAME}] Save progress error:`, e.message);
     }
@@ -103,10 +263,18 @@ async function deleteProgressWordFromDb(word) {
  * Save mastered word to database
  * @param {string} word
  * @param {number} masteredDate
+ * @param {boolean} syncCloud - Whether to sync to cloud
  */
-async function saveMasteredWordToDb(word, masteredDate) {
+async function saveMasteredWordToDb(word, masteredDate, syncCloud = true) {
     try {
         await dbPut(STORE_REVIEW_MASTERED, { word: word.toLowerCase(), masteredDate });
+
+        // Sync to cloud (fire-and-forget)
+        if (syncCloud && cloudSyncEnabled && cloudSyncCallback) {
+            cloudSyncCallback(word, 'mastered', { masteredAt: masteredDate }).catch(e => {
+                console.error(`[${EXTENSION_NAME}] Cloud sync mastered error:`, e.message);
+            });
+        }
     } catch (e) {
         console.error(`[${EXTENSION_NAME}] Save mastered error:`, e.message);
     }

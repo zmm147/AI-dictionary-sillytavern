@@ -45,6 +45,40 @@
     white-space: nowrap;
 }
 
+/* Flashcard Controls Row */
+.flashcard-controls-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* Blind Listening Toggle */
+.flashcard-blind-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    user-select: none;
+}
+
+.flashcard-blind-toggle input[type="checkbox"] {
+    display: none;
+}
+
+.flashcard-blind-toggle .flashcard-checkbox-icon {
+    font-size: 14px;
+}
+
+/* Word Display (when blind listening is off) */
+.flashcard-word-display {
+    font-size: 32px;
+    font-weight: bold;
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--SmartThemeBodyColor, #fff);
+}
+
 .flashcard-speed-control select {
     padding: 2px 6px;
     font-size: 12px;

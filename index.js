@@ -47,6 +47,9 @@ import {
     clearAllReviewData
 } from './modules/review.js';
 
+import { setCloudSyncMode } from './modules/backup.js';
+import { initDatabase } from './modules/database.js';
+
 // Import UI modules
 import { SettingsUi } from './modules/settingsUi.js';
 
@@ -115,6 +118,7 @@ import { initPetCommentary, hidePetBubble } from './modules/petCommentary.js';
 
 // Import top bar module
 import { createTopBarIcon, updateTopBar, bindTopBarEvents } from './modules/topBar.js';
+import { initAuth, setSaveSettingsCallback } from './modules/topBar/top-bar-auth.js';
 
 // Dynamically determine extension path
 const getExtensionUrl = () => {
@@ -402,7 +406,9 @@ function updateTopBarWrapper() {
             },
             showStatisticsPanel: showStatisticsPanelWrapper,
             showFarmGamePanel: showFarmGamePanelWrapper,
-            showFlashcardPanel: null // TODO: Add flashcard panel function if available
+            showFlashcardPanel: null, // TODO: Add flashcard panel function if available
+            settings: settings,
+            saveSettings: saveSettings
         });
     }
 }
@@ -418,6 +424,27 @@ const init = async () => {
 
     loadSettings();
     console.log(`[${EXTENSION_NAME}] Settings loaded`, settings);
+
+    // Set cloud sync mode BEFORE loading data (to skip local backup if cloud sync is enabled)
+    setCloudSyncMode(settings.cloudSyncEnabled || false);
+
+    // Initialize database BEFORE any data operations
+    await initDatabase();
+
+    // Set up save settings callback for auth module BEFORE initAuth
+    setSaveSettingsCallback((key, value) => {
+        settings[key] = value;
+        saveSettings();
+        // Update cloud sync mode in backup module
+        if (key === 'cloudSyncEnabled') {
+            setCloudSyncMode(value);
+        }
+    });
+
+    // If cloud sync is enabled, initialize auth and download cloud data BEFORE loading local data
+    if (settings.cloudSyncEnabled) {
+        await initAuth(true, true); // waitForCloudData = true
+    }
 
     // Load word history
     await loadWordHistoryFromFile();

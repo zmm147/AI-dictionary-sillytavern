@@ -23,6 +23,79 @@ export function createPanelContent(options) {
     `;
     container.appendChild(header);
 
+    // Cloud sync / Auth section
+    const authSection = document.createElement('div');
+    authSection.className = 'ai-dict-top-bar-section ai-dict-auth-section';
+    authSection.id = 'ai-dict-auth-section';
+    authSection.innerHTML = `
+        <!-- Cloud sync toggle -->
+        <div class="ai-dict-cloud-toggle">
+            <label class="ai-dict-toggle-label">
+                <i class="fa-solid fa-cloud"></i> 云端同步
+            </label>
+            <label class="ai-dict-switch">
+                <input type="checkbox" id="ai-dict-cloud-sync-toggle">
+                <span class="ai-dict-slider"></span>
+            </label>
+        </div>
+        <!-- Login form (shown when cloud sync enabled and not logged in) -->
+        <div id="ai-dict-auth-form" class="ai-dict-auth-form" style="display: none;">
+            <div class="ai-dict-auth-inputs">
+                <input type="email" id="ai-dict-auth-email" class="text_pole" placeholder="邮箱">
+                <input type="password" id="ai-dict-auth-password" class="text_pole" placeholder="密码">
+            </div>
+            <div class="ai-dict-auth-buttons">
+                <button id="ai-dict-auth-login-btn" class="menu_button" title="登录">
+                    <i class="fa-solid fa-sign-in-alt"></i>
+                    <span>登录</span>
+                </button>
+                <button id="ai-dict-auth-register-btn" class="menu_button" title="注册">
+                    <i class="fa-solid fa-user-plus"></i>
+                    <span>注册</span>
+                </button>
+            </div>
+            <div id="ai-dict-auth-error" class="ai-dict-auth-error" style="display: none;"></div>
+        </div>
+        <!-- User info (shown when logged in) -->
+        <div id="ai-dict-user-info" class="ai-dict-user-info" style="display: none;">
+            <div class="ai-dict-user-details">
+                <span class="ai-dict-user-email" id="ai-dict-user-email"></span>
+                <span class="ai-dict-cloud-status" id="ai-dict-cloud-status">
+                    <i class="fa-solid fa-cloud-check"></i> 已连接
+                </span>
+            </div>
+            <div class="ai-dict-sync-stats" id="ai-dict-sync-stats">
+                <span>本地: <strong id="ai-dict-local-count">0</strong> 词</span>
+                <span>云端: <strong id="ai-dict-cloud-count">0</strong> 词</span>
+            </div>
+            <div class="ai-dict-sync-buttons">
+                <button id="ai-dict-sync-upload-btn" class="menu_button" title="上传本地数据到云端">
+                    <i class="fa-solid fa-cloud-upload-alt"></i>
+                    <span>上传</span>
+                </button>
+                <button id="ai-dict-sync-download-btn" class="menu_button" title="从云端下载数据">
+                    <i class="fa-solid fa-cloud-download-alt"></i>
+                    <span>下载</span>
+                </button>
+                <button id="ai-dict-auth-logout-btn" class="menu_button menu_button_icon" title="退出登录">
+                    <i class="fa-solid fa-sign-out-alt"></i>
+                </button>
+            </div>
+            <div id="ai-dict-sync-progress" class="ai-dict-sync-progress" style="display: none;">
+                <div class="ai-dict-progress-bar">
+                    <div class="ai-dict-progress-fill" id="ai-dict-progress-fill"></div>
+                </div>
+                <span id="ai-dict-progress-text">同步中...</span>
+            </div>
+        </div>
+    `;
+    container.appendChild(authSection);
+
+    // Divider after auth
+    const hrAuth = document.createElement('hr');
+    hrAuth.className = 'sysHR';
+    container.appendChild(hrAuth);
+
     // Quick lookup input
     const lookupSection = document.createElement('div');
     lookupSection.className = 'ai-dict-top-bar-section';
@@ -63,6 +136,12 @@ export function createPanelContent(options) {
             <button id="ai-dict-top-bar-video-btn" class="menu_button" title="视频播放">
                 <i class="fa-solid fa-video"></i>
                 <span>视频</span>
+            </button>
+        </div>
+        <div class="ai-dict-top-bar-actions" style="margin-top: 8px;">
+            <button id="ai-dict-clear-flashcard-btn" class="menu_button menu_button_danger" title="清空所有闪卡背单词记录">
+                <i class="fa-solid fa-trash-alt"></i>
+                <span>清空闪卡记录</span>
             </button>
         </div>
     `;

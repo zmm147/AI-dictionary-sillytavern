@@ -36,6 +36,121 @@ let flashcardProgress = {};
 /** @type {Object|null} */
 let currentSession = null;
 
+/** @type {boolean} */
+let cloudSyncEnabled = false;
+
+/** @type {Function|null} */
+let cloudSyncCallback = null;
+
+/**
+ * Enable cloud sync for flashcard progress
+ * @param {Function} syncCallback - Called when progress needs to sync (word, progress)
+ */
+export function enableFlashcardCloudSync(syncCallback) {
+    cloudSyncEnabled = true;
+    cloudSyncCallback = syncCallback;
+    console.log(`[${EXTENSION_NAME}] Flashcard cloud sync enabled`);
+}
+
+/**
+ * Disable cloud sync for flashcard progress
+ */
+export function disableFlashcardCloudSync() {
+    cloudSyncEnabled = false;
+    cloudSyncCallback = null;
+    console.log(`[${EXTENSION_NAME}] Flashcard cloud sync disabled`);
+}
+
+/**
+ * Get all flashcard progress data (for upload)
+ * @returns {Object}
+ */
+export function getAllFlashcardProgress() {
+    return flashcardProgress;
+}
+
+/**
+ * Merge cloud flashcard data with local data
+ * @param {Object} cloudData
+ * @returns {Promise<{merged: number, added: number}>}
+ */
+export async function mergeCloudFlashcardData(cloudData) {
+    if (!cloudData || typeof cloudData !== 'object') {
+        return { merged: 0, added: 0 };
+    }
+
+    let merged = 0;
+    let added = 0;
+
+    for (const [word, cloudProgress] of Object.entries(cloudData)) {
+        const localProgress = flashcardProgress[word];
+
+        if (localProgress) {
+            // Merge: keep higher mastery level and review count
+            if (cloudProgress.masteryLevel > localProgress.masteryLevel ||
+                cloudProgress.reviewCount > localProgress.reviewCount) {
+                flashcardProgress[word] = { ...localProgress, ...cloudProgress, word };
+                await dbPut(STORE_FLASHCARD_PROGRESS, flashcardProgress[word]);
+                merged++;
+            }
+        } else {
+            // Add new
+            flashcardProgress[word] = { ...cloudProgress, word };
+            await dbPut(STORE_FLASHCARD_PROGRESS, flashcardProgress[word]);
+            added++;
+        }
+    }
+
+    console.log(`[${EXTENSION_NAME}] Flashcard merge: ${added} added, ${merged} merged`);
+    return { merged, added };
+}
+
+/**
+ * Replace all local flashcard progress with cloud data
+ * @param {Object} cloudData
+ * @returns {Promise<number>} Number of records replaced
+ */
+export async function replaceAllFlashcardProgress(cloudData) {
+    if (!cloudData || typeof cloudData !== 'object') {
+        return 0;
+    }
+
+    // Clear existing data
+    flashcardProgress = {};
+    currentSession = null;
+
+    // Clear IndexedDB
+    await initDatabase();
+    const db = await initDatabase();
+
+    const tx1 = db.transaction(STORE_FLASHCARD_PROGRESS, 'readwrite');
+    const store1 = tx1.objectStore(STORE_FLASHCARD_PROGRESS);
+    await new Promise((resolve, reject) => {
+        const req = store1.clear();
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+    });
+
+    const tx2 = db.transaction(STORE_FLASHCARD_SESSION, 'readwrite');
+    const store2 = tx2.objectStore(STORE_FLASHCARD_SESSION);
+    await new Promise((resolve, reject) => {
+        const req = store2.clear();
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+    });
+
+    // Load cloud data
+    for (const [word, cloudProgress] of Object.entries(cloudData)) {
+        flashcardProgress[word] = { ...cloudProgress, word };
+        await dbPut(STORE_FLASHCARD_PROGRESS, flashcardProgress[word]);
+    }
+
+    const count = Object.keys(flashcardProgress).length;
+    console.log(`[${EXTENSION_NAME}] Replaced flashcard progress with ${count} records from cloud`);
+
+    return count;
+}
+
 /**
  * Load flashcard progress from database
  */
@@ -97,6 +212,13 @@ async function saveWordProgress(word, progress) {
     try {
         await dbPut(STORE_FLASHCARD_PROGRESS, progress);
         flashcardProgress[word] = progress;
+
+        // Sync to cloud if enabled (fire-and-forget, don't await)
+        if (cloudSyncEnabled && cloudSyncCallback) {
+            cloudSyncCallback(word, progress).catch(e => {
+                console.error(`[${EXTENSION_NAME}] Cloud sync flashcard error:`, e.message);
+            });
+        }
     } catch (e) {
         console.error(`[${EXTENSION_NAME}] Save word progress error:`, e);
     }
@@ -295,21 +417,58 @@ export function getFlashcardStats() {
 
 /**
  * Clear all flashcard progress (for testing/reset)
+ * Also deletes the backup file
  */
 export async function clearAllFlashcardProgress() {
     try {
         await initDatabase();
         const db = await initDatabase();
-        const tx = db.transaction(STORE_FLASHCARD_PROGRESS, 'readwrite');
-        const store = tx.objectStore(STORE_FLASHCARD_PROGRESS);
+
+        // Clear progress store
+        const tx1 = db.transaction(STORE_FLASHCARD_PROGRESS, 'readwrite');
+        const store1 = tx1.objectStore(STORE_FLASHCARD_PROGRESS);
         await new Promise((resolve, reject) => {
-            const req = store.clear();
+            const req = store1.clear();
             req.onsuccess = () => resolve();
             req.onerror = () => reject(req.error);
         });
+
+        // Clear session store
+        const tx2 = db.transaction(STORE_FLASHCARD_SESSION, 'readwrite');
+        const store2 = tx2.objectStore(STORE_FLASHCARD_SESSION);
+        await new Promise((resolve, reject) => {
+            const req = store2.clear();
+            req.onsuccess = () => resolve();
+            req.onerror = () => reject(req.error);
+        });
+
         flashcardProgress = {};
-        console.log(`[${EXTENSION_NAME}] Cleared all flashcard progress`);
+        currentSession = null;
+
+        // Delete backup file
+        await deleteFlashcardBackupFile();
+
+        console.log(`[${EXTENSION_NAME}] Cleared all flashcard progress and backup`);
     } catch (e) {
         console.error(`[${EXTENSION_NAME}] Clear flashcard progress error:`, e);
+    }
+}
+
+/**
+ * Delete flashcard backup file
+ */
+async function deleteFlashcardBackupFile() {
+    try {
+        const { getRequestHeaders } = await import('../../../../../script.js');
+        const { BACKUP_FLASHCARD_DATA_FILE } = await import('./constants.js');
+
+        await fetch('/api/files/delete', {
+            method: 'POST',
+            headers: getRequestHeaders(),
+            body: JSON.stringify({ path: `user/files/${BACKUP_FLASHCARD_DATA_FILE}` }),
+        });
+        console.log(`[${EXTENSION_NAME}] Flashcard backup file deleted`);
+    } catch (e) {
+        console.warn(`[${EXTENSION_NAME}] Delete flashcard backup error:`, e.message);
     }
 }

@@ -20,6 +20,26 @@ import {
 import { dbPut } from './database.js';
 import { cleanWord } from './utils.js';
 
+/** @type {boolean} */
+let cloudSyncMode = false;
+
+/**
+ * Set cloud sync mode (when enabled, skip local JSON backups)
+ * @param {boolean} enabled
+ */
+export function setCloudSyncMode(enabled) {
+    cloudSyncMode = enabled;
+    console.log(`[${EXTENSION_NAME}] Backup cloud sync mode: ${enabled ? 'enabled (skip local backup)' : 'disabled (use local backup)'}`);
+}
+
+/**
+ * Get cloud sync mode
+ * @returns {boolean}
+ */
+export function getCloudSyncMode() {
+    return cloudSyncMode;
+}
+
 /**
  * Load word history from JSON backup file
  * @returns {Promise<Object|null>}
@@ -49,6 +69,12 @@ export async function loadWordHistoryFromJsonBackup() {
  * @param {Object} wordHistoryData
  */
 export async function backupWordHistoryToJson(wordHistoryData) {
+    // Skip backup if cloud sync mode is enabled
+    if (cloudSyncMode) {
+        console.log(`[${EXTENSION_NAME}] Skipping word history backup (cloud sync mode)`);
+        return;
+    }
+
     try {
         const jsonData = JSON.stringify(wordHistoryData, null, 2);
         const base64Data = btoa(unescape(encodeURIComponent(jsonData)));
@@ -111,6 +137,12 @@ export async function loadReviewDataFromJsonBackup() {
  * @param {Object} reviewData
  */
 export async function backupReviewDataToJson(reviewData) {
+    // Skip backup if cloud sync mode is enabled
+    if (cloudSyncMode) {
+        console.log(`[${EXTENSION_NAME}] Skipping review data backup (cloud sync mode)`);
+        return;
+    }
+
     try {
         const data = {
             pendingWords: reviewData.pendingWords,
@@ -210,6 +242,12 @@ export async function loadFlashcardDataFromJsonBackup() {
  * @param {Object} flashcardData - { progress: {}, session: {} }
  */
 export async function backupFlashcardDataToJson(flashcardData) {
+    // Skip backup if cloud sync mode is enabled
+    if (cloudSyncMode) {
+        console.log(`[${EXTENSION_NAME}] Skipping flashcard data backup (cloud sync mode)`);
+        return;
+    }
+
     try {
         const data = {
             progress: flashcardData.progress || {},
