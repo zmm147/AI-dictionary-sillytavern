@@ -96,25 +96,6 @@ export function createPanelContent(options) {
     hrAuth.className = 'sysHR';
     container.appendChild(hrAuth);
 
-    // Quick lookup input
-    const lookupSection = document.createElement('div');
-    lookupSection.className = 'ai-dict-top-bar-section';
-    lookupSection.innerHTML = `
-        <label>快速查词</label>
-        <div class="ai-dict-top-bar-lookup">
-            <input type="text" id="ai-dict-top-bar-input" class="text_pole" placeholder="输入单词查询...">
-            <button id="ai-dict-top-bar-lookup-btn" class="menu_button menu_button_icon" title="查询">
-                <i class="fa-solid fa-search"></i>
-            </button>
-        </div>
-    `;
-    container.appendChild(lookupSection);
-
-    // Divider
-    const hr1 = document.createElement('hr');
-    hr1.className = 'sysHR';
-    container.appendChild(hr1);
-
     // Quick actions
     const actionsSection = document.createElement('div');
     actionsSection.className = 'ai-dict-top-bar-section';
@@ -169,15 +150,13 @@ export function createPanelContent(options) {
             </button>
         </div>
         <div class="ai-dict-video-import">
-            <input type="file" id="ai-dict-video-input" accept="video/*" style="display: none;">
+            <input type="file" id="ai-dict-video-input" accept="video/*,.vtt,.srt" multiple style="display: none;">
             <input type="file" id="ai-dict-subtitle-input" accept=".vtt,.srt" style="display: none;">
-            <button id="ai-dict-video-import-btn" class="menu_button" title="导入本地视频">
+            <button id="ai-dict-video-import-btn" class="menu_button menu_button_icon" title="导入本地视频（可同时选择字幕文件）">
                 <i class="fa-solid fa-file-import"></i>
-                <span>导入视频</span>
             </button>
-            <button id="ai-dict-subtitle-import-btn" class="menu_button" title="导入字幕文件 (.vtt/.srt)">
+            <button id="ai-dict-subtitle-import-btn" class="menu_button menu_button_icon" title="导入字幕文件 (.vtt/.srt)">
                 <i class="fa-solid fa-closed-captioning"></i>
-                <span>字幕</span>
             </button>
             <span id="ai-dict-video-filename" class="ai-dict-video-filename"></span>
         </div>
@@ -208,6 +187,15 @@ export function createPanelContent(options) {
                         <i class="fa-solid fa-expand"></i>
                     </button>
                 </div>
+                <!-- Floating control buttons container (only visible in fullscreen) -->
+                <div id="ai-dict-floating-controls" class="ai-dict-floating-controls">
+                    <button id="ai-dict-floating-prev-btn" class="ai-dict-floating-btn" title="上一句">
+                        <i class="fa-solid fa-step-backward"></i>
+                    </button>
+                    <button id="ai-dict-floating-play-btn" class="ai-dict-floating-btn" title="播放/暂停">
+                        <i class="fa-solid fa-pause"></i>
+                    </button>
+                </div>
             </div>
         </div>
         <div id="ai-dict-subtitle-panel" class="ai-dict-subtitle-panel" style="display: none;">
@@ -220,22 +208,6 @@ export function createPanelContent(options) {
         </div>
     `;
     container.appendChild(videoSection);
-
-    // Divider
-    const hr2 = document.createElement('hr');
-    hr2.className = 'sysHR';
-    container.appendChild(hr2);
-
-    // Info/tip section
-    const infoSection = document.createElement('div');
-    infoSection.className = 'ai-dict-top-bar-section ai-dict-top-bar-info';
-    infoSection.innerHTML = `
-        <div class="ai-dict-top-bar-tip">
-            <i class="fa-solid fa-lightbulb"></i>
-            <span>选中文本即可快速查词</span>
-        </div>
-    `;
-    container.appendChild(infoSection);
 
     return container;
 }

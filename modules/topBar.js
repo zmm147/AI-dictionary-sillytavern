@@ -132,27 +132,6 @@ export function updateTopBar(options) {
 export function bindTopBarEvents(options) {
     const { performLookup, showStatisticsPanel, showFarmGamePanel, showFlashcardPanel, settings, saveSettings } = options;
 
-    // Lookup button
-    const lookupBtn = document.getElementById('ai-dict-top-bar-lookup-btn');
-    const lookupInput = document.getElementById('ai-dict-top-bar-input');
-
-    if (lookupBtn && lookupInput) {
-        const doLookup = () => {
-            const word = lookupInput.value.trim();
-            if (word && performLookup) {
-                performLookup(word);
-                lookupInput.value = '';
-            }
-        };
-
-        lookupBtn.addEventListener('click', doLookup);
-        lookupInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                doLookup();
-            }
-        });
-    }
-
     // Stats button
     const statsBtn = document.getElementById('ai-dict-top-bar-stats-btn');
     if (statsBtn && showStatisticsPanel) {

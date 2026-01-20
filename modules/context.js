@@ -9,6 +9,8 @@ import {
     getSelectedParentElement,
     getSelectionRangeInfo
 } from './selection.js';
+import { videoState } from './topBar/top-bar-state.js';
+import { loadSubtitleContextSize } from './topBar/top-bar-storage.js';
 
 /**
  * Mark selection in context text
@@ -140,5 +142,72 @@ export function extractContext(text, settings) {
  * @returns {string}
  */
 export function getContextForLookup(settings) {
+    // Check if we're in video subtitle context
+    const subtitleContext = getSubtitleContext();
+    if (subtitleContext) {
+        return subtitleContext;
+    }
+
+    // Fall back to normal context extraction
     return extractContext(document.body.innerText, settings);
+}
+
+/**
+ * Get subtitle context if available
+ * @returns {string|null}
+ */
+function getSubtitleContext() {
+    const cues = videoState.currentSubtitleCues;
+    if (!cues || cues.length === 0) {
+        return null;
+    }
+
+    // Get video player to check current time
+    const videoPlayer = document.getElementById('ai-dict-video-player');
+    if (!videoPlayer) {
+        return null;
+    }
+
+    const currentTime = videoPlayer.currentTime;
+    const selectedText = getSelectedText();
+
+    // Find the current subtitle cue
+    let currentCueIndex = -1;
+    for (let i = 0; i < cues.length; i++) {
+        if (currentTime >= cues[i].start && currentTime <= cues[i].end) {
+            currentCueIndex = i;
+            break;
+        }
+    }
+
+    // If no current cue found, check if selection is in subtitle overlay
+    const customSubtitle = document.getElementById('ai-dict-custom-subtitle');
+    if (currentCueIndex === -1 || !customSubtitle) {
+        return null;
+    }
+
+    // Check if the selected text is from the subtitle
+    const subtitleText = customSubtitle.textContent || '';
+    if (!subtitleText.includes(selectedText)) {
+        return null;
+    }
+
+    // Get context size from settings
+    const contextSize = loadSubtitleContextSize();
+    const halfSize = Math.floor(contextSize / 2);
+
+    // Calculate range
+    const startIndex = Math.max(0, currentCueIndex - halfSize);
+    const endIndex = Math.min(cues.length - 1, currentCueIndex + halfSize);
+
+    // Build context with surrounding subtitles, marked as dialogue lines
+    const contextCues = [];
+    for (let i = startIndex; i <= endIndex; i++) {
+        contextCues.push(`- ${cues[i].text}`);
+    }
+
+    const context = contextCues.join('\n');
+
+    // Mark the selected text in context
+    return markSelectionInContext(context, selectedText);
 }

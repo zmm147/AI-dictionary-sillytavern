@@ -11,7 +11,7 @@ import {
     MIN_SUBTITLE_OFFSET
 } from './top-bar-config.js';
 import { videoState } from './top-bar-state.js';
-import { loadSubtitleSettings, saveSubtitleSettings } from './top-bar-storage.js';
+import { loadSubtitleSettings, saveSubtitleSettings, loadVideoVolume, saveVideoVolume, loadFloatingPosition, saveFloatingPosition } from './top-bar-storage.js';
 import { parseVttCues, convertSrtToVtt, normalizeVtt } from './top-bar-subtitle.js';
 import { formatSubtitleContent, showSubtitleError } from './top-bar-render.js';
 
@@ -184,6 +184,17 @@ export function bindVideoEvents() {
 
     if (!videoBtn || !videoSection) return;
 
+    // Load and apply saved volume
+    if (videoPlayer) {
+        const savedVolume = loadVideoVolume();
+        videoPlayer.volume = savedVolume;
+
+        // Save volume when it changes
+        videoPlayer.addEventListener('volumechange', () => {
+            saveVideoVolume(videoPlayer.volume);
+        });
+    }
+
     // Toggle video section visibility
     videoBtn.addEventListener('click', () => {
         const isVisible = videoSection.style.display !== 'none';
@@ -203,6 +214,13 @@ export function bindVideoEvents() {
             if (videoFilename) {
                 videoFilename.textContent = '';
             }
+            // Reset file inputs to allow re-selecting the same file
+            if (videoInput) {
+                videoInput.value = '';
+            }
+            if (subtitleInput) {
+                subtitleInput.value = '';
+            }
             // Clear subtitle panel
             clearSubtitlePanel();
         });
@@ -218,25 +236,70 @@ export function bindVideoEvents() {
     // Handle video file selection
     if (videoInput && videoPlayer && videoFilename) {
         videoInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                const url = URL.createObjectURL(file);
-                videoPlayer.src = url;
-                videoPlayer.load();
-                videoFilename.textContent = file.name;
-                // Clear existing subtitles when loading new video
-                clearSubtitles(videoPlayer);
-                clearSubtitlePanel();
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
 
-                // Clean up object URL when video is loaded or on error
-                videoPlayer.onloadeddata = () => {
-                    console.log(`[AI Dictionary] Video loaded: ${file.name}`);
-                };
-                videoPlayer.onerror = () => {
-                    console.error(`[AI Dictionary] Failed to load video: ${file.name}`);
-                    videoFilename.textContent = '加载失败';
-                };
+            // Separate video and subtitle files
+            const videoFile = files.find(f => f.type.startsWith('video/'));
+            const subtitleFile = files.find(f => {
+                const name = f.name.toLowerCase();
+                return name.endsWith('.srt') || name.endsWith('.vtt');
+            });
+
+            if (!videoFile) {
+                console.warn('[AI Dictionary] No video file selected');
+                return;
             }
+
+            // Save existing subtitle data before clearing
+            const savedSubtitleCues = [...videoState.currentSubtitleCues];
+            const subtitlePanel = document.getElementById('ai-dict-subtitle-panel');
+            const subtitleName = document.getElementById('ai-dict-subtitle-name');
+            const subtitleContent = document.getElementById('ai-dict-subtitle-content');
+            const savedSubtitleName = subtitleName ? subtitleName.textContent : '';
+            const savedSubtitleContent = subtitleContent ? subtitleContent.innerHTML : '';
+            const savedPanelVisible = subtitlePanel ? subtitlePanel.style.display !== 'none' : false;
+
+            const url = URL.createObjectURL(videoFile);
+            videoPlayer.src = url;
+            videoPlayer.load();
+            videoFilename.textContent = videoFile.name;
+            // Clear existing subtitles when loading new video
+            clearSubtitles(videoPlayer);
+            clearSubtitlePanel();
+
+            // If subtitle file was selected, load it
+            if (subtitleFile) {
+                console.log(`[AI Dictionary] Auto-loading subtitle: ${subtitleFile.name}`);
+                handleSubtitleFile(subtitleFile, videoPlayer);
+            } else if (savedSubtitleCues.length > 0) {
+                // Restore subtitle data if it existed and no new subtitle was selected
+                videoState.currentSubtitleCues = savedSubtitleCues;
+
+                // Re-bind timeupdate listener
+                const updateHandler = () => updateCustomSubtitle(videoPlayer);
+                videoPlayer._subtitleUpdateHandler = updateHandler;
+                videoPlayer.addEventListener('timeupdate', updateHandler);
+
+                // Restore subtitle panel UI
+                if (subtitlePanel && subtitleName && subtitleContent) {
+                    subtitlePanel.style.display = savedPanelVisible ? 'block' : 'none';
+                    subtitleName.textContent = savedSubtitleName;
+                    subtitleContent.innerHTML = savedSubtitleContent;
+                    subtitleContent.style.display = 'none'; // Keep collapsed
+                }
+
+                console.log(`[AI Dictionary] Restored ${savedSubtitleCues.length} subtitle cues after video load`);
+            }
+
+            // Clean up object URL when video is loaded or on error
+            videoPlayer.onloadeddata = () => {
+                console.log(`[AI Dictionary] Video loaded: ${videoFile.name}`);
+            };
+            videoPlayer.onerror = () => {
+                console.error(`[AI Dictionary] Failed to load video: ${videoFile.name}`);
+                videoFilename.textContent = '加载失败';
+            };
         });
     }
 
@@ -276,6 +339,9 @@ export function bindVideoEvents() {
 
     // Bind subtitle control events
     bindSubtitleControlEvents();
+
+    // Bind floating controls
+    bindFloatingControls();
 }
 
 /**
@@ -437,5 +503,195 @@ function bindSubtitleControlEvents() {
             customSubtitle.style.transform = '';
             customSubtitle.style.right = '';
         });
+    }
+}
+
+/**
+ * Bind floating controls (play/pause and previous subtitle buttons)
+ */
+function bindFloatingControls() {
+    const floatingControls = document.getElementById('ai-dict-floating-controls');
+    const playBtn = document.getElementById('ai-dict-floating-play-btn');
+    const prevBtn = document.getElementById('ai-dict-floating-prev-btn');
+    const videoPlayer = document.getElementById('ai-dict-video-player');
+
+    if (!floatingControls || !playBtn || !prevBtn || !videoPlayer) return;
+
+    // Load and apply saved position
+    const savedPosition = loadFloatingPosition();
+    if (savedPosition.left !== undefined && savedPosition.top !== undefined) {
+        floatingControls.style.left = savedPosition.left + 'px';
+        floatingControls.style.top = savedPosition.top + 'px';
+        floatingControls.style.right = 'auto';
+        floatingControls.style.bottom = 'auto';
+    } else if (savedPosition.right !== undefined && savedPosition.bottom !== undefined) {
+        floatingControls.style.right = savedPosition.right + 'px';
+        floatingControls.style.bottom = savedPosition.bottom + 'px';
+    }
+
+    // Update play button icon based on video state
+    const updatePlayIcon = () => {
+        const icon = playBtn.querySelector('i');
+        if (icon) {
+            icon.className = videoPlayer.paused ? 'fa-solid fa-play' : 'fa-solid fa-pause';
+        }
+    };
+
+    // Update icon when video state changes
+    videoPlayer.addEventListener('play', updatePlayIcon);
+    videoPlayer.addEventListener('pause', updatePlayIcon);
+
+    // Play button click handler
+    playBtn.addEventListener('click', (e) => {
+        if (videoPlayer.paused) {
+            videoPlayer.play();
+        } else {
+            videoPlayer.pause();
+        }
+        updatePlayIcon();
+        e.stopPropagation();
+    });
+
+    // Previous button click handler
+    prevBtn.addEventListener('click', (e) => {
+        jumpToPreviousSubtitle(videoPlayer);
+        e.stopPropagation();
+    });
+
+    // Dragging logic for the container
+    let isDragging = false;
+    let startX, startY, startLeft, startTop;
+
+    const onPointerDown = (e) => {
+        // Only start dragging if clicking on the container background, not the buttons
+        if (e.target === floatingControls) {
+            isDragging = true;
+
+            const rect = floatingControls.getBoundingClientRect();
+            startX = e.clientX;
+            startY = e.clientY;
+            startLeft = rect.left;
+            startTop = rect.top;
+
+            floatingControls.style.cursor = 'grabbing';
+            e.preventDefault();
+        }
+    };
+
+    const onPointerMove = (e) => {
+        if (!isDragging) return;
+
+        const deltaX = e.clientX - startX;
+        const deltaY = e.clientY - startY;
+
+        const newLeft = startLeft + deltaX;
+        const newTop = startTop + deltaY;
+
+        // Get container bounds
+        const container = floatingControls.parentElement;
+        const containerRect = container.getBoundingClientRect();
+        const controlsWidth = floatingControls.offsetWidth;
+        const controlsHeight = floatingControls.offsetHeight;
+
+        // Constrain to container bounds
+        const maxLeft = containerRect.width - controlsWidth;
+        const maxTop = containerRect.height - controlsHeight;
+
+        const constrainedLeft = Math.max(0, Math.min(newLeft, maxLeft));
+        const constrainedTop = Math.max(0, Math.min(newTop, maxTop));
+
+        floatingControls.style.left = constrainedLeft + 'px';
+        floatingControls.style.top = constrainedTop + 'px';
+        floatingControls.style.right = 'auto';
+        floatingControls.style.bottom = 'auto';
+    };
+
+    const onPointerUp = () => {
+        if (isDragging) {
+            isDragging = false;
+            floatingControls.style.cursor = 'move';
+
+            // Save position
+            const rect = floatingControls.getBoundingClientRect();
+            saveFloatingPosition({
+                left: rect.left,
+                top: rect.top
+            });
+        }
+    };
+
+    // Mouse events
+    floatingControls.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('mousemove', onPointerMove);
+    document.addEventListener('mouseup', onPointerUp);
+
+    // Touch events
+    floatingControls.addEventListener('touchstart', (e) => {
+        const touch = e.touches[0];
+        onPointerDown({
+            target: e.target,
+            clientX: touch.clientX,
+            clientY: touch.clientY,
+            preventDefault: () => e.preventDefault()
+        });
+    });
+
+    document.addEventListener('touchmove', (e) => {
+        if (isDragging && e.touches.length > 0) {
+            const touch = e.touches[0];
+            onPointerMove({ clientX: touch.clientX, clientY: touch.clientY });
+        }
+    });
+
+    document.addEventListener('touchend', onPointerUp);
+}
+
+/**
+ * Jump to the previous subtitle cue
+ * @param {HTMLVideoElement} videoPlayer
+ */
+function jumpToPreviousSubtitle(videoPlayer) {
+    const currentTime = videoPlayer.currentTime;
+    const cues = videoState.currentSubtitleCues;
+
+    if (!cues || cues.length === 0) {
+        console.log('[AI Dictionary] No subtitles loaded');
+        return;
+    }
+
+    // Find the previous cue
+    let targetCue = null;
+
+    // First, find the current cue or the one we just passed
+    let currentCueIndex = -1;
+    for (let i = 0; i < cues.length; i++) {
+        if (currentTime >= cues[i].start && currentTime <= cues[i].end) {
+            // We're in the middle of a cue
+            currentCueIndex = i;
+            break;
+        } else if (currentTime < cues[i].start) {
+            // We're before this cue, so the previous one is the last one we passed
+            currentCueIndex = i - 1;
+            break;
+        }
+    }
+
+    // If we didn't find a current cue, we might be after all cues
+    if (currentCueIndex === -1) {
+        currentCueIndex = cues.length - 1;
+    }
+
+    // Get the previous cue
+    if (currentCueIndex > 0) {
+        targetCue = cues[currentCueIndex - 1];
+    } else if (currentCueIndex === 0) {
+        // Already at first cue, replay it
+        targetCue = cues[0];
+    }
+
+    if (targetCue) {
+        videoPlayer.currentTime = targetCue.start;
+        videoPlayer.pause();
+        console.log(`[AI Dictionary] Jumped to previous subtitle at ${targetCue.start}s`);
     }
 }

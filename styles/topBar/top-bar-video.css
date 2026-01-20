@@ -32,7 +32,6 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    flex-wrap: wrap;
 }
 
 .ai-dict-video-import button {
@@ -170,4 +169,53 @@
     right: 16px;
     width: 40px;
     height: 40px;
+}
+
+/* Floating controls container */
+.ai-dict-floating-controls {
+    position: absolute;
+    bottom: 60px;
+    right: 20px;
+    display: none;
+    flex-direction: row;
+    gap: 8px;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.7);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 30px;
+    z-index: 20;
+    cursor: move;
+    user-select: none;
+    touch-action: none;
+}
+
+/* Individual floating buttons */
+.ai-dict-floating-btn {
+    width: 45px;
+    height: 45px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    transition: background 0.2s ease, transform 0.1s ease;
+    flex-shrink: 0;
+}
+
+.ai-dict-floating-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.05);
+}
+
+.ai-dict-floating-btn:active {
+    transform: scale(0.95);
+}
+
+/* Show floating controls in pseudo-fullscreen on all devices */
+.ai-dict-video-wrapper.pseudo-fullscreen .ai-dict-floating-controls {
+    display: flex;
 }
