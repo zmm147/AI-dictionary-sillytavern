@@ -118,7 +118,6 @@
 
 /* Icon styling */
 #ai-dict-top-bar-icon {
-    font-size: 18px;
     cursor: pointer;
     transition: opacity 0.2s ease;
 }
