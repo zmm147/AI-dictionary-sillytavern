@@ -492,6 +492,34 @@ export async function deleteWordFromCloud(word) {
 }
 
 /**
+ * Delete all words from cloud for current user
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+export async function deleteAllWordsFromCloud() {
+    if (!supabaseClient || !currentUser) {
+        return { success: false, error: 'Not logged in' };
+    }
+
+    try {
+        const { error } = await supabaseClient
+            .from('words')
+            .delete()
+            .eq('user_id', currentUser.id);
+
+        if (error) {
+            console.error(`[${EXTENSION_NAME}] Delete all words error:`, error);
+            return { success: false, error: error.message };
+        }
+
+        console.log(`[${EXTENSION_NAME}] Deleted all words from cloud`);
+        return { success: true };
+    } catch (e) {
+        console.error(`[${EXTENSION_NAME}] Delete all words exception:`, e);
+        return { success: false, error: e.message };
+    }
+}
+
+/**
  * Blacklist a word in cloud
  * @param {string} word
  * @returns {Promise<{success: boolean, error?: string}>}

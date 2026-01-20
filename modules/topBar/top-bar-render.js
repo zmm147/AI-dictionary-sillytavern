@@ -143,6 +143,10 @@ export function createPanelContent(options) {
                 <i class="fa-solid fa-trash-alt"></i>
                 <span>清空闪卡记录</span>
             </button>
+            <button id="ai-dict-clear-word-history-btn" class="menu_button menu_button_danger" title="清空所有查词记录">
+                <i class="fa-solid fa-trash-alt"></i>
+                <span>清空查词记录</span>
+            </button>
         </div>
     `;
     container.appendChild(actionsSection);

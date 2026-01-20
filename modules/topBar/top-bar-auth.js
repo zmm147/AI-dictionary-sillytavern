@@ -19,6 +19,7 @@ import {
     syncWordToCloud,
     deleteWordFromCloud,
     blacklistWordInCloud,
+    deleteAllWordsFromCloud,
     syncFlashcardProgressToCloud,
     fetchFlashcardProgressFromCloud,
     fetchFlashcardProgressIncrementally,
@@ -31,7 +32,7 @@ import {
     uploadAllImmersiveReviewToCloud,
     deleteAllFlashcardProgressFromCloud
 } from '../supabase.js';
-import { getAllWordHistory, mergeCloudData, enableCloudSync, disableCloudSync, replaceAllWordHistory } from '../wordHistory.js';
+import { getAllWordHistory, mergeCloudData, enableCloudSync, disableCloudSync, replaceAllWordHistory, clearAllWordHistory } from '../wordHistory.js';
 import { enableFlashcardCloudSync, disableFlashcardCloudSync, getAllFlashcardProgress, mergeCloudFlashcardData, clearAllFlashcardProgress, replaceAllFlashcardProgress } from '../flashcardProgress.js';
 import { enableReviewCloudSync, disableReviewCloudSync, getReviewData, mergeCloudReviewData, replaceAllReviewData } from '../review.js';
 import { getLastSyncTime, setLastSyncTime, clearAllSyncTimes } from '../database.js';
@@ -800,6 +801,57 @@ async function handleClearFlashcard() {
 }
 
 /**
+ * Handle clear word history button click
+ */
+async function handleClearWordHistory() {
+    const wordHistoryData = getAllWordHistory();
+    const count = Object.keys(wordHistoryData).length;
+
+    if (count === 0) {
+        alert('没有查词记录可清空');
+        return;
+    }
+
+    const loggedIn = isLoggedIn();
+    const confirmMsg = loggedIn
+        ? `确定要清空所有 ${count} 条查词记录吗？\n\n此操作将删除：\n- 本地 IndexedDB 数据\n- 本地备份文件\n- 云端数据\n\n此操作不可恢复！`
+        : `确定要清空所有 ${count} 条查词记录吗？\n\n此操作将删除：\n- 本地 IndexedDB 数据\n- 本地备份文件\n\n此操作不可恢复！`;
+
+    const confirmed = confirm(confirmMsg);
+
+    if (!confirmed) {
+        return;
+    }
+
+    const clearBtn = document.getElementById('ai-dict-clear-word-history-btn');
+    if (clearBtn) {
+        clearBtn.disabled = true;
+        clearBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>清空中...</span>';
+    }
+
+    try {
+        // Delete from cloud first if logged in
+        if (loggedIn) {
+            const cloudResult = await deleteAllWordsFromCloud();
+            if (!cloudResult.success) {
+                console.warn('Cloud delete failed:', cloudResult.error);
+            }
+        }
+
+        // Then delete local data
+        await clearAllWordHistory();
+        alert(`已清空 ${count} 条查词记录` + (loggedIn ? '（含云端）' : ''));
+    } catch (e) {
+        alert('清空失败: ' + e.message);
+    }
+
+    if (clearBtn) {
+        clearBtn.disabled = false;
+        clearBtn.innerHTML = '<i class="fa-solid fa-trash-alt"></i> <span>清空查词记录</span>';
+    }
+}
+
+/**
  * Bind auth events to UI elements
  */
 export function bindAuthEvents() {
@@ -858,5 +910,11 @@ export function bindAuthEvents() {
     const clearFlashcardBtn = document.getElementById('ai-dict-clear-flashcard-btn');
     if (clearFlashcardBtn) {
         clearFlashcardBtn.addEventListener('click', handleClearFlashcard);
+    }
+
+    // Clear word history button
+    const clearWordHistoryBtn = document.getElementById('ai-dict-clear-word-history-btn');
+    if (clearWordHistoryBtn) {
+        clearWordHistoryBtn.addEventListener('click', handleClearWordHistory);
     }
 }

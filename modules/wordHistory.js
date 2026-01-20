@@ -351,6 +351,25 @@ export async function clearWordHistory(word) {
 }
 
 /**
+ * Clear all word history
+ * @returns {Promise<number>} Number of words cleared
+ */
+export async function clearAllWordHistory() {
+    const count = Object.keys(wordHistoryData).length;
+
+    // Clear in-memory data
+    wordHistoryData = {};
+
+    // Clear IndexedDB
+    const { dbClear } = await import('./database.js');
+    await dbClear(STORE_WORD_HISTORY);
+
+    console.log(`[${EXTENSION_NAME}] Cleared ${count} words from history`);
+
+    return count;
+}
+
+/**
  * Delete a word permanently and add to blacklist
  * @param {string} word
  */
