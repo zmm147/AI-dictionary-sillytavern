@@ -69,8 +69,14 @@ export function createTopBarIcon(options) {
     drawer.appendChild(drawerToggle);
     drawer.appendChild(drawerContent);
 
-    // Insert at the beginning of top-settings-holder
-    topSettingsHolder.insertBefore(drawer, topSettingsHolder.firstChild);
+    // Insert before Extensions button (between Change Background and Extensions)
+    const extensionsButton = document.getElementById('extensions-settings-button');
+    if (extensionsButton) {
+        topSettingsHolder.insertBefore(drawer, extensionsButton);
+    } else {
+        // Fallback: insert at the end if Extensions button not found
+        topSettingsHolder.appendChild(drawer);
+    }
 
     // Bind click event for toggle
     drawerToggle.addEventListener('click', (e) => {
