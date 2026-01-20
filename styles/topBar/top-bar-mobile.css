@@ -5,8 +5,8 @@
 
 @media screen and (max-width: 768px) {
     #ai-dict-top-bar-drawer-content {
-        min-width: 260px;
-        max-width: 90vw;
+        width: 100vw;
+        max-width: 100vw;
     }
 
     .ai-dict-top-bar-actions button {
