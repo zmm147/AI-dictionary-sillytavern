@@ -33,6 +33,7 @@
 @import url('./styles/topBar/top-bar-base.css');
 @import url('./styles/topBar/top-bar-video.css');
 @import url('./styles/topBar/top-bar-subtitle.css');
+@import url('./styles/topBar/top-bar-character.css');
 @import url('./styles/topBar/top-bar-auth.css');
 @import url('./styles/topBar/top-bar-mobile.css');
 

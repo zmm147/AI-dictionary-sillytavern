@@ -158,6 +158,9 @@ export function createPanelContent(options) {
             <button id="ai-dict-subtitle-import-btn" class="menu_button menu_button_icon" title="导入字幕文件 (.vtt/.srt)">
                 <i class="fa-solid fa-closed-captioning"></i>
             </button>
+            <button id="ai-dict-create-character-btn" class="menu_button menu_button_icon" title="创建角色卡">
+                <i class="fa-solid fa-user-plus"></i>
+            </button>
             <span id="ai-dict-video-filename" class="ai-dict-video-filename"></span>
         </div>
         <div id="ai-dict-subtitle-error" class="ai-dict-subtitle-error" style="display: none;"></div>
@@ -208,6 +211,52 @@ export function createPanelContent(options) {
         </div>
     `;
     container.appendChild(videoSection);
+
+    // Character creation modal
+    const characterModal = document.createElement('div');
+    characterModal.id = 'ai-dict-character-modal';
+    characterModal.className = 'ai-dict-character-modal';
+    characterModal.style.display = 'none';
+    characterModal.innerHTML = `
+        <div class="ai-dict-character-modal-content">
+            <div class="ai-dict-character-modal-header">
+                <h3>创建角色卡</h3>
+                <button id="ai-dict-character-modal-close" class="menu_button menu_button_icon" title="关闭">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+            </div>
+            <div class="ai-dict-character-modal-body">
+                <div class="ai-dict-character-form-group">
+                    <label for="ai-dict-character-name">角色名称</label>
+                    <input type="text" id="ai-dict-character-name" placeholder="输入角色名称" />
+                </div>
+                <div class="ai-dict-character-form-group">
+                    <label for="ai-dict-character-input">
+                        角色描述输入
+                        <button id="ai-dict-reset-prompt-btn" class="ai-dict-reset-prompt-btn menu_button_icon" title="重置为默认提示词模板">
+                            <i class="fa-solid fa-rotate-left"></i>
+                        </button>
+                    </label>
+                    <textarea id="ai-dict-character-input" rows="6" placeholder="输入角色相关信息，AI将根据这些信息生成角色描述"></textarea>
+                </div>
+                <div class="ai-dict-character-form-actions">
+                    <button id="ai-dict-generate-description-btn" class="menu_button">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> 生成描述
+                    </button>
+                </div>
+                <div class="ai-dict-character-form-group">
+                    <label for="ai-dict-character-output">AI生成的角色描述</label>
+                    <textarea id="ai-dict-character-output" rows="10" placeholder="AI生成的描述将显示在这里，您可以编辑"></textarea>
+                </div>
+                <div class="ai-dict-character-form-actions">
+                    <button id="ai-dict-create-character-submit-btn" class="menu_button">
+                        <i class="fa-solid fa-check"></i> 创建角色卡
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    container.appendChild(characterModal);
 
     return container;
 }

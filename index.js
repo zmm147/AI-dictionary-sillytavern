@@ -4,7 +4,7 @@
  */
 
 import { extension_settings, getContext } from '../../../extensions.js';
-import { saveSettingsDebounced, eventSource, event_types, generateRaw, setExtensionPrompt, extension_prompt_types } from '../../../../script.js';
+import { saveSettingsDebounced, eventSource, event_types, generateRaw, setExtensionPrompt, extension_prompt_types, getCharacters, select_rm_info as selectRmInfo } from '../../../../script.js';
 import { oai_settings, sendOpenAIRequest, openai_settings, openai_setting_names } from '../../../openai.js';
 import { system_prompts } from '../../../sysprompt.js';
 
@@ -408,7 +408,11 @@ function updateTopBarWrapper() {
             showFarmGamePanel: showFarmGamePanelWrapper,
             showFlashcardPanel: null, // TODO: Add flashcard panel function if available
             settings: settings,
-            saveSettings: saveSettings
+            saveSettings: saveSettings,
+            sendOpenAIRequest: sendOpenAIRequest,
+            oaiSettings: oai_settings,
+            getCharacters: getCharacters,
+            selectRmInfo: selectRmInfo
         });
     }
 }

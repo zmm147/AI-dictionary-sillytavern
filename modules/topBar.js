@@ -9,6 +9,7 @@ import { drawerState, resetDrawerState } from './topBar/top-bar-state.js';
 import { toggleDrawer, closeDrawer } from './topBar/top-bar-drawer.js';
 import { createPanelContent } from './topBar/top-bar-render.js';
 import { bindVideoEvents } from './topBar/top-bar-video.js';
+import { bindCharacterCreationEvents } from './topBar/top-bar-character.js';
 import { bindAuthEvents, initAuth, setSaveSettingsCallback, updateCloudSyncUI } from './topBar/top-bar-auth.js';
 import { setCloudSyncMode } from './backup.js';
 
@@ -128,9 +129,13 @@ export function updateTopBar(options) {
  * @param {Function} options.showFlashcardPanel - Function to show flashcard (optional)
  * @param {Object} options.settings - Current settings object
  * @param {Function} options.saveSettings - Function to save settings
+ * @param {Function} options.sendOpenAIRequest - Send OpenAI request function
+ * @param {Object} options.oaiSettings - OAI settings
+ * @param {Function} options.getCharacters - Function to reload character list
+ * @param {Function} options.selectRmInfo - Function to update character list UI
  */
 export function bindTopBarEvents(options) {
-    const { performLookup, showStatisticsPanel, showFarmGamePanel, showFlashcardPanel, settings, saveSettings } = options;
+    const { performLookup, showStatisticsPanel, showFarmGamePanel, showFlashcardPanel, settings, saveSettings, sendOpenAIRequest, oaiSettings, getCharacters, selectRmInfo } = options;
 
     // Stats button
     const statsBtn = document.getElementById('ai-dict-top-bar-stats-btn');
@@ -158,6 +163,17 @@ export function bindTopBarEvents(options) {
 
     // Video button and functionality
     bindVideoEvents();
+
+    // Character creation functionality
+    if (sendOpenAIRequest && oaiSettings) {
+        bindCharacterCreationEvents({
+            settings,
+            sendOpenAIRequest,
+            oaiSettings,
+            getCharacters,
+            selectRmInfo
+        });
+    }
 
     // Set up save settings callback for auth module
     if (saveSettings && settings) {

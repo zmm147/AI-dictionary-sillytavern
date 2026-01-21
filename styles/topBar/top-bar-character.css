@@ -1,0 +1,152 @@
+/**
+ * AI Dictionary - Character Creation Modal Styles
+ */
+
+.ai-dict-character-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 1);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    padding: 20px;
+}
+
+.ai-dict-character-modal-content {
+    background-color: var(--SmartThemeBGColor);
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 8px;
+    width: 100%;
+    max-width: 600px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.ai-dict-character-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--SmartThemeBorderColor);
+}
+
+.ai-dict-character-modal-header h3 {
+    margin: 0;
+    font-size: 18px;
+    color: var(--SmartThemeEmColor);
+}
+
+.ai-dict-character-modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.ai-dict-character-form-group {
+    margin-bottom: 20px;
+}
+
+.ai-dict-character-form-group label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: var(--SmartThemeEmColor);
+    font-size: 14px;
+}
+
+.ai-dict-reset-prompt-btn {
+    padding: 4px 8px;
+    font-size: 12px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--SmartThemeEmColor);
+}
+
+.ai-dict-reset-prompt-btn:hover {
+    opacity: 1;
+}
+
+.ai-dict-reset-prompt-btn i {
+    font-size: 12px;
+}
+
+.ai-dict-character-form-group input[type="text"],
+.ai-dict-character-form-group textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 4px;
+    background-color: var(--black70a);
+    color: var(--SmartThemeBodyColor);
+    font-family: inherit;
+    font-size: 14px;
+    resize: vertical;
+    box-sizing: border-box;
+}
+
+.ai-dict-character-form-group input[type="text"]:focus,
+.ai-dict-character-form-group textarea:focus {
+    outline: none;
+    border-color: var(--SmartThemeQuoteColor);
+}
+
+.ai-dict-character-form-group textarea {
+    min-height: 80px;
+}
+
+.ai-dict-character-form-actions {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.ai-dict-character-form-actions button {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    font-size: 14px;
+    white-space: nowrap;
+    writing-mode: horizontal-tb;
+}
+
+.ai-dict-character-form-actions button i {
+    font-size: 14px;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .ai-dict-character-modal {
+        padding: 10px;
+    }
+
+    .ai-dict-character-modal-content {
+        max-width: 100%;
+        max-height: 95vh;
+    }
+
+    .ai-dict-character-modal-header {
+        padding: 12px 15px;
+    }
+
+    .ai-dict-character-modal-body {
+        padding: 15px;
+    }
+
+    .ai-dict-character-form-group input[type="text"],
+    .ai-dict-character-form-group textarea {
+        font-size: 16px; /* Prevent zoom on iOS */
+    }
+}
