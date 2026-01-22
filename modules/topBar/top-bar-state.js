@@ -11,6 +11,7 @@ export const drawerState = {
 // Video player state
 export const videoState = {
     currentSubtitleCues: [],
+    originalSubtitleContent: '', // Store original SRT/VTT content with timestamps
     originalParent: null,
     originalNextSibling: null
 };
@@ -27,6 +28,7 @@ export function resetDrawerState() {
  */
 export function resetVideoState() {
     videoState.currentSubtitleCues = [];
+    videoState.originalSubtitleContent = '';
     videoState.originalParent = null;
     videoState.originalNextSibling = null;
 }

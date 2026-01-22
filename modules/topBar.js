@@ -171,7 +171,8 @@ export function bindTopBarEvents(options) {
             sendOpenAIRequest,
             oaiSettings,
             getCharacters,
-            selectRmInfo
+            selectRmInfo,
+            saveSettings
         });
     }
 

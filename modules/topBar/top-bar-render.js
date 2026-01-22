@@ -221,21 +221,68 @@ export function createPanelContent(options) {
         <div class="ai-dict-character-modal-content">
             <div class="ai-dict-character-modal-header">
                 <h3>创建角色卡</h3>
-                <button id="ai-dict-character-modal-close" class="menu_button menu_button_icon" title="关闭">
-                    <i class="fa-solid fa-times"></i>
-                </button>
+                <div class="ai-dict-character-modal-header-actions">
+                    <button id="ai-dict-character-reset-all-btn" class="menu_button menu_button_icon" title="重置所有">
+                        <i class="fa-solid fa-rotate-left"></i>
+                    </button>
+                    <button id="ai-dict-character-modal-close" class="menu_button menu_button_icon" title="关闭">
+                        <i class="fa-solid fa-times"></i>
+                    </button>
+                </div>
             </div>
             <div class="ai-dict-character-modal-body">
-                <div class="ai-dict-character-form-group">
-                    <label for="ai-dict-character-name">角色名称</label>
-                    <input type="text" id="ai-dict-character-name" placeholder="输入角色名称" />
+                <div class="ai-dict-character-system-prompt-toggle" id="ai-dict-character-system-prompt-toggle">
+                    <i class="fa-solid fa-chevron-right"></i>
+                    <span>系统提示词</span>
+                </div>
+                <div class="ai-dict-character-form-group" id="ai-dict-character-system-prompt-group" style="display: none;">
+                    <textarea id="ai-dict-character-system-prompt" class="ai-dict-system-prompt" rows="3" placeholder="输入系统提示词，AI将根据此提示词生成角色描述"></textarea>
+                </div>
+                <div class="ai-dict-character-subtitle-toggle" id="ai-dict-character-subtitle-toggle">
+                    <i class="fa-solid fa-chevron-right"></i>
+                    <span>字幕内容</span>
+                    <span id="ai-dict-character-subtitle-status" class="ai-dict-character-subtitle-status"></span>
+                </div>
+                <div id="ai-dict-character-subtitle-content" class="ai-dict-character-subtitle-content" style="display: none;">
+                    <div id="ai-dict-character-subtitle-text" class="ai-dict-character-subtitle-text"></div>
                 </div>
                 <div class="ai-dict-character-form-group">
-                    <label for="ai-dict-character-input">
-                        角色描述输入
-                        <button id="ai-dict-reset-prompt-btn" class="ai-dict-reset-prompt-btn menu_button_icon" title="重置为默认提示词模板">
-                            <i class="fa-solid fa-rotate-left"></i>
+                    <label for="ai-dict-character-name">
+                        <span>角色名称</span>
+                        <button id="ai-dict-extract-info-btn" class="ai-dict-extract-btn menu_button_icon" title="从字幕提取角色和场景">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i>
                         </button>
+                    </label>
+                    <div class="ai-dict-character-name-row">
+                        <input type="text" id="ai-dict-character-name" placeholder="输入角色名称" />
+                        <select id="ai-dict-character-select" class="ai-dict-info-select" style="display: none;">
+                            <option value="">-- 选择角色 --</option>
+                        </select>
+                        <select id="ai-dict-location-select" class="ai-dict-info-select" style="display: none;">
+                            <option value="">-- 选择场景 --</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="ai-dict-character-form-group">
+                    <label for="ai-dict-character-input" class="ai-dict-character-label">
+                        <span>角色描述输入 <span class="ai-dict-variable-hint">(支持 {{字幕内容}} {{角色}} {{场景}} 变量)</span></span>
+                        <div class="ai-dict-preset-controls">
+                            <select id="ai-dict-preset-select" class="ai-dict-preset-select" title="选择预设模板">
+                                <option value="">-- 选择预设 --</option>
+                            </select>
+                            <button id="ai-dict-save-preset-btn" class="ai-dict-preset-btn menu_button_icon" title="保存到当前预设">
+                                <i class="fa-solid fa-save"></i>
+                            </button>
+                            <button id="ai-dict-save-as-preset-btn" class="ai-dict-preset-btn menu_button_icon" title="另存为新预设">
+                                <i class="fa-solid fa-copy"></i>
+                            </button>
+                            <button id="ai-dict-delete-preset-btn" class="ai-dict-preset-btn menu_button_icon" title="删除当前预设">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                            <button id="ai-dict-reset-prompt-btn" class="ai-dict-reset-prompt-btn menu_button_icon" title="重置为默认提示词模板">
+                                <i class="fa-solid fa-rotate-left"></i>
+                            </button>
+                        </div>
                     </label>
                     <textarea id="ai-dict-character-input" rows="6" placeholder="输入角色相关信息，AI将根据这些信息生成角色描述"></textarea>
                 </div>
@@ -246,6 +293,14 @@ export function createPanelContent(options) {
                 </div>
                 <div class="ai-dict-character-form-group">
                     <label for="ai-dict-character-output">AI生成的角色描述</label>
+                    <div id="ai-dict-preset-tags-container" class="ai-dict-preset-tags-container" style="display: none;">
+                        <div class="ai-dict-preset-tags-wrapper">
+                            <div id="ai-dict-preset-tags" class="ai-dict-preset-tags"></div>
+                            <div id="ai-dict-preset-trash" class="ai-dict-preset-trash" title="拖拽标签到此处删除">
+                                <i class="fa-solid fa-trash-alt"></i>
+                            </div>
+                        </div>
+                    </div>
                     <textarea id="ai-dict-character-output" rows="10" placeholder="AI生成的描述将显示在这里，您可以编辑"></textarea>
                 </div>
                 <div class="ai-dict-character-form-actions">

@@ -14,6 +14,7 @@ import { videoState } from './top-bar-state.js';
 import { loadSubtitleSettings, saveSubtitleSettings, loadVideoVolume, saveVideoVolume, loadFloatingPosition, saveFloatingPosition } from './top-bar-storage.js';
 import { parseVttCues, convertSrtToVtt, normalizeVtt } from './top-bar-subtitle.js';
 import { formatSubtitleContent, showSubtitleError } from './top-bar-render.js';
+import { updateCharacterSubtitleDisplay } from './top-bar-character.js';
 
 /**
  * Clear all subtitle tracks from video
@@ -26,10 +27,14 @@ export function clearSubtitles(videoPlayer) {
 
     // Clear custom subtitle data and display
     videoState.currentSubtitleCues = [];
+    videoState.originalSubtitleContent = '';
     const customSubtitle = document.getElementById('ai-dict-custom-subtitle');
     if (customSubtitle) {
         customSubtitle.textContent = '';
     }
+
+    // Update character modal subtitle display if open
+    updateCharacterSubtitleDisplay();
 
     // Remove timeupdate listener if exists
     if (videoPlayer._subtitleUpdateHandler) {
@@ -62,6 +67,10 @@ export function clearSubtitlePanel() {
         customSubtitle.textContent = '';
     }
     videoState.currentSubtitleCues = [];
+    videoState.originalSubtitleContent = '';
+
+    // Update character modal subtitle display if open
+    updateCharacterSubtitleDisplay();
 }
 
 /**
@@ -112,6 +121,9 @@ export function handleSubtitleFile(file, videoPlayer) {
             let content = e.target.result;
             const isSrt = file.name.toLowerCase().endsWith('.srt');
 
+            // Store the original content before any conversion
+            const originalContent = content;
+
             // Convert SRT to VTT if needed, or normalize VTT
             if (isSrt) {
                 content = convertSrtToVtt(content);
@@ -127,6 +139,9 @@ export function handleSubtitleFile(file, videoPlayer) {
             // Clear existing subtitles
             clearSubtitles(videoPlayer);
 
+            // Store the original content AFTER clearing (so it doesn't get cleared)
+            videoState.originalSubtitleContent = originalContent;
+
             // Parse subtitle cues for custom rendering
             videoState.currentSubtitleCues = parseVttCues(content);
             console.log(`[AI Dictionary] Parsed ${videoState.currentSubtitleCues.length} subtitle cues`);
@@ -135,6 +150,9 @@ export function handleSubtitleFile(file, videoPlayer) {
             const updateHandler = () => updateCustomSubtitle(videoPlayer);
             videoPlayer._subtitleUpdateHandler = updateHandler;
             videoPlayer.addEventListener('timeupdate', updateHandler);
+
+            // Update character modal subtitle display if open
+            updateCharacterSubtitleDisplay();
 
             // Show subtitle panel with content
             if (subtitlePanel && subtitleName && subtitleContent) {
@@ -253,6 +271,7 @@ export function bindVideoEvents() {
 
             // Save existing subtitle data before clearing
             const savedSubtitleCues = [...videoState.currentSubtitleCues];
+            const savedOriginalContent = videoState.originalSubtitleContent;
             const subtitlePanel = document.getElementById('ai-dict-subtitle-panel');
             const subtitleName = document.getElementById('ai-dict-subtitle-name');
             const subtitleContent = document.getElementById('ai-dict-subtitle-content');
@@ -275,6 +294,7 @@ export function bindVideoEvents() {
             } else if (savedSubtitleCues.length > 0) {
                 // Restore subtitle data if it existed and no new subtitle was selected
                 videoState.currentSubtitleCues = savedSubtitleCues;
+                videoState.originalSubtitleContent = savedOriginalContent;
 
                 // Re-bind timeupdate listener
                 const updateHandler = () => updateCustomSubtitle(videoPlayer);
