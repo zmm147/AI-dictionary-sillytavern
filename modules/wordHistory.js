@@ -14,7 +14,8 @@ import { initDatabase, dbGetAll, dbPut, dbDelete, dbGet } from './database.js';
 import {
     loadWordHistoryFromJsonBackup,
     backupWordHistoryToJson,
-    restoreWordHistoryFromBackup
+    restoreWordHistoryFromBackup,
+    deleteWordHistoryJsonBackup
 } from './backup.js';
 import { debounce } from './utils.js';
 
@@ -363,6 +364,8 @@ export async function clearAllWordHistory() {
     // Clear IndexedDB
     const { dbClear } = await import('./database.js');
     await dbClear(STORE_WORD_HISTORY);
+
+    await deleteWordHistoryJsonBackup();
 
     console.log(`[${EXTENSION_NAME}] Cleared ${count} words from history`);
 

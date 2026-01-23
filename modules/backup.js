@@ -295,6 +295,28 @@ export async function deleteReviewDataJsonBackup() {
 }
 
 /**
+ * Delete word history JSON backup file
+ * @returns {Promise<boolean>}
+ */
+export async function deleteWordHistoryJsonBackup() {
+    try {
+        const response = await fetch('/api/files/delete', {
+            method: 'POST',
+            headers: getRequestHeaders(),
+            body: JSON.stringify({ path: `/user/files/${BACKUP_WORD_HISTORY_FILE}` }),
+        });
+
+        if (response.ok) {
+            console.log(`[${EXTENSION_NAME}] Word history backup file deleted`);
+            return true;
+        }
+    } catch (e) {
+        console.error(`[${EXTENSION_NAME}] Delete word history backup error:`, e.message);
+    }
+    return false;
+}
+
+/**
  * Restore flashcard data from backup to IndexedDB
  * @param {Object} backupData
  */

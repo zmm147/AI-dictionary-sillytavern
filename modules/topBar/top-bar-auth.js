@@ -202,10 +202,59 @@ async function handleCloudSyncToggle(enabled) {
 
     updateCloudSyncUI();
 
-    if (enabled && isLoggedIn()) {
+    const loggedIn = isLoggedIn();
+
+    if (enabled && loggedIn) {
+        // Enable real-time cloud sync callbacks
+        enableCloudSync({
+            onSync: async (word, data) => {
+                const result = await syncWordToCloud(word, data);
+                if (result.success) {
+                    await setLastSyncTime('words', Date.now());
+                }
+            },
+            onDelete: async (word) => {
+                await deleteWordFromCloud(word);
+            },
+            onBlacklist: async (word) => {
+                await blacklistWordInCloud(word);
+            }
+        });
+
+        enableFlashcardCloudSync(async (word, progress) => {
+            const result = await syncFlashcardProgressToCloud(word, progress);
+            if (result.success) {
+                await setLastSyncTime('flashcard', Date.now());
+            }
+        });
+
+        enableReviewCloudSync({
+            onSync: async (word, status, data) => {
+                const result = await syncImmersiveReviewToCloud(word, status, data);
+                if (result.success) {
+                    await setLastSyncTime('review', Date.now());
+                }
+            },
+            onDelete: async (word) => {
+                await deleteImmersiveReviewFromCloud(word);
+            },
+            onDeleteAll: async () => {
+                await deleteAllImmersiveReviewFromCloud();
+            }
+        });
+
+        console.log(`[${EXTENSION_NAME}] Real-time cloud sync enabled`);
+
+        hasDownloadedOnce = true;
         // Cloud sync just enabled and user is logged in - download cloud data
         await autoDownloadFromCloud();
     } else if (!enabled) {
+        // Disable real-time cloud sync callbacks
+        disableCloudSync();
+        disableFlashcardCloudSync();
+        disableReviewCloudSync();
+        hasDownloadedOnce = false;
+
         // Cloud sync disabled - clear sync times
         await clearAllSyncTimes();
     }
@@ -762,7 +811,8 @@ async function handleClearFlashcard() {
     }
 
     const loggedIn = isLoggedIn();
-    const confirmMsg = loggedIn
+    const deleteCloud = loggedIn && cloudSyncSettingEnabled;
+    const confirmMsg = deleteCloud
         ? `确定要清空所有 ${count} 条闪卡背单词记录吗？\n\n此操作将删除：\n- 本地 IndexedDB 数据\n- 本地备份文件\n- 云端数据\n\n此操作不可恢复！`
         : `确定要清空所有 ${count} 条闪卡背单词记录吗？\n\n此操作将删除：\n- 本地 IndexedDB 数据\n- 本地备份文件\n\n此操作不可恢复！`;
 
@@ -780,7 +830,7 @@ async function handleClearFlashcard() {
 
     try {
         // Delete from cloud first if logged in
-        if (loggedIn) {
+        if (deleteCloud) {
             const cloudResult = await deleteAllFlashcardProgressFromCloud();
             if (!cloudResult.success) {
                 console.warn('Cloud delete failed:', cloudResult.error);
@@ -789,7 +839,7 @@ async function handleClearFlashcard() {
 
         // Then delete local data
         await clearAllFlashcardProgress();
-        alert(`已清空 ${count} 条闪卡记录` + (loggedIn ? '（含云端）' : ''));
+        alert(`已清空 ${count} 条闪卡记录` + (deleteCloud ? '（含云端）' : ''));
     } catch (e) {
         alert('清空失败: ' + e.message);
     }
@@ -813,7 +863,8 @@ async function handleClearWordHistory() {
     }
 
     const loggedIn = isLoggedIn();
-    const confirmMsg = loggedIn
+    const deleteCloud = loggedIn && cloudSyncSettingEnabled;
+    const confirmMsg = deleteCloud
         ? `确定要清空所有 ${count} 条查词记录吗？\n\n此操作将删除：\n- 本地 IndexedDB 数据\n- 本地备份文件\n- 云端数据\n\n此操作不可恢复！`
         : `确定要清空所有 ${count} 条查词记录吗？\n\n此操作将删除：\n- 本地 IndexedDB 数据\n- 本地备份文件\n\n此操作不可恢复！`;
 
@@ -831,7 +882,7 @@ async function handleClearWordHistory() {
 
     try {
         // Delete from cloud first if logged in
-        if (loggedIn) {
+        if (deleteCloud) {
             const cloudResult = await deleteAllWordsFromCloud();
             if (!cloudResult.success) {
                 console.warn('Cloud delete failed:', cloudResult.error);
@@ -840,7 +891,7 @@ async function handleClearWordHistory() {
 
         // Then delete local data
         await clearAllWordHistory();
-        alert(`已清空 ${count} 条查词记录` + (loggedIn ? '（含云端）' : ''));
+        alert(`已清空 ${count} 条查词记录` + (deleteCloud ? '（含云端）' : ''));
     } catch (e) {
         alert('清空失败: ' + e.message);
     }
