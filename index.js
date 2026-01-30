@@ -133,6 +133,7 @@ const EXTENSION_URL = getExtensionUrl();
 
 /** @type {Object} */
 let settings = { ...defaultSettings };
+let settingsUi = null;
 
 // --- Settings Functions ---
 
@@ -141,6 +142,11 @@ function loadSettings() {
         extension_settings[EXTENSION_NAME] = { ...defaultSettings };
     }
     settings = { ...defaultSettings, ...extension_settings[EXTENSION_NAME] };
+
+    if (!settings.confusableWordsPrompt || !settings.confusableWordsPrompt.includes('【原词释义】')) {
+        settings.confusableWordsPrompt = defaultSettings.confusableWordsPrompt;
+        extension_settings[EXTENSION_NAME].confusableWordsPrompt = settings.confusableWordsPrompt;
+    }
 
     // 确保 petCommentary 子对象存在且有所有默认属性
     if (!settings.petCommentary) {
@@ -414,6 +420,8 @@ function updateTopBarWrapper() {
             getCharacters: getCharacters,
             selectRmInfo: selectRmInfo
         });
+        const topBarSettings = document.getElementById('ai-dict-top-bar-settings');
+        settingsUi?.bindToElement(topBarSettings);
     }
 }
 
@@ -472,6 +480,7 @@ const init = async () => {
         updateHighlightColor: () => updateHighlightColor(settings.highlightColor),
         updateTopBar: updateTopBarWrapper
     });
+    settingsUi = manager;
 
     const renderedUi = await manager.render();
     if (renderedUi) {

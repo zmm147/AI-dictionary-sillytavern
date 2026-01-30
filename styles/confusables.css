@@ -313,6 +313,59 @@
 
 .ai-dict-confusable-highlight {
     color: var(--ai-dict-highlight-color);
+    cursor: pointer;
+    position: relative;
+    display: inline-block;
+    padding: 0 1px;
+}
+
+.ai-dict-confusable-highlight::after {
+    content: attr(data-confusables);
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 6px);
+    min-width: 140px;
+    max-width: 260px;
+    padding: 6px 8px;
+    background-color: var(--SmartThemeBlurTintColor);
+    border: none;
+    color: var(--SmartThemeBodyColor);
+    font-size: 12px;
+    line-height: 1.4;
+    white-space: normal;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    pointer-events: none;
+    z-index: 2147483646;
+}
+
+.ai-dict-confusable-highlight::before {
+    content: '';
+    position: absolute;
+    left: 10px;
+    bottom: calc(100% + 2px);
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 6px solid var(--SmartThemeBlurTintColor);
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    pointer-events: none;
+    z-index: 2147483646;
+}
+
+.ai-dict-confusable-highlight.ai-dict-show-confusables::after {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.ai-dict-confusable-highlight.ai-dict-show-confusables::before {
+    opacity: 1;
+    transform: translateY(0);
 }
 
 /* ==================== Word History Section Styles ==================== */

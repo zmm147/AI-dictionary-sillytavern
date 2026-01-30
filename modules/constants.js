@@ -58,9 +58,11 @@ export const defaultSettings = {
 2. 常见搭配和用法
 3. 同义词/反义词/易混淆单词
 4. 记忆技巧建议`,
-    confusableWordsPrompt: `请列出与单词 "%word%" 形近易混淆的单词（拼写相似但意思不同的词）。
+confusableWordsPrompt: `请列出与单词 "%word%" 形近易混淆的单词（拼写相似但意思不同的词），并给出原词释义。
 
 请严格按照以下格式输出：
+【原词释义】
+- %word%: 释义
 【形近词列表】word1, word2, word3
 【释义】
 - word1: 释义

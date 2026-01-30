@@ -9,13 +9,33 @@ import { escapeHtml } from './statistics.js';
 /**
  * Parse AI response to extract confusable words and their meanings
  * @param {string} response
- * @returns {Array<{word: string, meaning: string}>}
+ * @param {string} parentWord
+ * @returns {{confusables: Array<{word: string, meaning: string}>, parentMeaning: string}}
  */
-export function parseConfusableResponse(response) {
+export function parseConfusableResponse(response, parentWord = '') {
     const result = [];
+    const parentLower = parentWord ? parentWord.toLowerCase() : '';
+    let parentMeaning = '';
+
+    const parentSection = response.match(/【原词释义】([\s\S]*?)(?=【|$)/);
+    if (parentSection) {
+        const parentText = parentSection[1].trim();
+        const parentLines = parentText.split('\n');
+        for (const line of parentLines) {
+            const match = line.match(/^[\s-]*([a-zA-Z]+)\s*[:：]\s*(.+)/);
+            if (match) {
+                const word = match[1].trim();
+                const meaning = match[2].trim();
+                if (meaning && (!parentLower || word.toLowerCase() === parentLower)) {
+                    parentMeaning = meaning;
+                    break;
+                }
+            }
+        }
+    }
 
     const meaningSection = response.match(/【释义】([\s\S]*?)(?=【|$)/);
-    if (!meaningSection) return result;
+    if (!meaningSection) return { confusables: result, parentMeaning };
 
     const meaningText = meaningSection[1];
     const lines = meaningText.split('\n');
@@ -26,12 +46,16 @@ export function parseConfusableResponse(response) {
             const word = match[1].trim();
             const meaning = match[2].trim();
             if (word && meaning) {
+                if (parentLower && word.toLowerCase() === parentLower) {
+                    parentMeaning = parentMeaning || meaning;
+                    continue;
+                }
                 result.push({ word, meaning });
             }
         }
     }
 
-    return result;
+    return { confusables: result, parentMeaning };
 }
 
 /**
@@ -337,10 +361,25 @@ export function highlightAllConfusableWords(confusableWords, enabled) {
                 fragment.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
             }
 
+            const relatedConfusables = getRelatedConfusables(match[0], confusableWords);
+            const relatedWords = relatedConfusables.map(item => item.word).filter(Boolean);
+            const confusableLabel = relatedWords.length > 0
+                ? relatedWords.join(', ')
+                : '暂无形近词';
             const span = document.createElement('span');
             span.className = 'ai-dict-confusable-highlight';
             span.textContent = match[0];
-            span.title = `收藏的形近词`;
+            span.dataset.confusables = confusableLabel;
+            span.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isActive = span.classList.contains('ai-dict-show-confusables');
+                document.querySelectorAll('.ai-dict-confusable-highlight.ai-dict-show-confusables').forEach(el => {
+                    if (el !== span) {
+                        el.classList.remove('ai-dict-show-confusables');
+                    }
+                });
+                span.classList.toggle('ai-dict-show-confusables', !isActive);
+            });
             fragment.appendChild(span);
 
             lastIndex = pattern.lastIndex;
@@ -353,6 +392,15 @@ export function highlightAllConfusableWords(confusableWords, enabled) {
         if (fragment.childNodes.length > 0) {
             textNode.parentNode.replaceChild(fragment, textNode);
         }
+    }
+
+    if (!highlightAllConfusableWords.hasClickHandler) {
+        document.addEventListener('click', () => {
+            document.querySelectorAll('.ai-dict-confusable-highlight.ai-dict-show-confusables').forEach(el => {
+                el.classList.remove('ai-dict-show-confusables');
+            });
+        });
+        highlightAllConfusableWords.hasClickHandler = true;
     }
 }
 
@@ -446,10 +494,10 @@ export async function performConfusableLookup(options) {
         }
 
         if (fullResponse) {
-            const parsed = parseConfusableResponse(fullResponse);
-            if (parsed && parsed.length > 0) {
-                displayParsedConfusables(parsed, word, contentElement, confusableWords);
-                bindConfusableSaveButtons(word, confusableWords, saveSettings, updateSavedDisplay, highlightWords);
+            const parsed = parseConfusableResponse(fullResponse, word);
+            if (parsed && parsed.confusables.length > 0) {
+                displayParsedConfusables(parsed.confusables, word, contentElement, confusableWords);
+                bindConfusableSaveButtons(word, confusableWords, saveSettings, updateSavedDisplay, highlightWords, parsed.parentMeaning);
             } else {
                 displayConfusableParseError(word, fullResponse, contentElement);
             }
@@ -535,8 +583,9 @@ function bindConfusableRefreshButton(contentElement, word, options) {
  * @param {Function} saveSettings
  * @param {Function} updateSavedDisplay
  * @param {Function} highlightWords
+ * @param {string} parentMeaning
  */
-function bindConfusableSaveButtons(parentWord, confusableWords, saveSettings, updateSavedDisplay, highlightWords) {
+function bindConfusableSaveButtons(parentWord, confusableWords, saveSettings, updateSavedDisplay, highlightWords, parentMeaning = '') {
     const saveBtns = document.querySelectorAll('.ai-dict-confusable-save-btn:not(.saved)');
     saveBtns.forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -546,7 +595,7 @@ function bindConfusableSaveButtons(parentWord, confusableWords, saveSettings, up
             const parent = btn.getAttribute('data-parent');
 
             if (word && meaning && parent) {
-                const saved = saveConfusableWord(parent, word, meaning, confusableWords);
+                const saved = saveConfusableWord(parent, word, meaning, confusableWords, parentMeaning);
                 if (saved) {
                     saveSettings();
                     btn.disabled = true;

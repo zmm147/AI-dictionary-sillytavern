@@ -65,7 +65,7 @@ export class SettingsUi {
                 const text = await response.text();
                 this.template = document.createRange().createContextualFragment(text);
                 this.dom = this.template.querySelector('#ai-dictionary-extension-settings');
-                this.prepareDom();
+                this.prepareDom(this.dom);
             } else {
                 console.error(`[${EXTENSION_NAME}] Failed to fetch settings template from ${this.extensionUrl}/index.html`);
             }
@@ -73,21 +73,47 @@ export class SettingsUi {
         return this.dom;
     }
 
-    prepareDom() {
-        if (!this.dom) return;
+    bindToElement(rootElement) {
+        if (!rootElement) return;
+        this.prepareDom(rootElement);
+    }
+
+    prepareDom(rootElement = this.dom) {
+        if (!rootElement) return;
+
+        const settingsToggle = rootElement.querySelector('#ai-dict-top-bar-settings-toggle');
+        const settingsContent = rootElement.querySelector('#ai-dict-top-bar-settings-content');
+        if (settingsToggle && settingsContent && !settingsToggle.dataset.bound) {
+            settingsToggle.dataset.bound = 'true';
+            settingsContent.style.display = 'none';
+            settingsToggle.classList.remove('expanded');
+            const icon = settingsToggle.querySelector('i');
+            if (icon) {
+                icon.className = 'fa-solid fa-chevron-right';
+            }
+            settingsToggle.addEventListener('click', () => {
+                const isExpanded = settingsContent.style.display !== 'none';
+                settingsContent.style.display = isExpanded ? 'none' : 'block';
+                settingsToggle.classList.toggle('expanded', !isExpanded);
+                if (icon) {
+                    icon.className = isExpanded ? 'fa-solid fa-chevron-right' : 'fa-solid fa-chevron-down';
+                }
+            });
+        }
 
         // Enabled Toggle
-        const enabledInput = this.dom.querySelector('#ai-dict-enabled');
+        const enabledInput = rootElement.querySelector('#ai-dict-enabled');
         if (enabledInput) {
             enabledInput.checked = this.settings.enabled;
             enabledInput.addEventListener('change', () => {
                 this.settings.enabled = enabledInput.checked;
                 this.saveSettings();
+                this.syncEnabledToggles(enabledInput);
             });
         }
 
         // Connection Profile
-        const profileSelect = this.dom.querySelector('#ai-dict-connection-profile');
+        const profileSelect = rootElement.querySelector('#ai-dict-connection-profile');
         if (profileSelect) {
             populateConnectionProfiles(profileSelect, this.connectionManager);
             profileSelect.value = this.settings.connectionProfile || '';
@@ -98,7 +124,7 @@ export class SettingsUi {
         }
 
         // System Prompt
-        const promptInput = this.dom.querySelector('#ai-dict-system-prompt');
+        const promptInput = rootElement.querySelector('#ai-dict-system-prompt');
         if (promptInput) {
             promptInput.value = this.settings.systemPrompt;
             promptInput.addEventListener('change', () => {
@@ -108,7 +134,7 @@ export class SettingsUi {
         }
 
         // User Prompt
-        const userPromptInput = this.dom.querySelector('#ai-dict-user-prompt');
+        const userPromptInput = rootElement.querySelector('#ai-dict-user-prompt');
         if (userPromptInput) {
             userPromptInput.value = this.settings.userPrompt;
             userPromptInput.addEventListener('change', () => {
@@ -118,7 +144,7 @@ export class SettingsUi {
         }
 
         // Context Range
-        const rangeSelect = this.dom.querySelector('#ai-dict-context-range');
+        const rangeSelect = rootElement.querySelector('#ai-dict-context-range');
         if (rangeSelect) {
             rangeSelect.value = this.settings.contextRange;
             rangeSelect.addEventListener('change', () => {
@@ -128,7 +154,7 @@ export class SettingsUi {
         }
 
         // Direct Lookup
-        const directLookupInput = this.dom.querySelector('#ai-dict-direct-lookup');
+        const directLookupInput = rootElement.querySelector('#ai-dict-direct-lookup');
         if (directLookupInput) {
             directLookupInput.checked = this.settings.enableDirectLookup;
             directLookupInput.addEventListener('change', () => {
@@ -138,7 +164,7 @@ export class SettingsUi {
         }
 
         // Enable Top Bar
-        const enableTopBarInput = this.dom.querySelector('#ai-dict-enable-top-bar');
+        const enableTopBarInput = rootElement.querySelector('#ai-dict-enable-top-bar');
         if (enableTopBarInput) {
             enableTopBarInput.checked = this.settings.enableTopBar;
             enableTopBarInput.addEventListener('change', () => {
@@ -149,7 +175,7 @@ export class SettingsUi {
         }
 
         // Icon Position
-        const iconPosSelect = this.dom.querySelector('#ai-dict-icon-position');
+        const iconPosSelect = rootElement.querySelector('#ai-dict-icon-position');
         if (iconPosSelect) {
             iconPosSelect.value = this.settings.iconPosition;
             iconPosSelect.addEventListener('change', () => {
@@ -159,7 +185,7 @@ export class SettingsUi {
         }
 
         // Auto Collapse Youdao
-        const autoCollapseYoudaoInput = this.dom.querySelector('#ai-dict-auto-collapse-youdao');
+        const autoCollapseYoudaoInput = rootElement.querySelector('#ai-dict-auto-collapse-youdao');
         if (autoCollapseYoudaoInput) {
             autoCollapseYoudaoInput.checked = this.settings.autoCollapseYoudao;
             autoCollapseYoudaoInput.addEventListener('change', () => {
@@ -169,7 +195,7 @@ export class SettingsUi {
         }
 
         // Auto Fetch AI
-        const autoFetchAIInput = this.dom.querySelector('#ai-dict-auto-fetch-ai');
+        const autoFetchAIInput = rootElement.querySelector('#ai-dict-auto-fetch-ai');
         if (autoFetchAIInput) {
             autoFetchAIInput.checked = this.settings.autoFetchAI;
             autoFetchAIInput.addEventListener('change', () => {
@@ -179,7 +205,7 @@ export class SettingsUi {
         }
 
         // Fetch AI on Youdao Expand
-        const fetchAIOnYoudaoExpandInput = this.dom.querySelector('#ai-dict-fetch-ai-on-youdao-expand');
+        const fetchAIOnYoudaoExpandInput = rootElement.querySelector('#ai-dict-fetch-ai-on-youdao-expand');
         if (fetchAIOnYoudaoExpandInput) {
             fetchAIOnYoudaoExpandInput.checked = this.settings.fetchAIOnYoudaoExpand;
             fetchAIOnYoudaoExpandInput.addEventListener('change', () => {
@@ -189,7 +215,7 @@ export class SettingsUi {
         }
 
         // Deep Study Prompt
-        const deepStudyPromptInput = this.dom.querySelector('#ai-dict-deep-study-prompt');
+        const deepStudyPromptInput = rootElement.querySelector('#ai-dict-deep-study-prompt');
         if (deepStudyPromptInput) {
             deepStudyPromptInput.value = this.settings.deepStudyPrompt;
             deepStudyPromptInput.addEventListener('change', () => {
@@ -199,9 +225,9 @@ export class SettingsUi {
         }
 
         // Highlight Confusables
-        const highlightConfusablesInput = this.dom.querySelector('#ai-dict-highlight-confusables');
-        const highlightColorContainer = this.dom.querySelector('#ai-dict-highlight-color-container');
-        const highlightColorInput = this.dom.querySelector('#ai-dict-highlight-color');
+        const highlightConfusablesInput = rootElement.querySelector('#ai-dict-highlight-confusables');
+        const highlightColorContainer = rootElement.querySelector('#ai-dict-highlight-color-container');
+        const highlightColorInput = rootElement.querySelector('#ai-dict-highlight-color');
 
         if (highlightConfusablesInput) {
             highlightConfusablesInput.checked = this.settings.highlightConfusables;
@@ -240,7 +266,7 @@ export class SettingsUi {
         }
 
         // Statistics Button
-        const statsBtn = this.dom.querySelector('#ai-dict-stats-btn');
+        const statsBtn = rootElement.querySelector('#ai-dict-stats-btn');
         if (statsBtn) {
             statsBtn.addEventListener('click', () => {
                 this.showStatisticsPanel?.();
@@ -248,8 +274,8 @@ export class SettingsUi {
         }
 
         // Immersive Review Toggle
-        const immersiveReviewInput = this.dom.querySelector('#ai-dict-immersive-review');
-        const reviewPromptContainer = this.dom.querySelector('#ai-dict-review-prompt-container');
+        const immersiveReviewInput = rootElement.querySelector('#ai-dict-immersive-review');
+        const reviewPromptContainer = rootElement.querySelector('#ai-dict-review-prompt-container');
         if (immersiveReviewInput) {
             immersiveReviewInput.checked = this.settings.immersiveReview;
             if (reviewPromptContainer) {
@@ -265,7 +291,7 @@ export class SettingsUi {
         }
 
         // Review Prompt Textarea
-        const reviewPromptInput = this.dom.querySelector('#ai-dict-review-prompt');
+        const reviewPromptInput = rootElement.querySelector('#ai-dict-review-prompt');
         if (reviewPromptInput) {
             reviewPromptInput.value = this.settings.reviewPrompt || defaultSettings.reviewPrompt;
             reviewPromptInput.addEventListener('input', () => {
@@ -275,10 +301,10 @@ export class SettingsUi {
         }
 
         // Reset Review Prompt Button
-        const resetReviewPromptBtn = this.dom.querySelector('#ai-dict-reset-review-prompt');
+        const resetReviewPromptBtn = rootElement.querySelector('#ai-dict-reset-review-prompt');
         if (resetReviewPromptBtn) {
             resetReviewPromptBtn.addEventListener('click', () => {
-                const promptInput = this.dom.querySelector('#ai-dict-review-prompt');
+                const promptInput = rootElement.querySelector('#ai-dict-review-prompt');
                 if (promptInput) {
                     promptInput.value = defaultSettings.reviewPrompt;
                     this.settings.reviewPrompt = defaultSettings.reviewPrompt;
@@ -288,10 +314,10 @@ export class SettingsUi {
         }
 
         // Reset System Prompt Button
-        const resetSystemPromptBtn = this.dom.querySelector('#ai-dict-reset-system-prompt');
+        const resetSystemPromptBtn = rootElement.querySelector('#ai-dict-reset-system-prompt');
         if (resetSystemPromptBtn) {
             resetSystemPromptBtn.addEventListener('click', () => {
-                const promptInput = this.dom.querySelector('#ai-dict-system-prompt');
+                const promptInput = rootElement.querySelector('#ai-dict-system-prompt');
                 if (promptInput) {
                     promptInput.value = defaultSettings.systemPrompt;
                     this.settings.systemPrompt = defaultSettings.systemPrompt;
@@ -301,10 +327,10 @@ export class SettingsUi {
         }
 
         // Reset User Prompt Button
-        const resetUserPromptBtn = this.dom.querySelector('#ai-dict-reset-user-prompt');
+        const resetUserPromptBtn = rootElement.querySelector('#ai-dict-reset-user-prompt');
         if (resetUserPromptBtn) {
             resetUserPromptBtn.addEventListener('click', () => {
-                const promptInput = this.dom.querySelector('#ai-dict-user-prompt');
+                const promptInput = rootElement.querySelector('#ai-dict-user-prompt');
                 if (promptInput) {
                     promptInput.value = defaultSettings.userPrompt;
                     this.settings.userPrompt = defaultSettings.userPrompt;
@@ -314,10 +340,10 @@ export class SettingsUi {
         }
 
         // Reset Deep Study Prompt Button
-        const resetDeepStudyPromptBtn = this.dom.querySelector('#ai-dict-reset-deep-study-prompt');
+        const resetDeepStudyPromptBtn = rootElement.querySelector('#ai-dict-reset-deep-study-prompt');
         if (resetDeepStudyPromptBtn) {
             resetDeepStudyPromptBtn.addEventListener('click', () => {
-                const promptInput = this.dom.querySelector('#ai-dict-deep-study-prompt');
+                const promptInput = rootElement.querySelector('#ai-dict-deep-study-prompt');
                 if (promptInput) {
                     promptInput.value = defaultSettings.deepStudyPrompt;
                     this.settings.deepStudyPrompt = defaultSettings.deepStudyPrompt;
@@ -327,11 +353,20 @@ export class SettingsUi {
         }
 
         // Farm Game Button
-        const farmBtn = this.dom.querySelector('#ai-dict-farm-btn');
+        const farmBtn = rootElement.querySelector('#ai-dict-farm-btn');
         if (farmBtn) {
             farmBtn.addEventListener('click', () => {
                 this.showFarmGamePanel?.();
             });
         }
+    }
+
+    syncEnabledToggles(sourceInput) {
+        const enabledInputs = document.querySelectorAll('#ai-dict-enabled');
+        enabledInputs.forEach((input) => {
+            if (input !== sourceInput) {
+                input.checked = sourceInput.checked;
+            }
+        });
     }
 }
