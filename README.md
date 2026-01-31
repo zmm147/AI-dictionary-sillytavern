@@ -1,159 +1,428 @@
-# AI Dictionary for SillyTavern
+# AI Dictionary - SillyTavern 智能词典扩展
 
-A powerful dictionary extension for SillyTavern that combines Youdao Dictionary lookups with AI-powered definitions features.
+一个功能强大的 SillyTavern 词典扩展，集成有道词典、AI 智能释义、闪卡记忆、沉浸式复习、PlayPhrase 视频例句和农场游戏奖励系统，让英语学习更高效、更有趣。
 
-一个强大的 SillyTavern 词典扩展，结合有道词典查询与 AI 智能释义功能。
-
-<img width="458" height="741" alt="image" src="https://github.com/user-attachments/assets/845e498f-2117-4be6-8355-75df19a96f7c" />
+<img width="458" height="741" alt="AI Dictionary 界面预览" src="https://github.com/user-attachments/assets/845e498f-2117-4be6-8355-75df19a96f7c" />
 
 ---
 
-## Features / 功能特点
+## ✨ 核心功能
 
-### Dictionary Lookup / 词典查询
-- **Youdao Dictionary Integration**: Automatically fetches definitions from Youdao Dictionary (Collins & EC dictionaries)
-- **AI-Powered Definitions**: Get contextual definitions using your configured AI model
-- **Audio Pronunciation**: Listen to UK/US pronunciations for words
-- **Streaming Response**: Real-time streaming AI responses when enabled
+### 📖 智能查词系统
 
-- **有道词典集成**：自动从有道词典获取释义（柯林斯词典和英汉词典）
-- **AI 智能释义**：使用配置的 AI 模型获取基于上下文的释义
-- **发音功能**：支持英式/美式发音播放
-- **流式输出**：支持实时流式 AI 响应
+#### 基础查词
+- **有道词典集成**：自动获取柯林斯词典和英汉词典释义
+- **AI 智能释义**：基于上下文的 AI 定义，支持流式输出
+- **发音功能**：英式/美式发音播放
+- **上下文提取**：可选全段/单段/单句上下文
+- **直接查词模式**：选中文本即刻查询，无需点击图标
 
-### Deep Study / 深度学习
-- **One-Click Deep Learning**: Comprehensive word analysis including etymology, collocations, synonyms/antonyms, example sentences, and memory tips
-- **Customizable Prompts**: Configure your own AI prompts for dictionary lookups and deep study
+#### 深度学习
+点击"深度学习此单词"按钮，AI 将提供：
+- 词根词缀分析
+- 常见搭配用法
+- 同义词/反义词
+- 例句和场景应用
+- 记忆技巧
 
-- **一键深度学习**：全面的单词分析，包括词根词缀、常见搭配、同义词/反义词、例句和记忆技巧
-- **自定义提示词**：可配置查词和深度学习的 AI 提示词
+#### 形近词管理
+- 标记易混淆单词
+- 在聊天中自动高亮形近词
+- 专门的形近词对比分析
+- 自定义高亮颜色
 
-### User Interface / 用户界面
+#### PlayPhrase 视频例句
+- 从真实影视作品中查找单词用法
+- 观看包含目标单词的视频片段
+- 查看原文和来源信息
+- 支持上一个/下一个切换
 
-**Desktop / 桌面端**:
-- Draggable popup panel / 可拖拽移动的弹出面板
-- Resizable width / 可调节宽度
-- Pin function to prevent auto-close / 固定功能防止自动关闭
-- Click outside to close (when not pinned) / 点击外部关闭（未固定时）
+### 🎯 记忆与复习系统
 
-**Mobile / 移动端**:
-- Slide-out side panel / 侧滑面板
-- Draggable toggle button / 可拖拽的切换按钮
-- Tap outside to collapse / 点击外部收起
+#### 闪卡学习（SM-2 算法）
+- **智能间隔重复**：基于 SM-2 算法的科学记忆曲线
+- **6 级掌握度**：从新词到完全掌握的渐进式学习
+- **动态难度调整**：根据回忆表现自动调整复习间隔
+- **会话持久化**：未完成的闪卡会话自动保存
+- **新词/复习比例**：60% 新词 + 40% 复习词（可配置）
 
-### Other Features / 其他功能
-- **Connection Profile Selection**: Use a specific API profile for dictionary lookups / 可为词典查询选择特定的连接配置
-- **Context Range Options**: Full paragraph / Single paragraph / Single sentence / 上下文范围：全段/单段/一句
-- **Direct Lookup Mode**: Skip icon, lookup immediately on text selection / 直接查词模式，选中即查询
-- **Prompt Viewer**: View the actual prompts sent to AI / 查看发送给 AI 的实际提示词
+掌握度等级：
+- 0 级：新词（当天复习）
+- 1 级：初识（1 天后复习）
+- 2 级：熟悉（3 天后复习）
+- 3 级：掌握（7 天后复习）
+- 4 级：精通（14 天后复习）
+- 5 级：完全掌握（30 天后复习）
+
+#### 沉浸式复习
+- **自然融入对话**：AI 在回复中自然使用待复习单词
+- **智能提示注入**：在生成前自动添加复习提示
+- **使用追踪**：自动检测单词是否被使用
+- **间隔调度**：根据掌握度安排下次复习时间
+
+### 📊 数据管理
+
+#### 查词记录
+- 自动记录所有查询历史
+- 显示查询次数和时间
+- 保存查询时的上下文
+- 支持历史记录查看
+
+#### 统计面板
+- 总查词次数
+- 单词掌握度分布
+- 学习进度可视化
+- 复习计划概览
+
+#### 数据备份
+- **IndexedDB 主存储**：浏览器本地持久化
+- **JSON 自动备份**：保存到 SillyTavern 用户数据目录
+- **云同步支持**：可选的云端数据同步（需配置）
+- **导入/导出**：手动备份和恢复所有数据
+
+### 🎮 农场游戏奖励系统
+
+通过复习单词赚取游戏币，在虚拟农场中种植作物、养宠物：
+
+#### 游戏玩法
+- **种植系统**：使用种子种植作物，等待成熟收获
+- **宠物系统**：用作物兑换可爱的宠物
+- **加速道具**：使用加速卡快速成熟作物
+- **快捷栏**：快速选择常用种子
+- **库存管理**：查看所有种子、作物和宠物
+
+#### 作物类型
+- 🌾 小麦（10 币，5 分钟）
+- 🌽 玉米（20 币，10 分钟）
+- 🥕 胡萝卜（30 币，15 分钟）
+- 🍅 番茄（50 币，20 分钟）
+- 🍓 草莓（80 币，30 分钟）
+
+#### 宠物兑换
+- 🐱 猫（5 个小麦）
+- 🐶 狗（5 个玉米）
+- 🐰 兔子（5 个胡萝卜）
+- 🐷 猪（5 个番茄）
+- 🐮 牛（5 个草莓）
+
+### 🎨 用户界面
+
+#### 桌面端
+- **可拖拽面板**：自由移动到任意位置
+- **可调节宽度**：拖拽边缘调整面板宽度
+- **固定功能**：点击图钉防止自动关闭
+- **点击外部关闭**：未固定时点击外部自动收起
+
+#### 移动端
+- **侧滑面板**：从右侧滑出的全屏面板
+- **可拖拽按钮**：切换按钮可自由移动
+- **触摸优化**：支持触摸选词和手势操作
+
+#### 顶部工具栏
+- **统计按钮**：查看学习统计数据
+- **农场按钮**：进入农场游戏
+- **视频播放器**：导入本地视频学习
 
 ---
 
-## Installation / 安装
+## 📦 安装方法
 
-### Method 1: Git Clone / 方法一：Git 克隆
+### 方法一：Git 克隆（推荐）
 
 ```bash
 cd SillyTavern/public/scripts/extensions/third-party
-git clone https://github.com/YOUR_USERNAME/AI-dictionary-sillytavern.git
+git clone https://github.com/zmm147/AI-dictionary-sillytavern.git
 ```
 
-### Method 2: Manual Download / 方法二：手动下载
+### 方法二：手动下载
 
-1. Download the repository as a ZIP file / 下载仓库 ZIP 文件
-2. Extract to `SillyTavern/public/scripts/extensions/third-party/AI-dictionary-sillytavern` / 解压到该目录
-3. Restart SillyTavern / 重启 SillyTavern
-
----
-
-## Usage / 使用方法
-
-### Basic Lookup / 基本查词
-1. Select any text on the page / 在页面上选中任意文本
-2. Click the dictionary icon that appears / 点击出现的词典图标
-3. View Youdao dictionary results and AI definitions / 查看有道词典结果和 AI 释义
-
-### Direct Lookup Mode / 直接查词模式
-1. Enable "Direct Lookup" in settings / 在设置中启用"直接查词"
-2. Simply select text - lookup happens automatically / 选中文本即自动查词
-
-### Deep Study / 深度学习
-1. Look up a single word / 查询单个单词
-2. Click the "深度学习此单词" button / 点击"深度学习此单词"按钮
-3. AI will provide comprehensive analysis / AI 将提供全面的分析
-
-### Pin Panel (Desktop) / 固定面板（桌面端）
-- Click the pin icon (📌) in the panel header / 点击面板标题栏的图钉图标
-- When pinned, clicking outside won't close the panel / 固定后点击外部不会关闭面板
+1. 下载仓库 ZIP 文件
+2. 解压到 `SillyTavern/public/scripts/extensions/third-party/AI-dictionary-sillytavern`
+3. 重启 SillyTavern
 
 ---
 
-## Settings / 设置
+## 🚀 快速开始
 
-| Setting | Description | 说明 |
-|---------|-------------|------|
-| Enable AI Dictionary | Toggle extension on/off | 开关扩展 |
-| Connection Profile | Select API profile for lookups | 选择查词使用的 API 配置 |
-| System Prompt | AI system prompt | AI 系统提示词 |
-| User Prompt | Query template with variables | 查询模板（支持变量） |
-| Context Range | Full/Single paragraph/Sentence | 全段/单段/一句 |
-| Direct Lookup | Lookup immediately on selection | 选中即查询 |
-| Icon Position | Position of lookup icon | 查词图标位置 |
-| Deep Study Prompt | AI prompt for deep learning | 深度学习提示词 |
+### 1. 基础查词
 
----
+**方式一：图标查词**
+1. 在聊天页面选中任意英文单词或短语
+2. 点击出现的词典图标 📖
+3. 查看有道词典释义和 AI 智能解释
 
-## Supported Variables / 支持的变量
+**方式二：直接查词**
+1. 在设置中启用"直接查词模式"
+2. 选中文本即自动弹出查词面板
 
-| Variable | Description | 说明 |
-|----------|-------------|------|
-| `%word%` | The selected word or phrase | 选中的单词或短语 |
-| `%context%` | Surrounding context based on settings | 基于设置的周围上下文 |
+### 2. 深度学习
 
----
+1. 查询单个单词
+2. 点击"深度学习此单词"按钮
+3. AI 提供全面的单词分析和记忆技巧
 
-## Files / 文件说明
+### 3. 闪卡学习
 
-| File | Description |
-|------|-------------|
-| `manifest.json` | Extension metadata / 扩展元数据 |
-| `index.js` | Main extension code / 主要扩展代码 |
-| `index.html` | Settings UI template / 设置界面模板 |
-| `style.css` | Styles for UI / 界面样式 |
+1. 点击顶部工具栏的"统计"按钮
+2. 在统计面板中点击"开始闪卡学习"
+3. 根据记忆情况选择"记得"或"忘了"
+4. 系统自动调整复习计划
 
----
+### 4. 沉浸式复习
 
-## Requirements / 系统要求
+1. 在设置中启用"沉浸式复习"
+2. 正常与 AI 对话
+3. AI 会在回复中自然使用你的复习单词
+4. 系统自动追踪单词使用情况
 
-- SillyTavern 1.10.0 or higher / SillyTavern 1.10.0 或更高版本
-- A configured AI API (OpenAI, Claude, etc.) / 已配置的 AI API
+### 5. 农场游戏
 
----
-
-## Troubleshooting / 故障排除
-
-### Extension not loading / 扩展未加载
-- Check browser console for errors (F12 -> Console) / 检查浏览器控制台错误
-- Verify the extension folder is in the correct location / 确认扩展文件夹位置正确
-
-### Youdao dictionary not working / 有道词典不工作
-- In the config.yaml file, set:   enableCorsProxy: true / 在config.yaml文件里设置：enableCorsProxy: true
-- This may happen for phrases/sentences, AI lookup will still work / 短语/句子可能无法查询，但 AI 查词仍可用
-
-### AI lookup not working / AI 查词不工作
-- Verify your API connection is active / 确认 API 连接正常
-- Check if streaming is enabled in your API settings / 检查 API 设置中的流式输出
+1. 通过闪卡复习赚取游戏币
+2. 点击顶部工具栏的"农场"按钮
+3. 购买种子并种植作物
+4. 收获作物兑换宠物
 
 ---
 
-## License / 许可证
+## ⚙️ 设置说明
+
+### 基础设置
+
+| 设置项 | 说明 |
+|--------|------|
+| 启用扩展 | 开关 AI Dictionary 功能 |
+| 连接配置 | 选择用于查词的 API 配置文件 |
+| 系统提示词 | AI 的系统角色设定 |
+| 用户提示词 | 查词请求模板（支持变量） |
+| 深度学习提示词 | 深度学习功能的 AI 提示词 |
+
+### 查词设置
+
+| 设置项 | 说明 |
+|--------|------|
+| 上下文范围 | 全段/单段/单句 |
+| 直接查词 | 选中即查询，无需点击图标 |
+| 图标位置 | 查词图标显示位置 |
+| 自动获取 AI 释义 | 查词时自动请求 AI 解释 |
+| 有道词典展开时获取 AI | 展开有道词典时触发 AI 查询 |
+| 自动折叠有道词典 | 默认折叠有道词典结果 |
+
+### 复习设置
+
+| 设置项 | 说明 |
+|--------|------|
+| 启用沉浸式复习 | AI 对话中自然使用复习单词 |
+| 每次复习单词数 | 每轮对话注入的复习单词数量 |
+| 复习提示词 | 沉浸式复习的 AI 提示模板 |
+
+### 形近词设置
+
+| 设置项 | 说明 |
+|--------|------|
+| 高亮形近词 | 在聊天中高亮显示形近词 |
+| 高亮颜色 | 自定义高亮颜色 |
+| 形近词提示词 | 形近词对比分析的 AI 提示 |
+
+### PlayPhrase 设置
+
+| 设置项 | 说明 |
+|--------|------|
+| CSRF Token | PlayPhrase API 访问令牌 |
+| 视频数量限制 | 每次查询返回的视频数量 |
+
+### 数据设置
+
+| 设置项 | 说明 |
+|--------|------|
+| 启用云同步 | 同步数据到云端（需配置） |
+| 导出数据 | 导出所有数据为 JSON 文件 |
+| 导入数据 | 从 JSON 文件恢复数据 |
+
+---
+
+## 🔧 提示词变量
+
+在自定义提示词时，可以使用以下变量：
+
+| 变量 | 说明 | 示例 |
+|------|------|------|
+| `%word%` | 查询的单词或短语 | "apple" |
+| `%context%` | 周围上下文 | "I like to eat apple." |
+| `%reviewWords%` | 待复习单词列表 | "abandon, abstract, achieve" |
+
+---
+
+## 📁 项目结构
+
+```
+AI-dictionary-sillytavern/
+├── manifest.json           # 扩展元数据
+├── index.js               # 主入口文件
+├── index.html             # 设置界面模板
+├── style.css              # 主样式文件
+├── modules/               # 功能模块
+│   ├── database.js        # IndexedDB 数据库封装
+│   ├── youdao.js          # 有道词典 API
+│   ├── aiLookup.js        # AI 查词逻辑
+│   ├── selection.js       # 文本选择检测
+│   ├── panel.js           # 面板 UI 管理
+│   ├── flashcardProgress.js  # SM-2 算法实现
+│   ├── review.js          # 沉浸式复习系统
+│   ├── confusables.js     # 形近词管理
+│   ├── playphrase.js      # PlayPhrase 视频
+│   ├── wordHistory.js     # 查词记录
+│   ├── backup.js          # 数据备份
+│   ├── farm/              # 农场游戏模块
+│   │   ├── farm-game.js   # 游戏主逻辑
+│   │   ├── farm-state.js  # 状态管理
+│   │   ├── farm-crop.js   # 作物系统
+│   │   ├── farm-pet.js    # 宠物系统
+│   │   └── ...
+│   └── topBar/            # 顶部工具栏
+│       ├── top-bar.js     # 工具栏主逻辑
+│       ├── top-bar-video.js  # 视频播放器
+│       └── ...
+└── styles/                # 样式文件
+    ├── youdao.css         # 有道词典样式
+    ├── confusables.css    # 形近词样式
+    ├── playphrase.css     # PlayPhrase 样式
+    └── ...
+```
+
+---
+
+## 🔍 常见问题
+
+### 扩展无法加载
+
+**解决方法：**
+1. 按 F12 打开浏览器控制台，查看错误信息
+2. 确认扩展文件夹位置正确
+3. 确认 SillyTavern 版本 >= 1.10.0
+4. 尝试重启 SillyTavern
+
+### 有道词典无法使用
+
+**原因：** CORS 跨域限制
+
+**解决方法：**
+1. 打开 SillyTavern 的 `config.yaml` 文件
+2. 设置 `enableCorsProxy: true`
+3. 重启 SillyTavern
+
+**注意：** 短语和句子可能无法查询有道词典，但 AI 查词仍然可用
+
+### AI 查词无响应
+
+**检查项：**
+1. 确认 API 连接配置正确
+2. 检查 API 密钥是否有效
+3. 确认选择的连接配置支持流式输出
+4. 查看浏览器控制台是否有错误信息
+
+### 闪卡数据丢失
+
+**数据保护机制：**
+- 数据自动保存到 IndexedDB
+- 每次加载时自动备份到 JSON 文件
+- 可手动导出数据备份
+
+**恢复方法：**
+1. 在设置中点击"导入数据"
+2. 选择之前导出的 JSON 文件
+3. 或从 `SillyTavern/data/default-user/` 目录查找自动备份
+
+### PlayPhrase 视频无法加载
+
+**原因：** CSRF Token 失效或网络问题
+
+**解决方法：**
+1. 访问 https://www.playphrase.me/
+2. 打开浏览器开发者工具（F12）
+3. 在 Network 标签中查找 API 请求
+4. 复制新的 CSRF Token
+5. 在扩展设置中更新 Token
+
+---
+
+## 🛠️ 技术特性
+
+### 架构设计
+- **ES6 模块化**：清晰的模块划分和依赖管理
+- **事件驱动**：基于 SillyTavern 事件系统集成
+- **响应式设计**：桌面端和移动端自适应
+- **无构建系统**：纯浏览器运行，无需编译
+
+### 数据存储
+- **三层存储**：IndexedDB + JSON 备份 + 云同步（可选）
+- **自动备份**：每次加载时自动备份到文件系统
+- **数据迁移**：支持旧版本数据自动升级
+
+### 性能优化
+- **流式响应**：支持 AI 流式输出，实时显示
+- **懒加载**：农场游戏按需加载，减少初始加载时间
+- **防抖处理**：文本选择和设置保存使用防抖优化
+
+---
+
+## 📝 开发说明
+
+### 本地开发
+
+1. 直接编辑扩展文件夹中的文件
+2. 刷新浏览器页面重新加载扩展
+3. 或重启 SillyTavern 完全重载
+
+### 代码规范
+
+- **缩进**：4 个空格
+- **模块导出**：优先使用命名导出
+- **文件命名**：lowerCamelCase.js
+- **CSS 作用域**：使用 `.ai-dict-` 前缀避免冲突
+
+### 提交规范
+
+```
+feat: 添加新功能
+fix: 修复 bug
+refactor: 重构代码
+chore: 杂项更新
+```
+
+---
+
+## 🤝 贡献指南
+
+欢迎提交 Issue 和 Pull Request！
+
+1. Fork 本仓库
+2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'feat: add some amazing feature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 创建 Pull Request
+
+---
+
+## 📄 许可证
 
 MIT License
 
 ---
 
-## Acknowledgments / 致谢
+## 🙏 致谢
 
-- Youdao Dictionary for dictionary data / 有道词典提供词典数据
-- SillyTavern team for the amazing platform / SillyTavern 团队提供的优秀平台
-- https://github.com/ninja33/ODH / 解析有道词典和样式排版chrome拓展
+- [Youdao Dictionary](https://www.youdao.com/) - 提供词典数据
+- [SillyTavern](https://github.com/SillyTavern/SillyTavern) - 优秀的 AI 聊天平台
+- [ODH](https://github.com/ninja33/ODH) - 有道词典解析和样式参考
+- [PlayPhrase](https://www.playphrase.me/) - 视频例句数据源
+
+---
+
+## 📮 联系方式
+
+- GitHub Issues: [提交问题](https://github.com/zmm147/AI-dictionary-sillytavern/issues)
+- 项目主页: [AI Dictionary](https://github.com/zmm147/AI-dictionary-sillytavern)
+
+---
+
+**享受学习，快乐成长！** 🎉
