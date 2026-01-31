@@ -101,15 +101,21 @@ export class SettingsUi {
             });
         }
 
-        // Immersive Review collapsible toggle
+        // Immersive Review collapsible toggle (same style as settings toggle)
         const immersiveReviewToggle = rootElement.querySelector('#ai-dict-immersive-review-toggle');
         const immersiveReviewContent = rootElement.querySelector('#ai-dict-immersive-review-content');
         if (immersiveReviewToggle && immersiveReviewContent && !immersiveReviewToggle.dataset.bound) {
             immersiveReviewToggle.dataset.bound = 'true';
+            immersiveReviewContent.style.display = 'none';
+            immersiveReviewToggle.classList.remove('expanded');
             const icon = immersiveReviewToggle.querySelector('i');
+            if (icon) {
+                icon.className = 'fa-solid fa-chevron-right';
+            }
             immersiveReviewToggle.addEventListener('click', () => {
                 const isExpanded = immersiveReviewContent.style.display !== 'none';
                 immersiveReviewContent.style.display = isExpanded ? 'none' : 'block';
+                immersiveReviewToggle.classList.toggle('expanded', !isExpanded);
                 if (icon) {
                     icon.className = isExpanded ? 'fa-solid fa-chevron-right' : 'fa-solid fa-chevron-down';
                 }
