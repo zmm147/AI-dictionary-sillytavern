@@ -298,6 +298,7 @@ export function showPanel(title, content, type = 'info') {
  * @param {Function} options.playAudio - Function to play audio
  * @param {boolean} options.fetchAIOnYoudaoExpand - Whether to fetch AI on Youdao expand
  * @param {Function} options.triggerAIFetchIfEmpty - Function to trigger AI fetch
+ * @param {Function} options.loadPlayphraseVideos - Function to load PlayPhrase videos
  */
 export function showPanelHtml(title, htmlContent, type = 'info', options = {}) {
     if (!panelElement) return;
@@ -381,6 +382,10 @@ export function showPanelHtml(title, htmlContent, type = 'info', options = {}) {
 
                         if (wasExpanded && options.fetchAIOnYoudaoExpand && targetId.startsWith('youdao-definitions-')) {
                             options.triggerAIFetchIfEmpty?.();
+                        }
+
+                        if (!wasExpanded && targetId.startsWith('playphrase-videos-')) {
+                            options.loadPlayphraseVideos?.();
                         }
                     }
                 }

@@ -123,6 +123,96 @@ export class SettingsUi {
             });
         }
 
+        // PlayPhrase CSRF Token
+        const playphraseCsrfInput = rootElement.querySelector('#ai-dict-playphrase-csrf');
+        if (playphraseCsrfInput) {
+            playphraseCsrfInput.value = this.settings.playphraseCsrfToken || '';
+            playphraseCsrfInput.addEventListener('change', () => {
+                this.settings.playphraseCsrfToken = playphraseCsrfInput.value.trim();
+                this.saveSettings();
+            });
+        }
+
+        // Auto-fetch CSRF Token button
+        const autoFetchCsrfBtn = rootElement.querySelector('#ai-dict-auto-fetch-csrf');
+        if (autoFetchCsrfBtn && playphraseCsrfInput) {
+            autoFetchCsrfBtn.addEventListener('click', async () => {
+                try {
+                    // Open playphrase.me in a new window
+                    const newWindow = window.open('https://www.playphrase.me/', '_blank');
+
+                    if (!newWindow) {
+                        toastr.error('无法打开新窗口，请允许弹出窗口权限');
+                        return;
+                    }
+
+                    toastr.info('已打开 playphrase.me，等待页面加载后自动提取 CSRF Token...', {
+                        timeOut: 5000
+                    });
+
+                    // Wait for the page to load and extract CSRF token
+                    const checkInterval = setInterval(() => {
+                        try {
+                            // Try to access the new window's document
+                            const doc = newWindow.document;
+                            const cookies = doc.cookie;
+
+                            if (cookies) {
+                                const sessionMatches = cookies.match(/session-[^=]+=([^;]+)/g);
+
+                                if (sessionMatches) {
+                                    for (const sessionCookie of sessionMatches) {
+                                        try {
+                                            const cookieValue = sessionCookie.split('=')[1];
+                                            const decoded = atob(cookieValue);
+                                            const sessionData = JSON.parse(decoded);
+
+                                            if (sessionData.csrfToken) {
+                                                playphraseCsrfInput.value = sessionData.csrfToken;
+                                                this.settings.playphraseCsrfToken = sessionData.csrfToken;
+                                                this.saveSettings();
+                                                toastr.success('CSRF Token 已自动获取并保存！');
+                                                clearInterval(checkInterval);
+                                                newWindow.close();
+                                                return;
+                                            }
+                                        } catch (e) {
+                                            continue;
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (e) {
+                            // Cross-origin error, can't access the window
+                            // This is expected, we'll show manual instructions
+                        }
+                    }, 1000);
+
+                    // Timeout after 10 seconds and show manual instructions
+                    setTimeout(() => {
+                        clearInterval(checkInterval);
+
+                        if (!playphraseCsrfInput.value) {
+                            // Show manual extraction instructions
+                            const bookmarklet = `javascript:(function(){var c=document.cookie.match(/session-[^=]+=([^;]+)/g);if(c){for(var i=0;i<c.length;i++){try{var v=c[i].split('=')[1];var d=atob(v);var s=JSON.parse(d);if(s.csrfToken){prompt('复制此 CSRF Token:',s.csrfToken);return}}catch(e){}}}alert('未找到 CSRF Token')})();`;
+
+                            toastr.warning('自动提取失败（跨域限制）<br><br>请在打开的窗口中：<br>1. 按 F12 打开控制台<br>2. 粘贴以下代码并回车：<br><code style="font-size:10px">' + bookmarklet.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</code><br>3. 复制显示的 Token 并返回此处粘贴', {
+                                timeOut: 20000,
+                                escapeHtml: false
+                            });
+
+                            // Copy bookmarklet to clipboard
+                            navigator.clipboard.writeText(bookmarklet).catch(() => {});
+                        }
+                    }, 10000);
+
+                } catch (error) {
+                    console.error('Failed to fetch CSRF token:', error);
+                    toastr.error(`获取 CSRF Token 失败: ${error.message}`);
+                }
+            });
+        }
+
         // System Prompt
         const promptInput = rootElement.querySelector('#ai-dict-system-prompt');
         if (promptInput) {

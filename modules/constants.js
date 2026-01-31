@@ -58,7 +58,7 @@ export const defaultSettings = {
 2. 常见搭配和用法
 3. 同义词/反义词/易混淆单词
 4. 记忆技巧建议`,
-confusableWordsPrompt: `请列出与单词 "%word%" 形近易混淆的单词（拼写相似但意思不同的词），并给出原词释义。
+    confusableWordsPrompt: `请列出与单词 "%word%" 形近易混淆的单词（拼写相似但意思不同的词），并给出原词释义。
 
 请严格按照以下格式输出：
 【原词释义】
@@ -74,6 +74,8 @@ confusableWordsPrompt: `请列出与单词 "%word%" 形近易混淆的单词（�
 2. 每个单词给出简短的中文释义
 3. 如果没有常见的形近词，请说明`,
     confusableWords: {},
+    playphraseCsrfToken: '',
+    playphraseLimit: 10,
     highlightConfusables: false,
     highlightColor: '#e0a800',
     autoCollapseYoudao: false,

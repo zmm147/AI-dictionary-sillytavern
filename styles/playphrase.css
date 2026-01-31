@@ -1,0 +1,89 @@
+/**
+ * AI Dictionary - PlayPhrase Video Styles
+ */
+
+.ai-dict-playphrase-section {
+    margin-top: 8px;
+    border-top: 1px solid var(--SmartThemeBorderColor);
+}
+
+.ai-dict-playphrase-content {
+    margin-top: 4px;
+    padding: 10px;
+    background-color: var(--SmartThemeBlurTintColor);
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ai-dict-playphrase-status {
+    font-size: 0.85em;
+    color: var(--SmartThemeEmColor);
+}
+
+.ai-dict-playphrase-player {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ai-dict-playphrase-player video {
+    width: 100%;
+    max-height: 260px;
+    border-radius: 6px;
+    background-color: #000;
+}
+
+.ai-dict-playphrase-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px;
+    background-color: var(--SmartThemeBlurTintColor);
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 4px;
+}
+
+.ai-dict-playphrase-text {
+    font-size: 0.95em;
+    font-weight: 600;
+    color: var(--SmartThemeBodyColor);
+    font-style: italic;
+}
+
+.ai-dict-playphrase-source {
+    font-size: 0.85em;
+    color: var(--SmartThemeEmColor);
+    opacity: 0.9;
+}
+
+.ai-dict-playphrase-source a {
+    color: var(--SmartThemeEmColor);
+    text-decoration: none;
+    transition: opacity 0.2s;
+}
+
+.ai-dict-playphrase-source a:hover {
+    opacity: 0.7;
+    text-decoration: underline;
+}
+
+.ai-dict-playphrase-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.ai-dict-playphrase-controls .menu_button {
+    flex: 1;
+}
+
+.ai-dict-playphrase-counter {
+    font-size: 0.85em;
+    color: var(--SmartThemeEmColor);
+    opacity: 0.8;
+    text-align: center;
+    font-weight: 500;
+    margin-bottom: 4px;
+}

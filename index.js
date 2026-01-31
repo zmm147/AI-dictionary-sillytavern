@@ -87,6 +87,7 @@ import {
     bindConfusableButton,
     updateSavedConfusablesDisplay
 } from './modules/confusables.js';
+import { loadPlayphraseVideos } from './modules/playphrase.js';
 
 // Import new split modules
 import { showStatisticsPanel } from './modules/statisticsPanel.js';
@@ -314,7 +315,12 @@ async function performDictionaryLookup(skipSaveHistory = false) {
             immersiveReviewEnabled: settings.immersiveReview,
             playAudio,
             fetchAIOnYoudaoExpand: settings.fetchAIOnYoudaoExpand,
-            triggerAIFetchIfEmpty: () => triggerAIFetchIfEmpty(selectedText, fetchAIDefinitionWrapper)
+            triggerAIFetchIfEmpty: () => triggerAIFetchIfEmpty(selectedText, fetchAIDefinitionWrapper),
+            loadPlayphraseVideos: () => loadPlayphraseVideos({
+                word: selectedText,
+                limit: settings.playphraseLimit,
+                csrfToken: settings.playphraseCsrfToken
+            })
         });
 
         clearChatHistory();

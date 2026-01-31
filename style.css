@@ -17,6 +17,9 @@
 /* Confusable words and word history styles */
 @import url('./styles/confusables.css');
 
+/* PlayPhrase video styles */
+@import url('./styles/playphrase.css');
+
 /* Statistics panel and trend chart styles */
 @import url('./styles/statistics.css');
 

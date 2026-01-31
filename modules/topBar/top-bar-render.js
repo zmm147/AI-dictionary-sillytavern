@@ -150,6 +150,14 @@ export function createPanelContent(options) {
             </select>
 
             <div class="ai-dict-prompt-label-row">
+                <label for="ai-dict-playphrase-csrf">PlayPhrase CSRF Token:</label>
+                <button id="ai-dict-auto-fetch-csrf" class="menu_button menu_button_icon" title="自动获取 CSRF Token">
+                    <i class="fa-solid fa-download"></i>
+                </button>
+            </div>
+            <input type="text" id="ai-dict-playphrase-csrf" class="text_pole" placeholder="从浏览器开发者工具的 Network 标签中复制 x-csrf-token">
+
+            <div class="ai-dict-prompt-label-row">
                 <label for="ai-dict-system-prompt">System Prompt:</label>
                 <button id="ai-dict-reset-system-prompt" class="menu_button menu_button_icon" title="重置为默认">
                     <i class="fa-solid fa-rotate-left"></i>
