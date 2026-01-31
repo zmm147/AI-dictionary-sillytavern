@@ -2,7 +2,11 @@
 
 一个专为英语学习设计的 SillyTavern 扩展，让你在与 AI 对话的同时高效学习英语。
 
-<img width="458" height="741" alt="AI Dictionary 界面预览" src="https://github.com/user-attachments/assets/845e498f-2117-4be6-8355-75df19a96f7c" />
+<img width="454" height="618" alt="image" src="https://github.com/user-attachments/assets/30165265-7463-445b-85b8-8a2bee4a5358" />
+
+<img width="961" height="539" alt="image" src="https://github.com/user-attachments/assets/ed1f9aab-0ccb-44cd-8992-968e929f79c2" />
+
+
 
 ---
 
@@ -16,8 +20,6 @@
 - **AI 智能释义**：结合上下文，给出最贴切的解释
 - **发音播放**：英式/美式发音，随时跟读
 - **选中即查**：鼠标选中文本，一键查询
-
-<img width="400" alt="查词示例" src="https://github.com/user-attachments/assets/example-lookup.png" />
 
 ---
 
@@ -50,8 +52,6 @@
 3. AI 在回复中自然融入这些单词
 4. 你在阅读中自然复习，加深印象
 
-<img width="400" alt="沉浸式复习" src="https://github.com/user-attachments/assets/example-review.png" />
-
 ---
 
 ### 4️⃣ 视频播放 + 字幕制作角色卡
@@ -67,8 +67,6 @@
 - 看美剧学英语，遇到生词立即查询
 - 将喜欢的角色台词制作成卡片
 - 与角色对话，模拟真实场景
-
-<img width="400" alt="视频播放器" src="https://github.com/user-attachments/assets/example-video-player.png" />
 
 ---
 
