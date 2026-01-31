@@ -238,28 +238,6 @@ export function createPanelContent(options) {
 
         <hr class="sysHR">
 
-        <div class="extension_info">
-            <div class="flex-container">
-                <div class="flex1">
-                    <small>
-                        <i class="fa-solid fa-circle-info"></i>
-                        <span>Select text on the page to trigger the lookup. If "Direct Lookup" is enabled, the definition will appear immediately. Otherwise, click the icon that appears next to the selection.</span>
-                    </small>
-                </div>
-            </div>
-        </div>
-
-        <hr class="sysHR">
-
-        <div class="ai-dict-actions-row">
-            <button id="ai-dict-farm-btn" class="menu_button" title="学习累了？来种种菜吧！">
-                <i class="fa-solid fa-seedling"></i>
-                <span>农场游戏</span>
-            </button>
-        </div>
-
-        <hr class="sysHR">
-
         <label>快捷功能</label>
         <div class="ai-dict-top-bar-actions">
             <button id="ai-dict-top-bar-flashcard-btn" class="menu_button" title="闪卡复习">
@@ -269,6 +247,12 @@ export function createPanelContent(options) {
             <button id="ai-dict-top-bar-video-btn" class="menu_button" title="视频播放">
                 <i class="fa-solid fa-video"></i>
                 <span>视频</span>
+            </button>
+        </div>
+        <div class="ai-dict-top-bar-actions" style="margin-top: 8px;">
+            <button id="ai-dict-farm-btn" class="menu_button" title="学习累了？来种种菜吧！">
+                <i class="fa-solid fa-seedling"></i>
+                <span>农场游戏</span>
             </button>
         </div>
     `;
