@@ -383,10 +383,6 @@ export function showPanelHtml(title, htmlContent, type = 'info', options = {}) {
                         if (wasExpanded && options.fetchAIOnYoudaoExpand && targetId.startsWith('youdao-definitions-')) {
                             options.triggerAIFetchIfEmpty?.();
                         }
-
-                        if (!wasExpanded && targetId.startsWith('playphrase-videos-')) {
-                            options.loadPlayphraseVideos?.();
-                        }
                     }
                 }
             });

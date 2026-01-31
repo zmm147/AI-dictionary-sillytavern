@@ -307,3 +307,23 @@ export async function loadPlayphraseVideos(options) {
 
     updatePlayphraseUI({ statusEl, playerEl, videoEl, prevBtn, nextBtn, counterEl });
 }
+
+/**
+ * Bind PlayPhrase button click event
+ * @param {Function} loadPlayphraseVideosFn - Function to load videos
+ */
+export function bindPlayphraseButton(loadPlayphraseVideosFn) {
+    const btn = document.getElementById('ai-dict-playphrase-btn');
+    const contentElement = document.getElementById('ai-dict-playphrase-content');
+
+    if (btn && contentElement) {
+        btn.addEventListener('click', () => {
+            const isVisible = contentElement.style.display !== 'none';
+            contentElement.style.display = isVisible ? 'none' : 'block';
+
+            if (!isVisible) {
+                loadPlayphraseVideosFn();
+            }
+        });
+    }
+}

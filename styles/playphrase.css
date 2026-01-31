@@ -4,7 +4,40 @@
 
 .ai-dict-playphrase-section {
     margin-top: 8px;
+    padding-top: 6px;
     border-top: 1px solid var(--SmartThemeBorderColor);
+}
+
+.ai-dict-playphrase-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 6px 12px;
+    background: linear-gradient(135deg, #5bc0de 0%, #46b8da 100%);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.85em;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 1px 3px rgba(91, 192, 222, 0.3);
+}
+
+.ai-dict-playphrase-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #46b8da 0%, #31b0d5 100%);
+    box-shadow: 0 2px 5px rgba(91, 192, 222, 0.4);
+}
+
+.ai-dict-playphrase-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.ai-dict-playphrase-btn i {
+    font-size: 1em;
 }
 
 .ai-dict-playphrase-content {

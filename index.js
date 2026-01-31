@@ -87,7 +87,7 @@ import {
     bindConfusableButton,
     updateSavedConfusablesDisplay
 } from './modules/confusables.js';
-import { loadPlayphraseVideos } from './modules/playphrase.js';
+import { loadPlayphraseVideos, bindPlayphraseButton } from './modules/playphrase.js';
 
 // Import new split modules
 import { showStatisticsPanel } from './modules/statisticsPanel.js';
@@ -340,6 +340,11 @@ async function performDictionaryLookup(skipSaveHistory = false) {
 
         bindChatInputEvents(selectedText, sendChatMessageWrapper);
         bindWordHistoryEvents(selectedText);
+        bindPlayphraseButton(() => loadPlayphraseVideos({
+            word: selectedText,
+            limit: settings.playphraseLimit,
+            csrfToken: settings.playphraseCsrfToken
+        }));
 
         if (!shouldAutoFetchAI) {
             bindManualAIFetchButton(selectedText, fetchAIDefinitionWrapper);

@@ -162,7 +162,6 @@ export function createMergedContent(options) {
     const collapsibleId = `youdao-definitions-${Date.now()}`;
     const promptCollapsibleId = `prompt-view-${Date.now()}`;
     const historyCollapsibleId = `word-history-${Date.now()}`;
-    const playphraseCollapsibleId = `playphrase-videos-${Date.now()}`;
 
     const hasYoudaoResults = youdaoResults && Array.isArray(youdaoResults) && youdaoResults.length > 0;
     const hasProxyError = youdaoResults && youdaoResults.proxyError === true;
@@ -250,25 +249,23 @@ export function createMergedContent(options) {
     ` : '';
 
     const playphraseSection = `
-        <div class="ai-dict-collapsible-section ai-dict-playphrase-section">
-            <div class="ai-dict-collapsible-header" data-target="${playphraseCollapsibleId}">
-                <i class="fa-solid fa-chevron-right"></i>
-                <span>视频</span>
-            </div>
-            <div id="${playphraseCollapsibleId}" class="ai-dict-collapsible-content">
-                <div id="ai-dict-playphrase-content" class="ai-dict-playphrase-content" data-word="${escapeHtml(word)}">
-                    <div class="ai-dict-playphrase-status">点击展开加载视频。</div>
-                    <div class="ai-dict-playphrase-player" style="display: none;">
-                        <div class="ai-dict-playphrase-counter"></div>
-                        <video id="ai-dict-playphrase-video" controls playsinline webkit-playsinline></video>
-                        <div class="ai-dict-playphrase-info">
-                            <div class="ai-dict-playphrase-text"></div>
-                            <div class="ai-dict-playphrase-source"></div>
-                        </div>
-                        <div class="ai-dict-playphrase-controls">
-                            <button id="ai-dict-playphrase-prev-btn" class="menu_button">上一个</button>
-                            <button id="ai-dict-playphrase-next-btn" class="menu_button">下一个</button>
-                        </div>
+        <div class="ai-dict-playphrase-section">
+            <button id="ai-dict-playphrase-btn" class="menu_button ai-dict-playphrase-btn">
+                <i class="fa-solid fa-video"></i>
+                <span>PlayPhrase</span>
+            </button>
+            <div id="ai-dict-playphrase-content" class="ai-dict-playphrase-content" data-word="${escapeHtml(word)}" style="display: none;">
+                <div class="ai-dict-playphrase-status">点击展开加载视频。</div>
+                <div class="ai-dict-playphrase-player" style="display: none;">
+                    <div class="ai-dict-playphrase-counter"></div>
+                    <video id="ai-dict-playphrase-video" controls playsinline webkit-playsinline></video>
+                    <div class="ai-dict-playphrase-info">
+                        <div class="ai-dict-playphrase-text"></div>
+                        <div class="ai-dict-playphrase-source"></div>
+                    </div>
+                    <div class="ai-dict-playphrase-controls">
+                        <button id="ai-dict-playphrase-prev-btn" class="menu_button">上一个</button>
+                        <button id="ai-dict-playphrase-next-btn" class="menu_button">下一个</button>
                     </div>
                 </div>
             </div>
