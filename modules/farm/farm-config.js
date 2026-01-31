@@ -50,5 +50,5 @@ export const GROWTH_STAGES = ['🌱', '🌿', '✨'];
 
 // 宠物定义
 export const PETS = {
-    cat: { name: '猫咪', emoji: '🐱', description: '可爱的小猫咪', cost: 0, limit: 1 },
+    cat: { name: '猫咪', emoji: '🐱', description: '可爱的小猫咪', cost: 1000, limit: 1 },
 };
