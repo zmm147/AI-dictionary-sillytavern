@@ -37,12 +37,12 @@ export const GROWTH_STAGE_COUNT = 3;
 
 // 作物定义（生长时间单位：天）
 export const CROPS = {
-    tomato: { name: '番茄', emoji: '🍅', growDays: 2, sellPrice: 30, seedPrice: 15, unlocked: true, useCustomSprite: true },
     carrot: { name: '胡萝卜', emoji: '🥕', growDays: 1, sellPrice: 10, seedPrice: 5, unlocked: true },
-    potato: { name: '土豆', emoji: '🥔', growDays: 1, sellPrice: 15, seedPrice: 8, unlocked: true },
+    potato: { name: '土豆', emoji: '🥔', growDays: 1, sellPrice: 15, seedPrice: 8, unlockCost: 30 },
     cabbage: { name: '白菜', emoji: '🥬', growDays: 1.5, sellPrice: 20, seedPrice: 10, unlockCost: 50 },
-    corn: { name: '玉米', emoji: '🌽', growDays: 2.5, sellPrice: 45, seedPrice: 20, unlockCost: 100 },
-    eggplant: { name: '茄子', emoji: '🍆', growDays: 3, sellPrice: 60, seedPrice: 25, unlockCost: 200 },
+    tomato: { name: '番茄', emoji: '🍅', growDays: 2, sellPrice: 30, seedPrice: 15, unlockCost: 80, useCustomSprite: true },
+    corn: { name: '玉米', emoji: '🌽', growDays: 2.5, sellPrice: 45, seedPrice: 20, unlockCost: 150 },
+    eggplant: { name: '茄子', emoji: '🍆', growDays: 3, sellPrice: 60, seedPrice: 25, unlockCost: 250 },
 };
 
 // 生长阶段emoji（备用，当图片无法加载时使用）
