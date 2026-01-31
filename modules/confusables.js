@@ -364,18 +364,47 @@ export function highlightAllConfusableWords(confusableWords, enabled, performLoo
 
             const relatedConfusables = getRelatedConfusables(match[0], confusableWords);
             const relatedWords = relatedConfusables.map(item => item.word).filter(Boolean);
-            const confusableLabel = relatedWords.length > 0
-                ? relatedWords.join(', ')
-                : '暂无形近词';
+
             const span = document.createElement('span');
             span.className = 'ai-dict-confusable-highlight';
             span.textContent = match[0];
-            span.dataset.confusables = confusableLabel;
+
+            // Create tooltip element
+            const tooltip = document.createElement('div');
+            tooltip.className = 'ai-dict-confusable-tooltip';
+
+            if (relatedWords.length > 0) {
+                relatedWords.forEach((word, index) => {
+                    const wordSpan = document.createElement('span');
+                    wordSpan.className = 'ai-dict-confusable-word';
+                    wordSpan.textContent = word;
+                    wordSpan.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        if (performLookup && typeof performLookup === 'function') {
+                            performLookup(word);
+                        }
+                    });
+                    tooltip.appendChild(wordSpan);
+
+                    if (index < relatedWords.length - 1) {
+                        tooltip.appendChild(document.createTextNode(', '));
+                    }
+                });
+            } else {
+                tooltip.textContent = '暂无形近词';
+            }
+
+            span.appendChild(tooltip);
+
             span.addEventListener('click', (e) => {
                 e.stopPropagation();
-                if (performLookup && typeof performLookup === 'function') {
-                    performLookup(match[0]);
-                }
+                const isActive = span.classList.contains('ai-dict-show-confusables');
+                document.querySelectorAll('.ai-dict-confusable-highlight.ai-dict-show-confusables').forEach(el => {
+                    if (el !== span) {
+                        el.classList.remove('ai-dict-show-confusables');
+                    }
+                });
+                span.classList.toggle('ai-dict-show-confusables', !isActive);
             });
             fragment.appendChild(span);
 
@@ -389,6 +418,15 @@ export function highlightAllConfusableWords(confusableWords, enabled, performLoo
         if (fragment.childNodes.length > 0) {
             textNode.parentNode.replaceChild(fragment, textNode);
         }
+    }
+
+    if (!highlightAllConfusableWords.hasClickHandler) {
+        document.addEventListener('click', () => {
+            document.querySelectorAll('.ai-dict-confusable-highlight.ai-dict-show-confusables').forEach(el => {
+                el.classList.remove('ai-dict-show-confusables');
+            });
+        });
+        highlightAllConfusableWords.hasClickHandler = true;
     }
 }
 

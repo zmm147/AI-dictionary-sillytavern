@@ -319,8 +319,7 @@
     padding: 0 1px;
 }
 
-.ai-dict-confusable-highlight::after {
-    content: attr(data-confusables);
+.ai-dict-confusable-tooltip {
     position: absolute;
     left: 0;
     bottom: calc(100% + 6px);
@@ -328,7 +327,7 @@
     max-width: 260px;
     padding: 6px 8px;
     background-color: var(--SmartThemeBlurTintColor);
-    border: none;
+    border: 1px solid var(--SmartThemeBorderColor);
     color: var(--SmartThemeBodyColor);
     font-size: 12px;
     line-height: 1.4;
@@ -339,33 +338,24 @@
     transition: opacity 0.2s ease, transform 0.2s ease;
     pointer-events: none;
     z-index: 2147483646;
+    border-radius: 4px;
 }
 
-.ai-dict-confusable-highlight::before {
-    content: '';
-    position: absolute;
-    left: 10px;
-    bottom: calc(100% + 2px);
-    width: 0;
-    height: 0;
-    border-left: 6px solid transparent;
-    border-right: 6px solid transparent;
-    border-top: 6px solid var(--SmartThemeBlurTintColor);
-    opacity: 0;
-    transform: translateY(4px);
-    transition: opacity 0.2s ease, transform 0.2s ease;
-    pointer-events: none;
-    z-index: 2147483646;
-}
-
-.ai-dict-confusable-highlight.ai-dict-show-confusables::after {
+.ai-dict-confusable-highlight.ai-dict-show-confusables .ai-dict-confusable-tooltip {
     opacity: 1;
     transform: translateY(0);
+    pointer-events: auto;
 }
 
-.ai-dict-confusable-highlight.ai-dict-show-confusables::before {
-    opacity: 1;
-    transform: translateY(0);
+.ai-dict-confusable-word {
+    color: #2196f3;
+    cursor: pointer;
+    text-decoration: underline;
+    transition: color 0.2s;
+}
+
+.ai-dict-confusable-word:hover {
+    color: #1976d2;
 }
 
 /* ==================== Word History Section Styles ==================== */
