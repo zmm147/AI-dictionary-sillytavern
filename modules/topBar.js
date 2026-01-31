@@ -25,10 +25,6 @@ export function createTopBarIcon(options) {
     // Remove existing if any
     removeTopBarIcon();
 
-    if (!settings.enableTopBar) {
-        return;
-    }
-
     const topSettingsHolder = document.getElementById('top-settings-holder');
     if (!topSettingsHolder) {
         console.warn(`[${EXTENSION_NAME}] top-settings-holder not found`);
