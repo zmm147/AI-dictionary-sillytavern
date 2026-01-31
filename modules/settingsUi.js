@@ -153,34 +153,17 @@ export class SettingsUi {
                     // Wait for the page to load and extract CSRF token
                     const checkInterval = setInterval(() => {
                         try {
-                            // Try to access the new window's document
-                            const doc = newWindow.document;
-                            const cookies = doc.cookie;
+                            // Try to access the new window's csrfToken global variable
+                            const csrfToken = newWindow.csrfToken;
 
-                            if (cookies) {
-                                const sessionMatches = cookies.match(/session-[^=]+=([^;]+)/g);
-
-                                if (sessionMatches) {
-                                    for (const sessionCookie of sessionMatches) {
-                                        try {
-                                            const cookieValue = sessionCookie.split('=')[1];
-                                            const decoded = atob(cookieValue);
-                                            const sessionData = JSON.parse(decoded);
-
-                                            if (sessionData.csrfToken) {
-                                                playphraseCsrfInput.value = sessionData.csrfToken;
-                                                this.settings.playphraseCsrfToken = sessionData.csrfToken;
-                                                this.saveSettings();
-                                                toastr.success('CSRF Token 已自动获取并保存！');
-                                                clearInterval(checkInterval);
-                                                newWindow.close();
-                                                return;
-                                            }
-                                        } catch (e) {
-                                            continue;
-                                        }
-                                    }
-                                }
+                            if (csrfToken) {
+                                playphraseCsrfInput.value = csrfToken;
+                                this.settings.playphraseCsrfToken = csrfToken;
+                                this.saveSettings();
+                                toastr.success('CSRF Token 已自动获取并保存！');
+                                clearInterval(checkInterval);
+                                newWindow.close();
+                                return;
                             }
                         } catch (e) {
                             // Cross-origin error, can't access the window
@@ -194,7 +177,7 @@ export class SettingsUi {
 
                         if (!playphraseCsrfInput.value) {
                             // Show manual extraction instructions
-                            const bookmarklet = `javascript:(function(){var c=document.cookie.match(/session-[^=]+=([^;]+)/g);if(c){for(var i=0;i<c.length;i++){try{var v=c[i].split('=')[1];var d=atob(v);var s=JSON.parse(d);if(s.csrfToken){prompt('复制此 CSRF Token:',s.csrfToken);return}}catch(e){}}}alert('未找到 CSRF Token')})();`;
+                            const bookmarklet = `javascript:(function(){if(window.csrfToken){prompt('复制此 CSRF Token:',window.csrfToken)}else{alert('未找到 CSRF Token，请确保在 playphrase.me 页面运行此脚本')}})();`;
 
                             toastr.warning('自动提取失败（跨域限制）<br><br>请在打开的窗口中：<br>1. 按 F12 打开控制台<br>2. 粘贴以下代码并回车：<br><code style="font-size:10px">' + bookmarklet.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</code><br>3. 复制显示的 Token 并返回此处粘贴', '', {
                                 timeOut: 20000,
