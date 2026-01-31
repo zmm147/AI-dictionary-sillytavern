@@ -9,6 +9,51 @@ const PLAYPHRASE_API_URL = 'https://www.playphrase.me/api/v1/phrases/search';
 const PLAYPHRASE_REFERER = 'https://www.playphrase.me/';
 const PLAYPHRASE_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36';
 
+/**
+ * Public CORS proxies as fallback
+ */
+const PUBLIC_CORS_PROXIES = [
+    (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+    (url) => `https://test.cors.workers.dev/?${encodeURIComponent(url)}`,
+];
+
+// Cache for proxy availability check
+let proxyAvailable = null;
+
+/**
+ * Create an AbortSignal with timeout
+ * @param {number} ms Timeout in milliseconds
+ * @returns {AbortSignal}
+ */
+function createTimeoutSignal(ms) {
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), ms);
+    return controller.signal;
+}
+
+/**
+ * Check if local SillyTavern proxy is available
+ * @returns {Promise<boolean>}
+ */
+async function checkProxyAvailable() {
+    if (proxyAvailable !== null) {
+        return proxyAvailable;
+    }
+
+    try {
+        const response = await fetch('/proxy/https://www.playphrase.me/', {
+            method: 'HEAD',
+            signal: createTimeoutSignal(3000)
+        });
+        proxyAvailable = response.ok || response.status !== 404;
+    } catch (error) {
+        proxyAvailable = false;
+    }
+
+    console.log(`[${EXTENSION_NAME}] PlayPhrase local proxy available:`, proxyAvailable);
+    return proxyAvailable;
+}
+
 const playphraseState = {
     word: '',
     phrases: [],
@@ -135,15 +180,6 @@ function bindPlayphraseControls(elements) {
     }
 }
 
-async function tryFetch(url, headers) {
-    try {
-        return await fetch(url, { headers });
-    } catch (error) {
-        // Silently fail - this is expected for direct requests due to CORS
-        return null;
-    }
-}
-
 async function fetchPlayphrasePhrases(word, limit, csrfToken) {
     const params = new URLSearchParams({
         q: word,
@@ -155,46 +191,85 @@ async function fetchPlayphrasePhrases(word, limit, csrfToken) {
     });
 
     const url = `${PLAYPHRASE_API_URL}?${params.toString()}`;
+    let response = null;
+    let proxyUsed = '';
 
-    // Use SillyTavern's CORS proxy directly (skip direct request to avoid console errors)
-    const proxyHeaders = {
-        'accept': 'json',
-        'authorization': 'Token',
-        'content-type': 'json',
-        'accept-language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7',
-        'x-proxy-referer': PLAYPHRASE_REFERER,
-        'x-proxy-user-agent': PLAYPHRASE_USER_AGENT,
-        'x-proxy-origin': PLAYPHRASE_REFERER
-    };
+    // Check if local proxy is available
+    const useLocalProxy = await checkProxyAvailable();
 
-    // Add CSRF token if provided
-    if (csrfToken) {
-        proxyHeaders['x-proxy-csrf-token'] = csrfToken;
+    if (useLocalProxy) {
+        // Use SillyTavern's CORS proxy
+        const proxyHeaders = {
+            'accept': 'json',
+            'authorization': 'Token',
+            'content-type': 'json',
+            'accept-language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7',
+            'x-proxy-referer': PLAYPHRASE_REFERER,
+            'x-proxy-user-agent': PLAYPHRASE_USER_AGENT,
+            'x-proxy-origin': PLAYPHRASE_REFERER
+        };
+
+        // Add CSRF token if provided
+        if (csrfToken) {
+            proxyHeaders['x-proxy-csrf-token'] = csrfToken;
+        }
+
+        const proxyUrl = `/proxy/${encodeURIComponent(url)}`;
+        proxyUsed = 'local';
+        console.log(`[${EXTENSION_NAME}] Using local proxy for PlayPhrase:`, proxyUrl);
+
+        try {
+            response = await fetch(proxyUrl, {
+                headers: proxyHeaders,
+                signal: createTimeoutSignal(10000)
+            });
+        } catch (error) {
+            console.warn(`[${EXTENSION_NAME}] Local proxy failed:`, error.message);
+            response = null;
+        }
     }
 
-    // Encode the URL for the proxy
-    const proxyUrl = `/proxy/${encodeURIComponent(url)}`;
+    // Try public CORS proxies if local proxy failed or unavailable
+    if (!response || !response.ok) {
+        for (const getProxyUrl of PUBLIC_CORS_PROXIES) {
+            try {
+                const proxyUrl = getProxyUrl(url);
+                proxyUsed = proxyUrl.split('?')[0];
+                console.log(`[${EXTENSION_NAME}] Trying public proxy for PlayPhrase:`, proxyUsed);
 
-    const proxyResponse = await tryFetch(proxyUrl, proxyHeaders);
+                response = await fetch(proxyUrl, {
+                    method: 'GET',
+                    signal: createTimeoutSignal(10000)
+                });
 
-    if (proxyResponse?.ok) {
-        const data = await proxyResponse.json();
-        const phrases = Array.isArray(data?.phrases) ? data.phrases : [];
-        return phrases.map(normalizePhrase).filter(Boolean);
+                if (response.ok) {
+                    console.log(`[${EXTENSION_NAME}] Public proxy succeeded:`, proxyUsed);
+                    break;
+                }
+            } catch (proxyError) {
+                console.warn(`[${EXTENSION_NAME}] Public proxy failed:`, proxyUsed, proxyError.message);
+                response = null;
+            }
+        }
     }
 
-    // Handle proxy errors
-    if (proxyResponse?.status === 404) {
-        throw new Error('CORS proxy is disabled. Enable it in config.yaml with enableCorsProxy: true');
-    }
-    if (proxyResponse && [401, 403].includes(proxyResponse.status)) {
-        throw new Error('PlayPhrase request rejected. Please check your CSRF Token.');
-    }
-    if (proxyResponse) {
-        throw new Error(`PlayPhrase request failed (${proxyResponse.status}). Please check your CSRF Token.`);
+    // Handle response
+    if (!response || !response.ok) {
+        if (response?.status === 404) {
+            throw new Error('CORS proxy is disabled. Enable it in config.yaml with enableCorsProxy: true');
+        }
+        if (response && [401, 403].includes(response.status)) {
+            throw new Error('PlayPhrase request rejected. Please check your CSRF Token.');
+        }
+        if (response) {
+            throw new Error(`PlayPhrase request failed (${response.status}). Please check your CSRF Token.`);
+        }
+        throw new Error('PlayPhrase request failed. All proxies unavailable.');
     }
 
-    throw new Error('PlayPhrase request failed. Enable CORS proxy in config.yaml.');
+    const data = await response.json();
+    const phrases = Array.isArray(data?.phrases) ? data.phrases : [];
+    return phrases.map(normalizePhrase).filter(Boolean);
 }
 
 /**
