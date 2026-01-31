@@ -310,8 +310,9 @@ export function displayConfusableParseError(word, response, contentElement) {
  * Highlight all confusable words in the page content
  * @param {Object} confusableWords
  * @param {boolean} enabled
+ * @param {Function} performLookup - Optional callback to perform dictionary lookup
  */
-export function highlightAllConfusableWords(confusableWords, enabled) {
+export function highlightAllConfusableWords(confusableWords, enabled, performLookup = null) {
     if (!enabled) return;
 
     removeConfusableHighlights();
@@ -372,13 +373,9 @@ export function highlightAllConfusableWords(confusableWords, enabled) {
             span.dataset.confusables = confusableLabel;
             span.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const isActive = span.classList.contains('ai-dict-show-confusables');
-                document.querySelectorAll('.ai-dict-confusable-highlight.ai-dict-show-confusables').forEach(el => {
-                    if (el !== span) {
-                        el.classList.remove('ai-dict-show-confusables');
-                    }
-                });
-                span.classList.toggle('ai-dict-show-confusables', !isActive);
+                if (performLookup && typeof performLookup === 'function') {
+                    performLookup(match[0]);
+                }
             });
             fragment.appendChild(span);
 
@@ -392,15 +389,6 @@ export function highlightAllConfusableWords(confusableWords, enabled) {
         if (fragment.childNodes.length > 0) {
             textNode.parentNode.replaceChild(fragment, textNode);
         }
-    }
-
-    if (!highlightAllConfusableWords.hasClickHandler) {
-        document.addEventListener('click', () => {
-            document.querySelectorAll('.ai-dict-confusable-highlight.ai-dict-show-confusables').forEach(el => {
-                el.classList.remove('ai-dict-show-confusables');
-            });
-        });
-        highlightAllConfusableWords.hasClickHandler = true;
     }
 }
 

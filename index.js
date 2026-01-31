@@ -252,8 +252,8 @@ async function performConfusableLookupWrapper(word) {
         generateRaw,
         oaiSettings: oai_settings,
         saveSettings,
-        updateSavedDisplay: (w) => updateSavedConfusablesDisplay(w, settings.confusableWords, saveSettings, () => highlightAllConfusableWords(settings.confusableWords, settings.highlightConfusables)),
-        highlightWords: () => highlightAllConfusableWords(settings.confusableWords, settings.highlightConfusables)
+        updateSavedDisplay: (w) => updateSavedConfusablesDisplay(w, settings.confusableWords, saveSettings, () => highlightAllConfusableWords(settings.confusableWords, settings.highlightConfusables, performDictionaryLookup)),
+        highlightWords: () => highlightAllConfusableWords(settings.confusableWords, settings.highlightConfusables, performDictionaryLookup)
     });
 }
 
@@ -332,11 +332,11 @@ async function performDictionaryLookup(skipSaveHistory = false) {
             performConfusableLookupWrapper,
             settings.confusableWords,
             saveSettings,
-            (w) => updateSavedConfusablesDisplay(w, settings.confusableWords, saveSettings, () => highlightAllConfusableWords(settings.confusableWords, settings.highlightConfusables)),
-            () => highlightAllConfusableWords(settings.confusableWords, settings.highlightConfusables)
+            (w) => updateSavedConfusablesDisplay(w, settings.confusableWords, saveSettings, () => highlightAllConfusableWords(settings.confusableWords, settings.highlightConfusables, performDictionaryLookup)),
+            () => highlightAllConfusableWords(settings.confusableWords, settings.highlightConfusables, performDictionaryLookup)
         );
 
-        highlightAllConfusableWords(settings.confusableWords, settings.highlightConfusables);
+        highlightAllConfusableWords(settings.confusableWords, settings.highlightConfusables, performDictionaryLookup);
 
         bindChatInputEvents(selectedText, sendChatMessageWrapper);
         bindWordHistoryEvents(selectedText);
@@ -485,7 +485,7 @@ const init = async () => {
         showStatisticsPanel: showStatisticsPanelWrapper,
         showFarmGamePanel: showFarmGamePanelWrapper,
         removeConfusableHighlights: removeConfusableHighlights,
-        highlightAllConfusableWords: () => highlightAllConfusableWords(settings.confusableWords, settings.highlightConfusables),
+        highlightAllConfusableWords: () => highlightAllConfusableWords(settings.confusableWords, settings.highlightConfusables, performDictionaryLookup),
         updateHighlightColor: () => updateHighlightColor(settings.highlightColor),
         updateTopBar: updateTopBarWrapper
     });
@@ -525,7 +525,7 @@ const init = async () => {
     // Event listeners for chat messages
     eventSource.on(event_types.MESSAGE_RECEIVED, (messageIndex) => {
         // Highlight confusable words
-        setTimeout(() => highlightAllConfusableWords(settings.confusableWords, settings.highlightConfusables), 100);
+        setTimeout(() => highlightAllConfusableWords(settings.confusableWords, settings.highlightConfusables, performDictionaryLookup), 100);
 
         // Check AI message for review words (immersive review)
         if (settings.immersiveReview) {
@@ -548,7 +548,7 @@ const init = async () => {
     });
 
     eventSource.on(event_types.MESSAGE_SENT, () => {
-        setTimeout(() => highlightAllConfusableWords(settings.confusableWords, settings.highlightConfusables), 100);
+        setTimeout(() => highlightAllConfusableWords(settings.confusableWords, settings.highlightConfusables, performDictionaryLookup), 100);
     });
 
     // Inject review prompt before generation
@@ -612,14 +612,14 @@ const init = async () => {
     });
 
     eventSource.on(event_types.CHAT_CHANGED, () => {
-        setTimeout(() => highlightAllConfusableWords(settings.confusableWords, settings.highlightConfusables), 100);
+        setTimeout(() => highlightAllConfusableWords(settings.confusableWords, settings.highlightConfusables, performDictionaryLookup), 100);
     });
 
     // Initialize highlight color
     updateHighlightColor(settings.highlightColor);
 
     // Initial highlight on page load
-    setTimeout(() => highlightAllConfusableWords(settings.confusableWords, settings.highlightConfusables), 500);
+    setTimeout(() => highlightAllConfusableWords(settings.confusableWords, settings.highlightConfusables, performDictionaryLookup), 500);
 
     // Restore floating pet on page load
     loadFarmGameScript(EXTENSION_URL).then(() => {
