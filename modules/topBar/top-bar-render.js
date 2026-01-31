@@ -265,25 +265,10 @@ export function createPanelContent(options) {
                 <span>视频</span>
             </button>
         </div>
-        <div class="ai-dict-top-bar-actions" style="margin-top: 8px;">
-            <button id="ai-dict-clear-flashcard-btn" class="menu_button menu_button_danger" title="清空所有闪卡背单词记录">
-                <i class="fa-solid fa-trash-alt"></i>
-                <span>清空闪卡记录</span>
-            </button>
-            <button id="ai-dict-clear-word-history-btn" class="menu_button menu_button_danger" title="清空所有查词记录">
-                <i class="fa-solid fa-trash-alt"></i>
-                <span>清空查词记录</span>
-            </button>
-        </div>
     `;
     container.appendChild(settingsSection);
 
-    // Divider before video section
-    const hr3 = document.createElement('hr');
-    hr3.className = 'sysHR';
-    container.appendChild(hr3);
-
-    // Video player section (hidden by default)
+    // Video player section (hidden by default, appears before clear buttons)
     const videoSection = document.createElement('div');
     videoSection.className = 'ai-dict-top-bar-section ai-dict-video-section';
     videoSection.id = 'ai-dict-video-section';
@@ -458,6 +443,24 @@ export function createPanelContent(options) {
         </div>
     `;
     container.appendChild(characterModal);
+
+    // Clear buttons section (always at the bottom)
+    const clearButtonsSection = document.createElement('div');
+    clearButtonsSection.className = 'ai-dict-top-bar-section';
+    clearButtonsSection.innerHTML = `
+        <hr class="sysHR">
+        <div class="ai-dict-top-bar-actions">
+            <button id="ai-dict-clear-flashcard-btn" class="menu_button menu_button_danger" title="清空所有闪卡背单词记录">
+                <i class="fa-solid fa-trash-alt"></i>
+                <span>清空闪卡记录</span>
+            </button>
+            <button id="ai-dict-clear-word-history-btn" class="menu_button menu_button_danger" title="清空所有查词记录">
+                <i class="fa-solid fa-trash-alt"></i>
+                <span>清空查词记录</span>
+            </button>
+        </div>
+    `;
+    container.appendChild(clearButtonsSection);
 
     return container;
 }
