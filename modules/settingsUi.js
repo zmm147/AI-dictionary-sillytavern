@@ -173,17 +173,6 @@ export class SettingsUi {
             });
         }
 
-        // Enable Top Bar
-        const enableTopBarInput = rootElement.querySelector('#ai-dict-enable-top-bar');
-        if (enableTopBarInput) {
-            enableTopBarInput.checked = this.settings.enableTopBar;
-            enableTopBarInput.addEventListener('change', () => {
-                this.settings.enableTopBar = enableTopBarInput.checked;
-                this.saveSettings();
-                this.updateTopBar?.();
-            });
-        }
-
         // Icon Position
         const iconPosSelect = rootElement.querySelector('#ai-dict-icon-position');
         if (iconPosSelect) {

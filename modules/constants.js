@@ -39,7 +39,7 @@ export const BACKUP_FLASHCARD_DATA_FILE = 'ai-dictionary-flashcard-data.json';
 // Default settings
 export const defaultSettings = {
     enabled: true,
-    enableTopBar: false,
+    enableTopBar: true,
     cloudSyncEnabled: false, // 云端同步开关
     systemPrompt: 'You are a professional English teacher.',
     userPrompt: `输入：%word%
