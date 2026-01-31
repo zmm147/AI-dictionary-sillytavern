@@ -408,27 +408,25 @@ function updateTopBarWrapper() {
         saveSettings
     });
 
-    // Bind events after creating
-    if (settings.enableTopBar) {
-        bindTopBarEvents({
-            performLookup: (word) => {
-                setSelectedText(word);
-                setSelectedContext('');
-                performDictionaryLookup();
-            },
-            showStatisticsPanel: showStatisticsPanelWrapper,
-            showFarmGamePanel: showFarmGamePanelWrapper,
-            showFlashcardPanel: null, // TODO: Add flashcard panel function if available
-            settings: settings,
-            saveSettings: saveSettings,
-            sendOpenAIRequest: sendOpenAIRequest,
-            oaiSettings: oai_settings,
-            getCharacters: getCharacters,
-            selectRmInfo: selectRmInfo
-        });
-        const topBarSettings = document.getElementById('ai-dict-top-bar-settings');
-        settingsUi?.bindToElement(topBarSettings);
-    }
+    // Bind events after creating (always enabled)
+    bindTopBarEvents({
+        performLookup: (word) => {
+            setSelectedText(word);
+            setSelectedContext('');
+            performDictionaryLookup();
+        },
+        showStatisticsPanel: showStatisticsPanelWrapper,
+        showFarmGamePanel: showFarmGamePanelWrapper,
+        showFlashcardPanel: null, // TODO: Add flashcard panel function if available
+        settings: settings,
+        saveSettings: saveSettings,
+        sendOpenAIRequest: sendOpenAIRequest,
+        oaiSettings: oai_settings,
+        getCharacters: getCharacters,
+        selectRmInfo: selectRmInfo
+    });
+    const topBarSettings = document.getElementById('ai-dict-top-bar-settings');
+    settingsUi?.bindToElement(topBarSettings);
 }
 
 // --- Initialization ---
@@ -516,10 +514,8 @@ const init = async () => {
     // Initialize the side panel
     createSidePanel({ settings, saveSettings });
 
-    // Initialize top bar if enabled
-    if (settings.enableTopBar) {
-        updateTopBarWrapper();
-    }
+    // Initialize top bar (always enabled)
+    updateTopBarWrapper();
 
     // Event listeners for chat messages
     eventSource.on(event_types.MESSAGE_RECEIVED, (messageIndex) => {

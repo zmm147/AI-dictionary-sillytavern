@@ -107,17 +107,11 @@ export function removeTopBarIcon() {
 }
 
 /**
- * Update top bar visibility based on settings
+ * Update top bar (always enabled)
  * @param {Object} options
  */
 export function updateTopBar(options) {
-    const { settings } = options;
-
-    if (settings.enableTopBar) {
-        createTopBarIcon(options);
-    } else {
-        removeTopBarIcon();
-    }
+    createTopBarIcon(options);
 }
 
 /**
