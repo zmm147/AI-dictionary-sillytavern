@@ -96,38 +96,6 @@ export function createPanelContent(options) {
     hrAuth.className = 'sysHR';
     container.appendChild(hrAuth);
 
-    // Quick actions
-    const actionsSection = document.createElement('div');
-    actionsSection.className = 'ai-dict-top-bar-section';
-    actionsSection.innerHTML = `
-        <label>快捷功能</label>
-        <div class="ai-dict-top-bar-actions">
-            <button id="ai-dict-top-bar-flashcard-btn" class="menu_button" title="闪卡复习">
-                <i class="fa-solid fa-clone"></i>
-                <span>闪卡复习</span>
-            </button>
-            <button id="ai-dict-top-bar-video-btn" class="menu_button" title="视频播放">
-                <i class="fa-solid fa-video"></i>
-                <span>视频</span>
-            </button>
-        </div>
-        <div class="ai-dict-top-bar-actions" style="margin-top: 8px;">
-            <button id="ai-dict-clear-flashcard-btn" class="menu_button menu_button_danger" title="清空所有闪卡背单词记录">
-                <i class="fa-solid fa-trash-alt"></i>
-                <span>清空闪卡记录</span>
-            </button>
-            <button id="ai-dict-clear-word-history-btn" class="menu_button menu_button_danger" title="清空所有查词记录">
-                <i class="fa-solid fa-trash-alt"></i>
-                <span>清空查词记录</span>
-            </button>
-        </div>
-    `;
-    container.appendChild(actionsSection);
-
-    const hrSettings = document.createElement('hr');
-    hrSettings.className = 'sysHR';
-    container.appendChild(hrSettings);
-
     const settingsSection = document.createElement('div');
     settingsSection.className = 'ai-dict-top-bar-section ai-dict-top-bar-settings ai-dictionary-settings';
     settingsSection.id = 'ai-dict-top-bar-settings';
@@ -281,6 +249,30 @@ export function createPanelContent(options) {
             <button id="ai-dict-farm-btn" class="menu_button" title="学习累了？来种种菜吧！">
                 <i class="fa-solid fa-seedling"></i>
                 <span>农场游戏</span>
+            </button>
+        </div>
+
+        <hr class="sysHR">
+
+        <label>快捷功能</label>
+        <div class="ai-dict-top-bar-actions">
+            <button id="ai-dict-top-bar-flashcard-btn" class="menu_button" title="闪卡复习">
+                <i class="fa-solid fa-clone"></i>
+                <span>闪卡复习</span>
+            </button>
+            <button id="ai-dict-top-bar-video-btn" class="menu_button" title="视频播放">
+                <i class="fa-solid fa-video"></i>
+                <span>视频</span>
+            </button>
+        </div>
+        <div class="ai-dict-top-bar-actions" style="margin-top: 8px;">
+            <button id="ai-dict-clear-flashcard-btn" class="menu_button menu_button_danger" title="清空所有闪卡背单词记录">
+                <i class="fa-solid fa-trash-alt"></i>
+                <span>清空闪卡记录</span>
+            </button>
+            <button id="ai-dict-clear-word-history-btn" class="menu_button menu_button_danger" title="清空所有查词记录">
+                <i class="fa-solid fa-trash-alt"></i>
+                <span>清空查词记录</span>
             </button>
         </div>
     `;
