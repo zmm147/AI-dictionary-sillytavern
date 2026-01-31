@@ -30,7 +30,8 @@
 - 查看原文台词和来源信息
 - 支持多个例句切换
 
-<img width="400" alt="视频例句" src="https://github.com/user-attachments/assets/example-video.png" />
+
+<img width="442" height="499" alt="image" src="https://github.com/user-attachments/assets/50ee7252-2836-44c9-afb0-1ea5d362cacb" />
 
 ---
 
