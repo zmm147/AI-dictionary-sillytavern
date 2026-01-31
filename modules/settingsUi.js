@@ -153,8 +153,18 @@ export class SettingsUi {
                     // Wait for the page to load and extract CSRF token
                     const checkInterval = setInterval(() => {
                         try {
-                            // Try to access the new window's csrfToken global variable
-                            const csrfToken = newWindow.csrfToken;
+                            let csrfToken = null;
+
+                            // Try multiple methods to get the token
+                            // Method 1: Try A2() function (actual token used in requests)
+                            if (typeof newWindow.A2 === 'function') {
+                                csrfToken = newWindow.A2();
+                            }
+
+                            // Method 2: Try window.csrfToken (fallback)
+                            if (!csrfToken && newWindow.csrfToken) {
+                                csrfToken = newWindow.csrfToken;
+                            }
 
                             if (csrfToken) {
                                 playphraseCsrfInput.value = csrfToken;
@@ -177,7 +187,7 @@ export class SettingsUi {
 
                         if (!playphraseCsrfInput.value) {
                             // Show manual extraction instructions
-                            const bookmarklet = `javascript:(function(){if(window.csrfToken){prompt('复制此 CSRF Token:',window.csrfToken)}else{alert('未找到 CSRF Token，请确保在 playphrase.me 页面运行此脚本')}})();`;
+                            const bookmarklet = `javascript:(function(){var t=null;if(typeof A2==='function'){t=A2()}else if(window.csrfToken){t=window.csrfToken}if(t){prompt('复制此 CSRF Token:',t)}else{alert('未找到 CSRF Token，请确保在 playphrase.me 页面运行此脚本')}})();`;
 
                             toastr.warning('自动提取失败（跨域限制）<br><br>请在打开的窗口中：<br>1. 按 F12 打开控制台<br>2. 粘贴以下代码并回车：<br><code style="font-size:10px">' + bookmarklet.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</code><br>3. 复制显示的 Token 并返回此处粘贴', '', {
                                 timeOut: 20000,
