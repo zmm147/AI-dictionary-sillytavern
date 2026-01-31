@@ -101,6 +101,21 @@ export class SettingsUi {
             });
         }
 
+        // Immersive Review collapsible toggle
+        const immersiveReviewToggle = rootElement.querySelector('#ai-dict-immersive-review-toggle');
+        const immersiveReviewContent = rootElement.querySelector('#ai-dict-immersive-review-content');
+        if (immersiveReviewToggle && immersiveReviewContent && !immersiveReviewToggle.dataset.bound) {
+            immersiveReviewToggle.dataset.bound = 'true';
+            const icon = immersiveReviewToggle.querySelector('i');
+            immersiveReviewToggle.addEventListener('click', () => {
+                const isExpanded = immersiveReviewContent.style.display !== 'none';
+                immersiveReviewContent.style.display = isExpanded ? 'none' : 'block';
+                if (icon) {
+                    icon.className = isExpanded ? 'fa-solid fa-chevron-right' : 'fa-solid fa-chevron-down';
+                }
+            });
+        }
+
         // Enabled Toggle
         const enabledInput = rootElement.querySelector('#ai-dict-enabled');
         if (enabledInput) {

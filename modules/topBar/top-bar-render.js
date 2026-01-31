@@ -207,27 +207,35 @@ export function createPanelContent(options) {
 
         <hr class="sysHR">
 
-        <div class="ai-dict-checkbox-row">
-            <label for="ai-dict-immersive-review" class="checkbox_label">
-                <input type="checkbox" id="ai-dict-immersive-review" name="ai-dict-immersive-review">
+        <div class="ai-dict-collapsible-section">
+            <div class="ai-dict-collapsible-header" id="ai-dict-immersive-review-toggle">
+                <i class="fa-solid fa-chevron-right"></i>
                 <span>沉浸式复习</span>
-            </label>
-        </div>
-        <div class="extension_info" style="margin-top: 5px; margin-bottom: 10px;">
-            <small>
-                <i class="fa-solid fa-lightbulb"></i>
-                <span>当单词被查询第2次时，自动加入复习词组。每次发消息时，提示AI在回复中自然使用这些词（最多20个）。AI使用后的单词将进入艾宾浩斯记忆周期（1、2、4、7、15、30天），完成全部周期后视为掌握。</span>
-            </small>
-        </div>
-
-        <div id="ai-dict-review-prompt-container" style="display: none;">
-            <div class="ai-dict-prompt-label-row">
-                <label for="ai-dict-review-prompt">复习提示词 (变量: %words%):</label>
-                <button id="ai-dict-reset-review-prompt" class="menu_button menu_button_icon" title="重置为默认">
-                    <i class="fa-solid fa-rotate-left"></i>
-                </button>
             </div>
-            <textarea id="ai-dict-review-prompt" class="text_pole textarea_compact" rows="2" placeholder="Enter review prompt"></textarea>
+            <div id="ai-dict-immersive-review-content" class="ai-dict-collapsible-content" style="display: none;">
+                <div class="ai-dict-checkbox-row">
+                    <label for="ai-dict-immersive-review" class="checkbox_label">
+                        <input type="checkbox" id="ai-dict-immersive-review" name="ai-dict-immersive-review">
+                        <span>启用沉浸式复习</span>
+                    </label>
+                </div>
+                <div class="extension_info" style="margin-top: 5px; margin-bottom: 10px;">
+                    <small>
+                        <i class="fa-solid fa-lightbulb"></i>
+                        <span>当单词被查询第2次时，自动加入复习词组。每次发消息时，提示AI在回复中自然使用这些词（最多20个）。AI使用后的单词将进入艾宾浩斯记忆周期（1、2、4、7、15、30天），完成全部周期后视为掌握。</span>
+                    </small>
+                </div>
+
+                <div id="ai-dict-review-prompt-container" style="display: none;">
+                    <div class="ai-dict-prompt-label-row">
+                        <label for="ai-dict-review-prompt">复习提示词 (变量: %words%):</label>
+                        <button id="ai-dict-reset-review-prompt" class="menu_button menu_button_icon" title="重置为默认">
+                            <i class="fa-solid fa-rotate-left"></i>
+                        </button>
+                    </div>
+                    <textarea id="ai-dict-review-prompt" class="text_pole textarea_compact" rows="2" placeholder="Enter review prompt"></textarea>
+                </div>
+            </div>
         </div>
 
         <hr class="sysHR">
