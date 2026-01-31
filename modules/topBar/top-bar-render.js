@@ -198,15 +198,6 @@ export function createPanelContent(options) {
 
         <hr class="sysHR">
 
-        <div class="ai-dict-actions-row">
-            <button id="ai-dict-stats-btn" class="menu_button" title="查看查词统计">
-                <i class="fa-solid fa-chart-bar"></i>
-                <span>查词统计</span>
-            </button>
-        </div>
-
-        <hr class="sysHR">
-
         <div class="ai-dict-top-bar-settings-toggle" id="ai-dict-immersive-review-toggle">
             <i class="fa-solid fa-chevron-right"></i>
             <span>沉浸式复习</span>
@@ -240,9 +231,9 @@ export function createPanelContent(options) {
 
         <label>快捷功能</label>
         <div class="ai-dict-top-bar-actions">
-            <button id="ai-dict-top-bar-flashcard-btn" class="menu_button" title="闪卡复习">
-                <i class="fa-solid fa-clone"></i>
-                <span>闪卡复习</span>
+            <button id="ai-dict-stats-btn" class="menu_button" title="查看查词统计">
+                <i class="fa-solid fa-chart-bar"></i>
+                <span>查词统计</span>
             </button>
             <button id="ai-dict-top-bar-video-btn" class="menu_button" title="视频播放">
                 <i class="fa-solid fa-video"></i>
