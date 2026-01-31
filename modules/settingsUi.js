@@ -146,7 +146,7 @@ export class SettingsUi {
                         return;
                     }
 
-                    toastr.info('已打开 playphrase.me，等待页面加载后自动提取 CSRF Token...', {
+                    toastr.info('已打开 playphrase.me，等待页面加载后自动提取 CSRF Token...', '', {
                         timeOut: 5000
                     });
 
@@ -196,7 +196,7 @@ export class SettingsUi {
                             // Show manual extraction instructions
                             const bookmarklet = `javascript:(function(){var c=document.cookie.match(/session-[^=]+=([^;]+)/g);if(c){for(var i=0;i<c.length;i++){try{var v=c[i].split('=')[1];var d=atob(v);var s=JSON.parse(d);if(s.csrfToken){prompt('复制此 CSRF Token:',s.csrfToken);return}}catch(e){}}}alert('未找到 CSRF Token')})();`;
 
-                            toastr.warning('自动提取失败（跨域限制）<br><br>请在打开的窗口中：<br>1. 按 F12 打开控制台<br>2. 粘贴以下代码并回车：<br><code style="font-size:10px">' + bookmarklet.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</code><br>3. 复制显示的 Token 并返回此处粘贴', {
+                            toastr.warning('自动提取失败（跨域限制）<br><br>请在打开的窗口中：<br>1. 按 F12 打开控制台<br>2. 粘贴以下代码并回车：<br><code style="font-size:10px">' + bookmarklet.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</code><br>3. 复制显示的 Token 并返回此处粘贴', '', {
                                 timeOut: 20000,
                                 escapeHtml: false
                             });
