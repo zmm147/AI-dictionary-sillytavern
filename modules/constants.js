@@ -74,7 +74,7 @@ export const defaultSettings = {
 2. 每个单词给出简短的中文释义
 3. 如果没有常见的形近词，请说明`,
     confusableWords: {},
-    playphraseCsrfToken: '',
+    playphraseCsrfToken: 'cmf6ALYjeK3Xxi1Wobc1dIitdPqz+IjROylUqKHePZ+HQCkfROzIedaKmgSWlbgJogBBpd5HpkcmvFLF',
     playphraseLimit: 10,
     highlightConfusables: false,
     highlightColor: '#e0a800',

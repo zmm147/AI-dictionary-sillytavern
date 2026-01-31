@@ -149,12 +149,7 @@ export function createPanelContent(options) {
                 <option value="">使用当前连接</option>
             </select>
 
-            <div class="ai-dict-prompt-label-row">
-                <label for="ai-dict-playphrase-csrf">PlayPhrase CSRF Token:</label>
-                <button id="ai-dict-auto-fetch-csrf" class="menu_button menu_button_icon" title="自动获取 CSRF Token">
-                    <i class="fa-solid fa-download"></i>
-                </button>
-            </div>
+            <label for="ai-dict-playphrase-csrf">PlayPhrase CSRF Token:</label>
             <input type="text" id="ai-dict-playphrase-csrf" class="text_pole" placeholder="从浏览器开发者工具的 Network 标签中复制 x-csrf-token">
 
             <div class="ai-dict-prompt-label-row">
