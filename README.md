@@ -2,9 +2,9 @@
 
 一个专为英语学习设计的 SillyTavern 扩展，让你在与 AI 对话的同时高效学习英语。
 
-<img width="454" height="618" alt="image" src="https://github.com/user-attachments/assets/30165265-7463-445b-85b8-8a2bee4a5358" />
+<img width="454" height="618" alt="image" src="https://github.com/user-attachments/assets/30165265-7463-445b-85b8-8a2bee4a5358" /> <img width="961" height="539" alt="image" src="https://github.com/user-attachments/assets/ed1f9aab-0ccb-44cd-8992-968e929f79c2" />
 
-<img width="961" height="539" alt="image" src="https://github.com/user-attachments/assets/ed1f9aab-0ccb-44cd-8992-968e929f79c2" />
+
 
 
 
