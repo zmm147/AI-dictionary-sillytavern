@@ -348,14 +348,12 @@
 }
 
 .ai-dict-confusable-word {
-    color: #2196f3;
     cursor: pointer;
-    text-decoration: underline;
-    transition: color 0.2s;
+    transition: opacity 0.2s;
 }
 
 .ai-dict-confusable-word:hover {
-    color: #1976d2;
+    opacity: 0.7;
 }
 
 /* ==================== Word History Section Styles ==================== */

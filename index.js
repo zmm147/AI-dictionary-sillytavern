@@ -271,12 +271,12 @@ function updateYoudaoSectionWrapper(word, youdaoResults) {
 
 // --- Main Lookup Function ---
 
-async function performDictionaryLookup(skipSaveHistory = false) {
+async function performDictionaryLookup(skipSaveHistory = false, wordOverride = null) {
     hideIcon();
     clearSelectionAfterLookup();
 
-    const selectedText = getSelectedText();
-    const selectedContext = getSelectedContext();
+    const selectedText = wordOverride || getSelectedText();
+    const selectedContext = wordOverride ? '' : getSelectedContext();
 
     if (!selectedText.trim()) {
         showPanel('No word selected', 'Please select a word on the page first.', 'error');
@@ -336,7 +336,7 @@ async function performDictionaryLookup(skipSaveHistory = false) {
             () => highlightAllConfusableWords(settings.confusableWords, settings.highlightConfusables, performDictionaryLookup)
         );
 
-        highlightAllConfusableWords(settings.confusableWords, settings.highlightConfusables, performDictionaryLookup);
+        // Don't re-highlight when opening lookup panel to preserve existing highlights
 
         bindChatInputEvents(selectedText, sendChatMessageWrapper);
         bindWordHistoryEvents(selectedText);

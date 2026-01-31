@@ -381,7 +381,7 @@ export function highlightAllConfusableWords(confusableWords, enabled, performLoo
                     wordSpan.addEventListener('click', (e) => {
                         e.stopPropagation();
                         if (performLookup && typeof performLookup === 'function') {
-                            performLookup(word);
+                            performLookup(true, word);
                         }
                     });
                     tooltip.appendChild(wordSpan);
