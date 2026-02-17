@@ -272,6 +272,26 @@ export function createMergedContent(options) {
         </div>
     `;
 
+    const unsplashSection = `
+        <div class="ai-dict-unsplash-section">
+            <button id="ai-dict-unsplash-btn" class="menu_button ai-dict-unsplash-btn">
+                <i class="fa-solid fa-image"></i>
+                <span>Unsplash 图片</span>
+            </button>
+            <div id="ai-dict-unsplash-content" class="ai-dict-unsplash-content" data-word="${escapeHtml(word)}" style="display: none;">
+                <div class="ai-dict-unsplash-status">点击展开加载图片。</div>
+                <div class="ai-dict-unsplash-player" style="display: none;">
+                    <div class="ai-dict-unsplash-counter"></div>
+                    <div class="ai-dict-unsplash-grid-container"></div>
+                    <div class="ai-dict-unsplash-controls">
+                        <button id="ai-dict-unsplash-prev-btn" class="menu_button">上一页</button>
+                        <button id="ai-dict-unsplash-next-btn" class="menu_button">下一页</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
     return `
         <div class="ai-dict-merged-container">
             <div id="ai-dict-youdao-section">${youdaoSection}</div>
@@ -295,6 +315,7 @@ export function createMergedContent(options) {
                 </div>
             </div>
             ${playphraseSection}
+            ${unsplashSection}
             ${deepStudySection}
             ${confusableSection}
             ${wordHistorySection}

@@ -88,6 +88,7 @@ import {
     updateSavedConfusablesDisplay
 } from './modules/confusables.js';
 import { loadPlayphraseVideos, bindPlayphraseButton } from './modules/playphrase.js';
+import { initializeUnsplash } from './modules/unsplash.js';
 
 // Import new split modules
 import { showStatisticsPanel } from './modules/statisticsPanel.js';
@@ -345,6 +346,7 @@ async function performDictionaryLookup(skipSaveHistory = false, wordOverride = n
             limit: settings.playphraseLimit,
             csrfToken: settings.playphraseCsrfToken
         }));
+        initializeUnsplash(selectedText);
 
         if (!shouldAutoFetchAI) {
             bindManualAIFetchButton(selectedText, fetchAIDefinitionWrapper);

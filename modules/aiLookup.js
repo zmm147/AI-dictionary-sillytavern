@@ -394,19 +394,37 @@ export async function sendChatMessage(options) {
 
         chatHistory.push({ role: 'user', content: userMessage });
 
+        // Update prompt display to show chat history
+        const promptElement = document.getElementById('ai-dict-current-prompt');
+        if (promptElement) {
+            let promptDisplay = '';
+            chatHistory.forEach((msg, index) => {
+                if (msg.role === 'system') {
+                    promptDisplay += `System Prompt:\n${msg.content}\n\n`;
+                } else if (msg.role === 'user') {
+                    promptDisplay += `User Message ${Math.floor(index / 2)}:\n${msg.content}\n\n`;
+                } else if (msg.role === 'assistant') {
+                    promptDisplay += `Assistant Response ${Math.floor(index / 2)}:\n${msg.content}\n\n`;
+                }
+            });
+            promptElement.textContent = promptDisplay.trim();
+        }
+
         const streamEnabled = oaiSettings.stream_openai;
 
         if (streamEnabled) {
             await fetchChatWithStreaming(chatHistory, aiResponseEl, sendOpenAIRequest);
         } else {
-            const response = await generateRaw({
-                prompt: userMessage,
-                systemPrompt: chatHistory[0].content,
+            // Non-streaming mode: send full chat history
+            const response = await sendOpenAIRequest({
+                messages: chatHistory,
+                signal: null
             });
 
-            if (response) {
-                aiResponseEl.innerHTML = response.replace(/\n/g, '<br>');
-                chatHistory.push({ role: 'assistant', content: response });
+            if (response && response.choices && response.choices[0]) {
+                const assistantMessage = response.choices[0].message.content;
+                aiResponseEl.innerHTML = assistantMessage.replace(/\n/g, '<br>');
+                chatHistory.push({ role: 'assistant', content: assistantMessage });
             } else {
                 aiResponseEl.innerHTML = '<span class="ai-dict-error-text">无法获取回复，请重试。</span>';
             }

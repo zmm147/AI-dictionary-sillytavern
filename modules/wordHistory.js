@@ -268,34 +268,47 @@ export function saveWordHistory(word, context, onSecondLookup = null) {
         wordHistoryData[wordKey].lookups = [];
     }
 
-    // Increment count
-    wordHistoryData[wordKey].count += 1;
+    // Prepare context
+    let trimmedContext = '';
+    let isContextDuplicate = false;
 
-    // Add timestamp for this lookup
-    wordHistoryData[wordKey].lookups.push(now);
-
-    // Check if this is the second lookup - trigger callback
-    if (wordHistoryData[wordKey].count === 2 && onSecondLookup) {
-        onSecondLookup(trimmedWord);
-    }
-
-    // Add context if provided and not already saved
     if (context && context.trim()) {
-        let trimmedContext = context.trim();
+        trimmedContext = context.trim();
         if (trimmedContext.length > WORD_HISTORY_MAX_CONTEXT_LENGTH) {
             trimmedContext = trimmedContext.substring(0, WORD_HISTORY_MAX_CONTEXT_LENGTH) + '...';
         }
 
-        if (!wordHistoryData[wordKey].contexts.includes(trimmedContext)) {
+        // Check if this context already exists
+        isContextDuplicate = wordHistoryData[wordKey].contexts.includes(trimmedContext);
+    }
+
+    // Only increment count if context is new or no context provided
+    if (!isContextDuplicate) {
+        // Increment count
+        wordHistoryData[wordKey].count += 1;
+
+        // Add timestamp for this lookup
+        wordHistoryData[wordKey].lookups.push(now);
+
+        // Check if this is the second lookup - trigger callback
+        if (wordHistoryData[wordKey].count === 2 && onSecondLookup) {
+            onSecondLookup(trimmedWord);
+        }
+
+        // Add context if provided and not already saved
+        if (trimmedContext && !isContextDuplicate) {
             if (wordHistoryData[wordKey].contexts.length >= WORD_HISTORY_MAX_CONTEXTS) {
                 wordHistoryData[wordKey].contexts.shift(); // Remove oldest
             }
             wordHistoryData[wordKey].contexts.push(trimmedContext);
         }
-    }
 
-    // Save to IndexedDB (debounced)
-    markWordForSave(wordKey);
+        // Save to IndexedDB (debounced)
+        markWordForSave(wordKey);
+    } else {
+        // Context is duplicate - don't increment count, but still log
+        console.log(`[${EXTENSION_NAME}] Skipping duplicate context for word: ${wordKey}`);
+    }
 }
 
 /**

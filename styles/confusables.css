@@ -171,12 +171,35 @@
 .ai-dict-confusable-ai-title-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: 8px;
     margin-bottom: 8px;
 }
 
 .ai-dict-confusable-ai-title-row .ai-dict-confusable-ai-title {
     margin-bottom: 0;
+    flex-shrink: 0;
+}
+
+.ai-dict-confusable-custom-prompt {
+    flex: 1;
+    min-width: 0;
+    padding: 4px 8px;
+    border: 1px solid #ffcc80;
+    border-radius: 4px;
+    background-color: #ffffff;
+    color: #333;
+    font-size: 0.85em;
+    transition: all 0.2s;
+}
+
+.ai-dict-confusable-custom-prompt:focus {
+    outline: none;
+    border-color: #ff9800;
+    box-shadow: 0 0 0 2px rgba(255, 152, 0, 0.1);
+}
+
+.ai-dict-confusable-custom-prompt::placeholder {
+    color: #999;
 }
 
 .ai-dict-confusable-refresh-btn {
@@ -192,6 +215,7 @@
     align-items: center;
     justify-content: center;
     transition: all 0.2s;
+    flex-shrink: 0;
 }
 
 .ai-dict-confusable-refresh-btn:hover {
@@ -236,15 +260,12 @@
 .ai-dict-confusable-error-container {
     display: flex;
     flex-direction: column;
-    align-items: center;
     gap: 10px;
     padding: 15px;
 }
 
-.ai-dict-confusable-error-container .ai-dict-confusable-refresh-btn {
-    width: auto;
-    padding: 6px 12px;
-    gap: 6px;
+.ai-dict-confusable-error-container .ai-dict-confusable-ai-title-row {
+    width: 100%;
 }
 
 .ai-dict-confusable-ai-list {

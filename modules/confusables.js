@@ -254,6 +254,7 @@ export function displayParsedConfusables(confusables, parentWord, contentElement
     let html = `<div class="ai-dict-confusable-ai-result">`;
     html += `<div class="ai-dict-confusable-ai-title-row">
         <span class="ai-dict-confusable-ai-title">AI 生成的形近词：</span>
+        <input type="text" class="ai-dict-confusable-custom-prompt" placeholder="额外提示（可选）" title="输入额外的提示内容来影响形近词生成">
         <button class="ai-dict-confusable-refresh-btn" title="重新获取" data-word="${escapeHtml(parentWord)}">
             <i class="fa-solid fa-rotate"></i>
         </button>
@@ -295,6 +296,7 @@ export function displayConfusableParseError(word, response, contentElement) {
                 <span class="ai-dict-confusable-ai-title">
                     <i class="fa-solid fa-triangle-exclamation"></i> AI 返回格式有误
                 </span>
+                <input type="text" class="ai-dict-confusable-custom-prompt" placeholder="额外提示（可选）" title="输入额外的提示内容来影响形近词生成">
                 <button class="ai-dict-confusable-refresh-btn" title="重新获取" data-word="${escapeHtml(word)}">
                     <i class="fa-solid fa-rotate"></i>
                 </button>
@@ -466,6 +468,7 @@ export function updateHighlightColor(color) {
  * @param {Function} options.saveSettings
  * @param {Function} options.updateSavedDisplay
  * @param {Function} options.highlightWords
+ * @param {string} [options.customPrompt] - Optional custom prompt to append to the confusable words prompt
  */
 export async function performConfusableLookup(options) {
     const {
@@ -477,7 +480,8 @@ export async function performConfusableLookup(options) {
         oaiSettings,
         saveSettings,
         updateSavedDisplay,
-        highlightWords
+        highlightWords,
+        customPrompt
     } = options;
 
     const btn = document.getElementById('ai-dict-confusable-btn');
@@ -494,7 +498,12 @@ export async function performConfusableLookup(options) {
     contentElement.innerHTML = '<p class="ai-dict-loading-text">正在获取形近词...</p>';
 
     try {
-        const confusablePrompt = settings.confusableWordsPrompt.replace(/%word%/g, word);
+        let confusablePrompt = settings.confusableWordsPrompt.replace(/%word%/g, word);
+
+        // Add custom prompt if provided
+        if (customPrompt && customPrompt.trim()) {
+            confusablePrompt += `\n\n额外要求：${customPrompt.trim()}`;
+        }
 
         const messages = [
             { role: 'system', content: settings.systemPrompt },
@@ -538,10 +547,16 @@ export async function performConfusableLookup(options) {
         console.error('Confusable lookup error:', error);
         contentElement.innerHTML = `
             <div class="ai-dict-confusable-error-container">
+                <div class="ai-dict-confusable-ai-title-row">
+                    <span class="ai-dict-confusable-ai-title">
+                        <i class="fa-solid fa-triangle-exclamation"></i> 查找失败
+                    </span>
+                    <input type="text" class="ai-dict-confusable-custom-prompt" placeholder="额外提示（可选）" title="输入额外的提示内容来影响形近词生成">
+                    <button class="ai-dict-confusable-refresh-btn" title="重新获取" data-word="${escapeHtml(word)}">
+                        <i class="fa-solid fa-rotate"></i>
+                    </button>
+                </div>
                 <p class="ai-dict-error-text">无法获取形近词，请稍后重试。</p>
-                <button class="ai-dict-confusable-refresh-btn" title="重新获取" data-word="${escapeHtml(word)}">
-                    <i class="fa-solid fa-rotate"></i> 重试
-                </button>
             </div>
         `;
         bindConfusableRefreshButton(contentElement, word, options);
@@ -597,7 +612,11 @@ function bindConfusableRefreshButton(contentElement, word, options) {
     const refreshBtn = contentElement.querySelector('.ai-dict-confusable-refresh-btn');
     if (refreshBtn) {
         refreshBtn.addEventListener('click', () => {
-            performConfusableLookup({ ...options, word });
+            // Get custom prompt from input field
+            const customPromptInput = contentElement.querySelector('.ai-dict-confusable-custom-prompt');
+            const customPrompt = customPromptInput ? customPromptInput.value : '';
+
+            performConfusableLookup({ ...options, word, customPrompt });
         });
     }
 }

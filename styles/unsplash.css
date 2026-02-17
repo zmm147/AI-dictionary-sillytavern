@@ -1,0 +1,225 @@
+/**
+ * AI Dictionary - Unsplash Image Styles
+ */
+
+.ai-dict-unsplash-section {
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px solid var(--SmartThemeBorderColor);
+}
+
+.ai-dict-unsplash-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 6px 12px;
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.85em;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 1px 3px rgba(255, 107, 107, 0.3);
+}
+
+.ai-dict-unsplash-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #ee5a6f 0%, #d63447 100%);
+    box-shadow: 0 2px 5px rgba(255, 107, 107, 0.4);
+}
+
+.ai-dict-unsplash-btn.active {
+    background: linear-gradient(135deg, #d63447 0%, #c92a3e 100%);
+}
+
+.ai-dict-unsplash-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.ai-dict-unsplash-btn i {
+    font-size: 1em;
+}
+
+.ai-dict-unsplash-content {
+    margin-top: 4px;
+    padding: 10px;
+    background-color: var(--SmartThemeBlurTintColor);
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ai-dict-unsplash-status {
+    font-size: 0.85em;
+    color: var(--SmartThemeEmColor);
+    text-align: center;
+    padding: 10px;
+}
+
+.ai-dict-unsplash-status i {
+    margin-right: 6px;
+}
+
+.ai-dict-unsplash-player {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ai-dict-unsplash-counter {
+    font-size: 0.85em;
+    color: var(--SmartThemeEmColor);
+    text-align: center;
+    padding: 4px 0;
+}
+
+/* Photo grid */
+.ai-dict-unsplash-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+    margin: 10px 0;
+}
+
+/* Photo card */
+.ai-dict-unsplash-card {
+    position: relative;
+    border-radius: 6px;
+    overflow: hidden;
+    background-color: var(--SmartThemeBlurTintColor);
+    border: 1px solid var(--SmartThemeBorderColor);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.ai-dict-unsplash-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Photo image */
+.ai-dict-unsplash-image {
+    width: 100%;
+    height: 200px;
+    object-fit: contain;
+    cursor: pointer;
+    display: block;
+    background-color: #f5f5f5;
+}
+
+/* Attribution */
+.ai-dict-unsplash-attribution {
+    padding: 6px 8px;
+    font-size: 0.75em;
+    color: var(--SmartThemeEmColor);
+    background-color: var(--SmartThemeBlurTintColor);
+    border-top: 1px solid var(--SmartThemeBorderColor);
+}
+
+.ai-dict-unsplash-attribution a {
+    color: var(--SmartThemeEmColor);
+    text-decoration: none;
+    font-weight: 500;
+    transition: opacity 0.2s;
+}
+
+.ai-dict-unsplash-attribution a:hover {
+    opacity: 0.7;
+    text-decoration: underline;
+}
+
+/* Use button */
+.ai-dict-unsplash-use-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.9);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: all 0.2s;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.ai-dict-unsplash-card:hover .ai-dict-unsplash-use-btn {
+    opacity: 1;
+}
+
+.ai-dict-unsplash-use-btn:hover:not(:disabled) {
+    background-color: #4CAF50;
+    color: white;
+    transform: scale(1.1);
+}
+
+.ai-dict-unsplash-use-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.ai-dict-unsplash-use-btn.used {
+    background-color: #4CAF50;
+    color: white;
+    opacity: 1;
+}
+
+.ai-dict-unsplash-use-btn i {
+    font-size: 0.9em;
+}
+
+/* Controls */
+.ai-dict-unsplash-controls {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    padding-top: 4px;
+}
+
+.ai-dict-unsplash-controls button {
+    flex: 1;
+    max-width: 120px;
+    padding: 6px 12px;
+    font-size: 0.85em;
+}
+
+/* Empty state */
+.ai-dict-unsplash-empty {
+    text-align: center;
+    padding: 20px;
+    color: var(--SmartThemeEmColor);
+    font-size: 0.9em;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .ai-dict-unsplash-grid {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 8px;
+    }
+
+    .ai-dict-unsplash-image {
+        height: 150px;
+        object-fit: contain;
+    }
+
+    .ai-dict-unsplash-use-btn {
+        opacity: 1;
+        width: 28px;
+        height: 28px;
+    }
+
+    .ai-dict-unsplash-attribution {
+        font-size: 0.7em;
+        padding: 4px 6px;
+    }
+}

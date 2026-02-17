@@ -245,13 +245,16 @@ body:not(.ai-dict-mobile-active) #ai-dictionary-panel-toggle {
 
 .ai-dict-panel-header h3 {
     margin: 0;
-    font-size: 1.1em;
+    font-size: 0.95em;
     font-weight: 700;
     letter-spacing: 0.5px;
     display: flex;
     align-items: center;
     gap: 8px;
     flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .ai-dict-title-word {

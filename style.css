@@ -20,6 +20,9 @@
 /* PlayPhrase video styles */
 @import url('./styles/playphrase.css');
 
+/* Unsplash image styles */
+@import url('./styles/unsplash.css');
+
 /* Statistics panel and trend chart styles */
 @import url('./styles/statistics.css');
 
